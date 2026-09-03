@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Command } from "commander";
 import {
+  configDir,
   formatBytes,
   findProjectFile,
   readJson,
@@ -270,8 +271,9 @@ program
         if (cfg) process.stdout.write(`${c.bold("site")}     ${cfg.site}${cfg.remoteRoot ? ` → ${cfg.remoteRoot}` : ""}${cfg.localDir ? c.dim(`  (deploys ${cfg.localDir}/)`) : ""}\n`);
         process.stdout.write(`${c.bold("app")}      ${r.mode === "hub" ? c.green(`running on port ${r.hubPort}`) : c.dim("not running (commands run directly)")}\n`);
         process.stdout.write(`${c.bold("agent")}    ${g.agent}\n`);
+        process.stdout.write(`${c.bold("config")}   ${configDir()}${r.mode === "hub" ? c.dim("  (sites come from the app while it is open)") : ""}\n`);
       }
-      return info;
+      return { ...info, configDir: configDir() };
     }),
   );
 

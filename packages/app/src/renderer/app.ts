@@ -27,7 +27,7 @@ declare global {
       };
       dialog: { pickFolder: () => Promise<string | null>; pickFiles: () => Promise<string[]>; pickKey: () => Promise<string | null> };
       shell: { open: (p: string) => Promise<string>; external: (u: string) => Promise<void>; showInFolder: (p: string) => Promise<void> };
-      hubInfo: () => Promise<{ port: number | null; version: string; cliPath: string; calls: AgentCall[]; platform: string }>;
+      hubInfo: () => Promise<{ port: number | null; version: string; cliPath: string; configDir: string; calls: AgentCall[]; platform: string }>;
       version: () => Promise<string>;
       pathFor: (f: File) => string;
       onEvent: (cb: (p: { event: CoolEvent; meta: EventMeta }) => void) => () => void;
@@ -75,6 +75,7 @@ const state = {
   planCtx: null as { cwd: string; site: string; remoteRoot: string } | null,
   hubPort: null as number | null,
   cliPath: "",
+  configDir: "",
   tab: "transfers",
   editingSite: null as string | null,
 };
@@ -349,7 +350,8 @@ function renderAgents() {
   const mcp = state.cliPath ? `claude mcp add coolftp -- node "${state.cliPath}" mcp` : "coolftp mcp";
   const intro = `<div class="agent-intro">
       <div><b>Coding agents drive this app through a local hub${state.hubPort ? ` on port ${state.hubPort}` : ""}.</b><br />
-      <span class="muted">Claude Code: <code>${esc(mcp)}</code> &nbsp;·&nbsp; any agent: <code>coolftp deploy</code> in the project.</span></div>
+      <span class="muted">Claude Code: <code>${esc(mcp)}</code> &nbsp;·&nbsp; any agent: <code>coolftp deploy</code> in the project.</span><br />
+      <span class="muted">Config folder: <code>${esc(state.configDir)}</code></span></div>
       <button class="btn small ghost" id="copyMcp">Copy</button></div>`;
   const rows = state.calls
     .map((c) => {
@@ -726,6 +728,7 @@ async function main() {
   const info = await window.coolftp.hubInfo();
   state.hubPort = info.port;
   state.cliPath = info.cliPath;
+  state.configDir = info.configDir;
   state.calls = info.calls ?? [];
   $("version").textContent = `v${info.version}`;
   const pill = $("hubPill");

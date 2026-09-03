@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme } from "e
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { CoolFtp, Events, dispatch, listLocal, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, configDir, dispatch, listLocal, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 import { startHub, type AgentCall } from "./hub.js";
 
 declare const __VERSION__: string;
@@ -208,6 +208,7 @@ ipcMain.handle("hub:info", () => ({
   port: hub?.port ?? null,
   version: VERSION,
   cliPath: cliPath(),
+  configDir: configDir(),
   calls: agentCalls,
   platform: process.platform,
 }));
