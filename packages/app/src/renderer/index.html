@@ -10,7 +10,7 @@
   <div id="app">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark">⚡</span>
+        <img class="brand-mark" src="logo.png" alt="" />
         <span class="brand-name">cool<b>FTP</b></span>
         <span class="brand-ver" id="version"></span>
       </div>
@@ -115,6 +115,7 @@
             <span class="row"><input name="privateKeyPath" class="grow" placeholder="~/.ssh/id_ed25519 (auto)" /><button type="button" class="btn small ghost" id="pickKey">…</button></span>
           </label>
           <label>Remote root <input name="remoteRoot" placeholder="/public_html" /></label>
+          <label>Public URL <input name="url" placeholder="https://coolftp.com (lets deploys verify the site is live)" /></label>
           <label>Local project folder
             <span class="row"><input name="localRoot" class="grow" placeholder="optional default project folder" /><button type="button" class="btn small ghost" id="pickLocalRoot">…</button></span>
           </label>
@@ -175,6 +176,22 @@
       <form id="promptForm"><input id="promptInput" autocomplete="off" spellcheck="false" />
         <div class="row modal-foot"><span class="spacer"></span><button type="button" class="btn ghost" id="promptCancel">Cancel</button><button type="submit" class="btn primary">OK</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Agent approval -->
+  <div class="modal hidden" id="confirmModal">
+    <div class="modal-card">
+      <div class="modal-head"><h2>An agent wants to make a destructive change</h2></div>
+      <p id="confirmWho" class="muted small"></p>
+      <p id="confirmText"></p>
+      <label class="check"><input type="checkbox" id="confirmAuto" /> approve destructive agent actions without asking until I close the app</label>
+      <div class="row modal-foot">
+        <span id="confirmTimer" class="muted small"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="confirmDeny">Deny</button>
+        <button class="btn danger" id="confirmAllow">Allow</button>
+      </div>
     </div>
   </div>
 

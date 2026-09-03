@@ -27,6 +27,9 @@ export const RPC_METHODS: Record<string, Handler> = {
   diff: (cf, a, ev) => cf.diff(a.cwd, { site: a.site, force: a.force }, ev),
   deploy: (cf, a, ev) => cf.deploy(a.cwd, a.options ?? {}, ev),
   history: (cf, a) => cf.history(a.site, a.limit),
+  rollback: (cf, a, ev) => cf.rollback(a.cwd, { site: a.site, to: a.to, build: a.build, message: a.message }, ev),
+  hostKeys: (cf) => cf.hostKeys(),
+  trustSite: (cf, a) => cf.trustSite(a.site),
   connections: (cf) => cf.pool.status(),
   disconnect: (cf, a) => cf.pool.disconnect(a.site),
 };

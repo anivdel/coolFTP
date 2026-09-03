@@ -7,7 +7,8 @@
   <meta name="description" content="coolFTP is a desktop SFTP and FTP client built for developers who ship with coding agents. Your agent runs coolftp deploy, you watch it happen." />
   <meta property="og:title" content="coolFTP" />
   <meta property="og:description" content="The FTP client your coding agent can drive. SFTP, FTPS, hash-based deploys, deploy history with git commits, and an MCP server for Claude Code." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%232563eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230b0f17'/%3E%3Cpath d='M36 8 18 36h12l-4 20 20-30H34z' fill='url(%23g)'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <meta property="og:image" content="logo.png" />
   <style>
     :root {
       --bg: #0b0f17; --bg-2: #101623; --bg-3: #161e2e; --line: #1f2a3d; --line-2: #2a3850;
@@ -30,7 +31,7 @@
     .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
     header { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
     .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; letter-spacing: 0.2px; color: var(--text); }
-    .logo svg { width: 36px; height: 36px; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5)); }
+    .logo img { width: 40px; height: 40px; }
     .logo b { background: linear-gradient(90deg, #7dd3fc, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
     nav a { color: var(--muted); margin-left: 22px; font-size: 14px; }
     nav a:hover { color: var(--text); text-decoration: none; }
@@ -124,14 +125,7 @@
   <div class="wrap">
     <header>
       <a class="logo" href="#" aria-label="coolFTP">
-        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
-          </defs>
-          <rect width="64" height="64" rx="14" fill="#0b0f17" stroke="#2a3850"/>
-          <path d="M36 8 18 36h12l-4 20 20-30H34z" fill="url(#g)"/>
-          <path d="M10 50h10M44 14h10" stroke="#2a3850" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <img src="logo.png" alt="" width="40" height="40" />
         <span>cool<b>FTP</b></span>
       </a>
       <nav>
@@ -208,11 +202,17 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
         <div class="card m"><h3><span class="ic">#</span>Hash-based deploys</h3><p>A manifest on the server records the SHA-256 of every file it has. Deploys upload only what changed, even if timestamps lie.</p></div>
         <div class="card g"><h3><span class="ic">⎇</span>Deploy history with git</h3><p>Each deploy stores the commit, branch, dirty flag, message, byte count and which agent ran it. "What is live right now?" has an answer.</p></div>
         <div class="card"><h3><span class="ic">◆</span>Live agent feed</h3><p>Every call an agent makes shows up as it happens, with the arguments in plain words. Failures flash the window.</p></div>
-        <div class="card m"><h3><span class="ic">⌘</span>MCP server built in</h3><p>Fourteen typed tools for Claude Code and any MCP client. Sites, diff, deploy, ls, read, write, upload, download, rename, delete, history.</p></div>
+        <div class="card m"><h3><span class="ic">⌘</span>MCP server built in</h3><p>Fifteen typed tools for Claude Code and any MCP client. Sites, diff, deploy, rollback, ls, read, write, upload, download, rename, delete, history.</p></div>
         <div class="card g"><h3><span class="ic">∅</span>Ignore rules that make sense</h3><p><code>.git</code>, <code>node_modules</code>, <code>.env</code> and logs never go up. Add a <code>.coolftpignore</code> for the rest, gitignore syntax.</p></div>
+        <div class="card"><h3><span class="ic">↺</span>One-command rollback</h3><p><code>coolftp rollback</code> puts the server back to the commit that was live before. Any deploy in history can be restored by id. Your working tree is never touched.</p></div>
+        <div class="card m"><h3><span class="ic">✓</span>Deploys that verify themselves</h3><p>Give a site its public URL and every deploy fetches the homepage and the changed pages afterwards, then reports the status codes. Agents stop guessing.</p></div>
+        <div class="card g"><h3><span class="ic">!</span>A human click for destructive changes</h3><p>When an agent asks to delete, deploy with <code>--delete</code>, or roll back, the app pops a yes/no on your screen. Two minutes with no answer means no.</p></div>
         <div class="card"><h3><span class="ic">▶</span>Build before deploy</h3><p>Set <code>"build": "npm run build"</code> in the project file and every deploy runs it first, agent-triggered or not.</p></div>
-        <div class="card m"><h3><span class="ic">⌫</span>Stale file cleanup, opt-in</h3><p>Files you deleted locally are listed as stale and left alone until you pass <code>--delete</code>. No surprise wipes.</p></div>
-        <div class="card g"><h3><span class="ic">▤</span>Two panes, no clutter</h3><p>Local on the left, remote on the right, drag and drop from Explorer, preview text files in place, keyboard driven.</p></div>
+        <div class="card m"><h3><span class="ic">⌫</span>Stale file cleanup, opt-in and guarded</h3><p>Files you deleted locally are listed as stale and left alone until you pass <code>--delete</code>. A first deploy into a folder with other files refuses to delete them at all.</p></div>
+        <div class="card g"><h3><span class="ic">⚿</span>Pinned host keys, encrypted passwords</h3><p>SFTP host keys are remembered on first use and a changed key is refused. Passwords are encrypted with the Windows user account, never plain text.</p></div>
+        <div class="card"><h3><span class="ic">▤</span>Two panes, no clutter</h3><p>Local on the left, remote on the right, drag and drop from Explorer, preview text files in place, keyboard driven.</p></div>
+        <div class="card m"><h3><span class="ic">⇄</span>Resumable deploys</h3><p>Transfers retry on their own. If a deploy still dies halfway, what landed is recorded, and the next run finishes the rest instead of starting over.</p></div>
+        <div class="card g"><h3><span class="ic">⌂</span>Runs without the app too</h3><p>Close the desktop app and the CLI and MCP server keep working in-process. Same commands, same config, on a headless box or in CI.</p></div>
       </div>
     </section>
 
@@ -228,6 +228,10 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
             <tr><td>Deploy history with git commit</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
             <tr><td>Driveable by Claude Code / MCP</td><td class="yes">built in</td><td class="no">no</td><td class="no">no</td><td class="part">shell only</td></tr>
             <tr><td>Shows agent actions live in a GUI</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Asks you before an agent deletes anything</td><td class="yes">yes</td><td class="no">n/a</td><td class="no">n/a</td><td class="no">no</td></tr>
+            <tr><td>Roll back to the previous live version</td><td class="yes">one command</td><td class="no">no</td><td class="no">no</td><td class="part">by hand</td></tr>
+            <tr><td>Checks the site answers after deploying</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Refuses a changed SSH host key</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
             <tr><td>Per-project config committed with the code</td><td class="yes">.coolftp.json</td><td class="no">global XML</td><td class="no">global</td><td class="part">scripts</td></tr>
             <tr><td>Runs a build step before deploy</td><td class="yes">yes</td><td class="no">no</td><td class="part">macros</td><td class="part">scripts</td></tr>
             <tr><td>Works on shared hosts with FTP only</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td><td class="no">no</td></tr>
@@ -290,8 +294,8 @@ coolftp history</pre>
       <h2>Questions a developer would ask</h2>
       <details open><summary>Where does the manifest live and is it public?</summary><p>At <code>&lt;remote root&gt;/.coolftp/manifest.json</code>, alongside a <code>.htaccess</code> with <code>Require all denied</code>. Apache and LiteSpeed honour it. On nginx add a <code>location ~ /\.coolftp</code> deny rule, or point <code>remoteRoot</code> one level above the web root. The manifest contains file paths and hashes, never contents or credentials.</p></details>
       <details><summary>What if the server already has files coolFTP did not upload?</summary><p>The first deploy has no manifest, so coolFTP walks the remote tree and compares sizes. Files it has never seen are treated as stale and never deleted unless you pass <code>--delete</code>. After that first deploy, hashes take over.</p></details>
-      <details><summary>How are passwords stored?</summary><p>In <code>sites.json</code> in your user profile, plain text, same as FileZilla's <code>sitemanager.xml</code>. Use SSH keys and the ssh-agent instead; then nothing secret is stored at all. The app never sends passwords to the renderer or to agents. Agents only ever see <code>hasPassword: true</code>.</p></details>
-      <details><summary>Can an agent delete my whole site?</summary><p>An agent can only do what the CLI can do, under your user account, against sites you saved. Deleting the site root is refused outright. Stale-file deletion requires an explicit flag. Every call is logged with the agent name, and the app flashes when one fails. If you want a read-only agent, give it a site whose user has read-only permissions on the server. That is the right layer for it.</p></details>
+      <details><summary>How are passwords stored?</summary><p>Encrypted with the Windows Data Protection API under your user account, in <code>sites.json</code> in your profile. Another user on the same PC, or a copy of the file taken elsewhere, cannot decrypt them. SSH keys with the ssh-agent are still the better option, because then nothing secret is stored at all. The app never sends passwords to the interface or to agents. Agents only ever see <code>hasPassword: true</code>.</p></details>
+      <details><summary>Can an agent delete my whole site?</summary><p>Not without you. When an agent asks to delete a path, deploy with <code>--delete</code>, or roll back, the desktop app shows a dialog and waits for your click; no answer in two minutes counts as no. Deleting the site root is refused outright. A first deploy into a folder that already has files refuses to remove them. Every call is logged with the agent name. And if the worst happens anyway, <code>coolftp rollback</code> restores the previous commit.</p></details>
       <details><summary>Does it need the desktop app running?</summary><p>No. The CLI and the MCP server run everything in-process when the app is closed. When the app is open they route through it, so you get the live view and share its open connection.</p></details>
       <details><summary>Why Electron?</summary><p>Because the same TypeScript core runs the CLI, the MCP server and the app, and because ssh2 and basic-ftp are the most battle-tested SFTP and FTP libraries in any language that also ships a GUI toolkit. The bundle is bigger than a native app. The code is smaller.</p></details>
     </section>

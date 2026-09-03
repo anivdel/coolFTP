@@ -66,7 +66,7 @@ function copyStatic() {
   const src = path.join(root, "packages/app/src/renderer");
   const dst = path.join(root, "packages/app/dist/renderer");
   fs.mkdirSync(dst, { recursive: true });
-  for (const f of ["index.html", "styles.css"]) fs.copyFileSync(path.join(src, f), path.join(dst, f));
+  for (const f of ["index.html", "styles.css", "logo.png"]) fs.copyFileSync(path.join(src, f), path.join(dst, f));
   const assets = path.join(root, "packages/app/assets");
   if (fs.existsSync(assets)) fs.cpSync(assets, path.join(root, "packages/app/dist/assets"), { recursive: true });
 }

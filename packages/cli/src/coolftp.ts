@@ -141,6 +141,7 @@ site
   .option("-r, --root <remoteRoot>", "remote directory to deploy into", "/")
   .option("-l, --local <localRoot>", "default local project directory")
   .option("--color <hex>", "accent colour in the app")
+  .option("--url <url>", "public URL the remote root is served at (enables post-deploy checks)")
   .action((name: string, o) =>
     withRunner(async (r, g) => {
       const s: Site = {
@@ -155,6 +156,7 @@ site
         remoteRoot: o.root,
         localRoot: o.local,
         color: o.color,
+        url: o.url,
       };
       const saved = await r.run("addSite", { site: s });
       if (!g.json) {
@@ -204,6 +206,31 @@ site
     withRunner(async (r, g) => {
       const s = await resolveSite(r, name);
       return r.run("test", { site: s }, printer(g));
+    }),
+  );
+
+site
+  .command("trust <name>")
+  .description("forget the recorded SSH host key for a site (after a server rebuild)")
+  .action((name: string) =>
+    withRunner(async (r, g) => {
+      const res = await r.run<{ site: string; forgot: boolean }>("trustSite", { site: name });
+      if (!g.json) process.stderr.write(res.forgot ? c.green(`✔ forgot host key for ${res.site}; the next connection will record the new one\n`) : c.dim(`no host key recorded for ${res.site} yet\n`));
+      return res;
+    }),
+  );
+
+site
+  .command("keys")
+  .description("list recorded SSH host keys")
+  .action(() =>
+    withRunner(async (r, g) => {
+      const keys = await r.run<Array<{ host: string; fingerprint: string; type: string; firstSeen: string }>>("hostKeys", {});
+      if (!g.json) {
+        if (!keys.length) process.stdout.write(c.dim("no host keys recorded yet\n"));
+        for (const k of keys) process.stdout.write(`${c.bold(k.host.padEnd(28))} ${k.type.padEnd(14)} ${k.fingerprint}  ${c.dim(k.firstSeen.slice(0, 10))}\n`);
+      }
+      return keys;
     }),
   );
 
@@ -375,6 +402,7 @@ program
   .option("-s, --site <name>")
   .option("-m, --message <text>", "note stored with the deploy record")
   .option("--delete", "remove remote files that no longer exist locally")
+  .option("--delete-untracked", "with --delete on a first deploy: also remove remote files coolFTP never uploaded")
   .option("-n, --dry-run", "show the plan and stop")
   .option("-f, --force", "re-upload every file")
   .option("-c, --commit", "git add -A && git commit -m <message> before deploying")
@@ -385,11 +413,47 @@ program
         "deploy",
         {
           cwd: process.cwd(),
-          options: { site: o.site, message: o.message, delete: o.delete, dryRun: o.dryRun, force: o.force, commit: o.commit, skipBuild: o.build === false },
+          options: {
+            site: o.site,
+            message: o.message,
+            delete: o.delete,
+            deleteUntracked: o.deleteUntracked,
+            dryRun: o.dryRun,
+            force: o.force,
+            commit: o.commit,
+            skipBuild: o.build === false,
+          },
         },
         printer(g),
       );
       if (!g.json && res.dryRun) printPlan(res.plan, res.remoteRoot, res.site, Boolean(o.delete));
+      if (!g.json) printDeployExtras(res);
+      return res;
+    }),
+  );
+
+function printDeployExtras(res: DeployResult) {
+  if (res.urls?.length && !res.dryRun) {
+    const shown = res.urls.slice(0, 8);
+    for (const u of shown) process.stdout.write(`${c.cyan("→")} ${u}\n`);
+    if (res.urls.length > shown.length) process.stdout.write(c.dim(`  … and ${res.urls.length - shown.length} more\n`));
+  }
+  if (res.verify) {
+    process.stdout.write(res.verify.ok ? c.green("✔ live: site answered on every check\n") : c.red("✖ verification failed, see checks above\n"));
+  }
+}
+
+program
+  .command("rollback")
+  .description("put the server back to an earlier deploy (defaults to the previous commit that was live)")
+  .option("-s, --site <name>")
+  .option("-t, --to <commit|deployId>", "commit hash, branch, tag, or a deploy id from history")
+  .option("-b, --build", "run the project build command inside the checkout first")
+  .option("-m, --message <text>", "note stored with the rollback record")
+  .action((o) =>
+    withRunner(async (r, g) => {
+      const res = await r.run<DeployResult & { commit: string }>("rollback", { cwd: process.cwd(), site: o.site, to: o.to, build: o.build, message: o.message }, printer(g));
+      if (!g.json) printDeployExtras(res);
       return res;
     }),
   );

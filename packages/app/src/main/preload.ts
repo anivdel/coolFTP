@@ -41,6 +41,17 @@ const api = {
     ipcRenderer.on("cf:agent", handler);
     return () => ipcRenderer.removeListener("cf:agent", handler);
   },
+  onConfirm: (cb: (payload: unknown) => void) => {
+    const handler = (_e: unknown, payload: unknown) => cb(payload);
+    ipcRenderer.on("cf:confirm", handler);
+    return () => ipcRenderer.removeListener("cf:confirm", handler);
+  },
+  onConfirmExpired: (cb: (payload: unknown) => void) => {
+    const handler = (_e: unknown, payload: unknown) => cb(payload);
+    ipcRenderer.on("cf:confirm:expired", handler);
+    return () => ipcRenderer.removeListener("cf:confirm:expired", handler);
+  },
+  replyConfirm: (op: string, ok: boolean) => ipcRenderer.send("cf:confirm:reply", op, ok),
 };
 
 contextBridge.exposeInMainWorld("coolftp", api);

@@ -8,5 +8,7 @@ export * from "./connections.js";
 export * from "./commands.js";
 export * from "./rpc.js";
 export * from "./git.js";
+export * from "./secrets.js";
+export * from "./knownhosts.js";
 export { SftpTransport } from "./sftp.js";
 export { FtpTransport } from "./ftp.js";

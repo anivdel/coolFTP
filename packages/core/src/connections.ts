@@ -3,8 +3,9 @@ import { SftpTransport } from "./sftp.js";
 import { FtpTransport } from "./ftp.js";
 import type { Events } from "./events.js";
 
-export function createTransport(site: Site): Transport {
-  return site.protocol === "sftp" ? new SftpTransport(site) : new FtpTransport(site);
+export function createTransport(site: Site, events?: Events): Transport {
+  const log = (message: string, level: "info" | "warn" | "error" | "success" = "info") => events?.log(message, level);
+  return site.protocol === "sftp" ? new SftpTransport(site, log) : new FtpTransport(site);
 }
 
 interface Slot {
@@ -28,7 +29,7 @@ export class ConnectionPool {
     let slot = this.slots.get(key);
     if (!slot || JSON.stringify(slot.site) !== JSON.stringify(site)) {
       if (slot) await slot.transport.close().catch(() => undefined);
-      slot = { transport: createTransport(site), site };
+      slot = { transport: createTransport(site, events), site };
       this.slots.set(key, slot);
     }
     if (slot.idle) clearTimeout(slot.idle);

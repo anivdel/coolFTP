@@ -4,11 +4,13 @@ type EntryType = "file" | "dir" | "link";
 interface Entry { name: string; path: string; type: EntryType; size: number; mtime: number }
 interface Site {
   name: string; protocol: "sftp" | "ftp" | "ftps"; host: string; port: number; username: string;
-  hasPassword: boolean; privateKeyPath?: string; remoteRoot: string; localRoot?: string; ignore?: string[]; color?: string;
+  hasPassword: boolean; privateKeyPath?: string; remoteRoot: string; localRoot?: string; ignore?: string[]; color?: string; url?: string;
 }
+interface ConfirmRequest { op: string; agent: string; summary: string; detail: string }
+interface VerifyResult { ok: boolean; checks: Array<{ url: string; status: number; ok: boolean; ms: number; error?: string }> }
 interface Transfer { id: string; direction: "upload" | "download"; local: string; remote: string; size: number; transferred: number; status: string; error?: string }
 interface Plan { add: string[]; change: string[]; delete: string[]; unchanged: number; bytes: number; basis: string }
-interface DeployRecord { id: string; at: string; site: string; agent?: string; message?: string; git?: { short: string; branch: string; subject: string; dirty: boolean }; added: number; changed: number; deleted: number; bytes: number; durationMs: number }
+interface DeployRecord { id: string; at: string; site: string; agent?: string; message?: string; git?: { commit: string; short: string; branch: string; subject: string; dirty: boolean }; rollbackOf?: string; added: number; changed: number; deleted: number; bytes: number; durationMs: number; project?: string }
 interface AgentCall { op: string; agent: string; method: string; summary: string; startedAt: number; endedAt?: number; ok?: boolean; error?: string }
 interface CoolEvent { type: string; [k: string]: any }
 interface EventMeta { agent: string; op: string }
@@ -30,6 +32,9 @@ declare global {
       pathFor: (f: File) => string;
       onEvent: (cb: (p: { event: CoolEvent; meta: EventMeta }) => void) => () => void;
       onAgent: (cb: (p: AgentCall) => void) => () => void;
+      onConfirm: (cb: (p: ConfirmRequest) => void) => () => void;
+      onConfirmExpired: (cb: (p: { op: string }) => void) => () => void;
+      replyConfirm: (op: string, ok: boolean) => void;
     };
   }
 }
@@ -372,14 +377,33 @@ function renderHistory() {
     el.innerHTML = `<div class="empty muted">No deploys recorded for ${esc(state.site?.name ?? "this site")} yet.</div>`;
     return;
   }
-  el.innerHTML = state.history
-    .map(
-      (d) => `<div class="deploy-row"><span class="muted">${esc(d.at.slice(0, 16).replace("T", " "))}</span>
+  const latest = state.history[0];
+  const canRollback = state.history.some((d) => d.git?.commit && d.git.commit !== latest.git?.commit);
+  el.innerHTML =
+    `<div class="agent-intro"><div><b>Live:</b> ${latest.git ? esc(latest.git.short) : "unknown commit"} ${esc(latest.message ?? latest.git?.subject ?? "")} <span class="muted">· ${esc(latest.at.slice(0, 16).replace("T", " "))}</span></div>
+      <span class="spacer"></span><button class="btn small ghost" id="rollbackPrev" ${canRollback ? "" : "disabled"} title="Restore the previous commit that was live">↺ Roll back to previous</button></div>` +
+    state.history
+      .map(
+        (d) => `<div class="deploy-row"><span class="muted">${esc(d.at.slice(0, 16).replace("T", " "))}</span>
       <span class="counts"><b>+${d.added}</b> <i>~${d.changed}</i> <s>-${d.deleted}</s></span>
       <span class="git">${d.git ? esc(d.git.short + (d.git.dirty ? "*" : "")) : ""}</span>
-      <span>${d.agent && d.agent !== "user" ? `<span class="who" style="color:var(--sky)">${esc(d.agent)}</span> ` : ""}${esc(d.message ?? d.git?.subject ?? "")} <span class="muted">${fmtBytes(d.bytes)} · ${(d.durationMs / 1000).toFixed(1)}s</span></span></div>`,
-    )
-    .join("");
+      <span>${d.rollbackOf ? `<span style="color:var(--yellow)">↺</span> ` : ""}${d.agent && d.agent !== "user" ? `<span class="who" style="color:var(--sky)">${esc(d.agent)}</span> ` : ""}${esc(d.message ?? d.git?.subject ?? "")} <span class="muted">${fmtBytes(d.bytes)} · ${(d.durationMs / 1000).toFixed(1)}s</span>
+      ${d.git?.commit && d.project && d !== latest ? `<button class="btn small ghost restore" data-id="${esc(d.id)}" data-project="${esc(d.project)}" title="Restore this deploy's commit">restore</button>` : ""}</span></div>`,
+      )
+      .join("");
+  const run = async (to: string | undefined, project: string) => {
+    if (!(await confirmDialog(to ? `Restore deploy ${to}?` : "Roll back to the previous live commit?"))) return;
+    switchTab("transfers");
+    const r = await guard(rpc<{ record?: DeployRecord; commit: string }>("rollback", { cwd: project, site: state.site!.name, to }));
+    if (r?.record) {
+      toast(`Rolled back to ${r.commit.slice(0, 7)}: +${r.record.added} ~${r.record.changed} -${r.record.deleted}`, "success", 5000);
+      if (state.connected) loadRemote(state.remotePath);
+      loadHistory();
+    }
+  };
+  const prev = $("rollbackPrev") as HTMLButtonElement | null;
+  if (prev && latest.project) prev.onclick = () => run(undefined, latest.project!);
+  el.querySelectorAll<HTMLButtonElement>(".restore").forEach((b) => (b.onclick = () => run(b.dataset.id, b.dataset.project!)));
 }
 
 // ---------------- deploy modal ----------------
@@ -455,9 +479,10 @@ async function runDeploy() {
   };
   $("deployModal").classList.add("hidden");
   switchTab("transfers");
-  const r = await guard(rpc<{ record?: DeployRecord }>("deploy", { cwd, options }));
+  const r = await guard(rpc<{ record?: DeployRecord; verify?: VerifyResult; urls?: string[] }>("deploy", { cwd, options }));
   if (r?.record) {
     toast(`Deployed: +${r.record.added} ~${r.record.changed} -${r.record.deleted}`, "success");
+    if (r.verify) toast(r.verify.ok ? `Verified live: ${r.verify.checks[0]?.url}` : `Verification failed: ${r.verify.checks.find((c) => !c.ok)?.url} answered ${r.verify.checks.find((c) => !c.ok)?.status || "nothing"}`, r.verify.ok ? "success" : "error", 6000);
     if (state.connected) loadRemote(state.remotePath);
     loadHistory();
   }
@@ -509,6 +534,7 @@ function fillSiteForm(site: Site | null) {
     set("protocol", site.protocol);
     set("privateKeyPath", site.privateKeyPath ?? "");
     set("remoteRoot", site.remoteRoot);
+    set("url", site.url ?? "");
     set("localRoot", site.localRoot ?? "");
     set("ignore", (site.ignore ?? []).join(", "));
     set("color", site.color ?? "#38bdf8");
@@ -533,6 +559,7 @@ function readSiteForm(): Record<string, unknown> {
     protocol: g("protocol"),
     privateKeyPath: g("privateKeyPath") || undefined,
     remoteRoot: g("remoteRoot") || "/",
+    url: g("url") || undefined,
     localRoot: g("localRoot") || undefined,
     ignore: g("ignore") ? g("ignore").split(",").map((s) => s.trim()).filter(Boolean) : undefined,
     color: g("color"),
@@ -720,6 +747,60 @@ async function main() {
 
   window.coolftp.onEvent(handleEvent);
   window.coolftp.onAgent(handleAgentCall);
+
+  // Agents must get a human click for deletes, --delete deploys, and rollbacks.
+  const confirmQueue: ConfirmRequest[] = [];
+  let confirmCurrent: ConfirmRequest | null = null;
+  let confirmAuto = false;
+  let confirmTick: number | null = null;
+  const showNextConfirm = () => {
+    if (confirmCurrent || !confirmQueue.length) return;
+    confirmCurrent = confirmQueue.shift()!;
+    if (confirmAuto) {
+      window.coolftp.replyConfirm(confirmCurrent.op, true);
+      toast(`Auto-approved ${confirmCurrent.agent}: ${confirmCurrent.summary}`, "agent", 4000);
+      confirmCurrent = null;
+      showNextConfirm();
+      return;
+    }
+    $("confirmWho").textContent = `${confirmCurrent.agent} · ${confirmCurrent.summary}`;
+    $("confirmText").textContent = confirmCurrent.detail;
+    $("confirmModal").classList.remove("hidden");
+    const deadline = Date.now() + 120_000;
+    const tick = () => {
+      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      $("confirmTimer").textContent = `auto-deny in ${left}s`;
+    };
+    tick();
+    confirmTick = window.setInterval(tick, 1000);
+    $("confirmDeny").focus();
+  };
+  const answerConfirm = (ok: boolean) => {
+    if (!confirmCurrent) return;
+    if (confirmTick) window.clearInterval(confirmTick);
+    confirmTick = null;
+    if (ok && $<HTMLInputElement>("confirmAuto").checked) confirmAuto = true;
+    window.coolftp.replyConfirm(confirmCurrent.op, ok);
+    $("confirmModal").classList.add("hidden");
+    confirmCurrent = null;
+    showNextConfirm();
+  };
+  window.coolftp.onConfirm((req) => {
+    confirmQueue.push(req);
+    showNextConfirm();
+  });
+  window.coolftp.onConfirmExpired(({ op }) => {
+    if (confirmCurrent?.op === op) {
+      if (confirmTick) window.clearInterval(confirmTick);
+      confirmTick = null;
+      $("confirmModal").classList.add("hidden");
+      confirmCurrent = null;
+      toast("Agent request expired without an answer and was denied.", "error");
+      showNextConfirm();
+    }
+  });
+  $("confirmAllow").onclick = () => answerConfirm(true);
+  $("confirmDeny").onclick = () => answerConfirm(false);
 
   // Reconnect to the site used last time so the app is useful the moment it opens.
   if (state.site && (localStorage.getItem("lastSite") === state.site.name || state.sites.length === 1)) connect();

@@ -129,10 +129,31 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
       force: z.boolean().optional().describe("Re-upload every file"),
       commit: z.boolean().optional().describe("git add -A && git commit before deploying"),
       skipBuild: z.boolean().optional(),
+      deleteUntracked: z.boolean().optional().describe("Only with delete on a first deploy: also remove remote files coolFTP never uploaded. Ask the user before setting this."),
     },
-    async ({ cwd, site, message, dryRun, delete: del, force, commit, skipBuild }) => {
+    async ({ cwd, site, message, dryRun, delete: del, force, commit, skipBuild, deleteUntracked }) => {
       try {
-        const { result, log } = await call("deploy", { cwd: cwd || process.cwd(), options: { site, message, dryRun, delete: del, force, commit, skipBuild } });
+        const { result, log } = await call("deploy", { cwd: cwd || process.cwd(), options: { site, message, dryRun, delete: del, force, commit, skipBuild, deleteUntracked } });
+        return text(result, log);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.tool(
+    "coolftp_rollback",
+    "Put the server back to an earlier deploy. With no target, restores the previous commit that was live for this project. Requires git. The coolFTP app asks the user to approve when it is open.",
+    {
+      cwd: cwdArg,
+      site: siteArg,
+      to: z.string().optional().describe("Commit hash, branch, tag, or a deploy id from coolftp_history"),
+      build: z.boolean().optional().describe("Run the project build command inside the checkout before deploying"),
+      message: z.string().optional(),
+    },
+    async ({ cwd, site, to, build, message }) => {
+      try {
+        const { result, log } = await call("rollback", { cwd: cwd || process.cwd(), site, to, build, message });
         return text(result, log);
       } catch (e) {
         return fail(e);

@@ -80,7 +80,17 @@ Or per project in `.mcp.json`:
 { "mcpServers": { "coolftp": { "command": "node", "args": ["C:\\path\\to\\cool FTP\\packages\\cli\\dist\\coolftp.js", "mcp"] } } }
 ```
 
-Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_history`, `coolftp_ls`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`.
+Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`.
+
+## Safety rails for agent-driven deploys
+
+- **Approval dialog.** While the desktop app is open, an agent call that deletes a path, deploys with `--delete`, or rolls back pops a dialog in the app and waits for your click. No answer within two minutes is a deny. There is a checkbox to auto-approve for the rest of the session.
+- **First-deploy delete guard.** Before a manifest exists on the server, `--delete` is refused if the target folder contains files coolFTP never uploaded. Pass `--delete-untracked` to override.
+- **Rollback.** `coolftp rollback` restores the previous commit that was live for the project, using a temporary git worktree so your working tree is untouched. `--to <commit|deployId>` targets any point in history. The Deploys tab in the app has the same buttons.
+- **Verification.** Give a site a public `--url` and every deploy prints the URLs of changed files, then fetches the homepage and up to four of them and reports the status codes. MCP results carry the same data so an agent can confirm the site is live.
+- **Host key pinning.** SFTP host keys are recorded on first use in `known_hosts.json` and a changed key is refused with a loud error. `coolftp site trust <name>` forgets the recorded key after a legitimate server rebuild; `coolftp site keys` lists them.
+- **Encrypted passwords.** On Windows, passwords and key passphrases in `sites.json` are encrypted with DPAPI under your user account. The CLI and the app share the store.
+- **Resumable deploys.** Transfers retry up to three times. If a deploy still fails partway, files that landed are written to the manifest so the next run does not repeat them.
 
 Any agent with a shell can simply run `coolftp deploy` inside a linked project. The CLI detects Claude Code, Cursor, Codex, Gemini CLI and Aider from their environment and labels the call accordingly; pass `--agent <name>` to override.
 
@@ -107,7 +117,7 @@ The manifest directory gets a `.htaccess` with `Require all denied`. On nginx, d
 npm run e2e
 ```
 
-Starts a local FTP server (ftp-srv) and a local SFTP server (ssh2, in `scripts/lib/sftp-server.cjs`) in temp directories and drives the CLI through site setup, init, dry run, deploy, manifest diff, delete sync, push, pull, rename, mkdir, remove and history against each. 54 checks in total.
+Starts a local FTP server (ftp-srv) and a local SFTP server (ssh2, in `scripts/lib/sftp-server.cjs`) in temp directories and drives the CLI through site setup, init, the first-deploy delete guard, deploy, manifest diff, delete sync, `--commit`, rollback by previous commit and by deploy id, push, pull, rename, mkdir, remove, history, encrypted passwords, and SSH host key pinning (a swapped server key is refused, then trusted). 88 checks in total.
 
 ## Try it without a real host
 

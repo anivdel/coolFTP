@@ -54,7 +54,7 @@ input[type="color"] { padding: 2px; height: 32px; width: 48px; }
 }
 .topbar button, .topbar select, .topbar .pill { -webkit-app-region: no-drag; }
 .brand { display: flex; align-items: baseline; gap: 6px; font-size: 18px; letter-spacing: 0.3px; }
-.brand-mark { color: var(--cyan); filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8)); }
+.brand-mark { width: 24px; height: 24px; align-self: center; }
 .brand-name b { background: linear-gradient(90deg, #7dd3fc, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand-ver { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 .site-picker { display: flex; gap: 6px; align-items: center; }

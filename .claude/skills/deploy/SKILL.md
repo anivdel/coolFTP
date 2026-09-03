@@ -14,7 +14,15 @@ Locate the CLI: if a global `coolftp` exists use it, otherwise use `node "<repo>
 1. Check the project is linked: `coolftp status`. If there is no `.coolftp.json`, ask the user which site to use (list them with `coolftp site list`) and run `coolftp init <site>` with `--local-dir` if the deployable output is a build folder such as `dist`.
 2. Preview first: `coolftp diff`. Summarise the plan in one line (new, changed, stale, bytes). If the plan is unexpectedly large or includes files that look private, stop and ask.
 3. Deploy: `coolftp deploy -m "<one line describing the change>"`. Add `--commit` when the user asked to commit as part of deploying. Never pass `--delete` unless the user explicitly asked for stale remote files to be removed.
-4. Report the result line coolFTP prints (counts, duration, commit) and nothing else.
+4. Report the result line coolFTP prints (counts, duration, commit). If the site has a public URL configured, coolFTP also prints the changed URLs and the verification checks; report whether verification passed. If it failed, say which URL answered what, and do not claim the deploy is live.
+
+## Rolling back
+
+When the user says "roll back", "undo the deploy", or "put it back how it was": run `coolftp rollback` (previous live commit) or `coolftp rollback --to <commit or deploy id>` for a specific point from `coolftp history`. Rollback needs git and a coolFTP manifest on the server. It deploys the committed files of that commit; add `--build` only if the user confirms the build step should run.
+
+## Approval
+
+While the coolFTP desktop app is open, deletes, `--delete` deploys, and rollbacks wait for the user to click Allow in the app. If a call comes back "Denied in the coolFTP app", stop and ask; do not retry or route around it with `--direct`.
 
 ## Notes
 

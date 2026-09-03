@@ -4,13 +4,40 @@ import { Client, type SFTPWrapper, type ConnectConfig } from "ssh2";
 import type { ProgressFn, RemoteEntry, Site, Transport } from "./types.js";
 import { defaultPrivateKey } from "./sites.js";
 import { rjoin } from "./paths.js";
+import { checkHostKey } from "./knownhosts.js";
+
+export type TransportLog = (message: string, level?: "info" | "warn" | "error" | "success") => void;
 
 export class SftpTransport implements Transport {
   readonly protocol = "sftp" as const;
   private client: Client | null = null;
   private sftp: SFTPWrapper | null = null;
+  private hostKeyError: string | null = null;
 
-  constructor(private site: Site) {}
+  constructor(
+    private site: Site,
+    private log: TransportLog = () => undefined,
+  ) {}
+
+  /** Trust on first use; refuse a changed key. */
+  private verifyHostKey(key: Buffer): boolean {
+    let type = "unknown";
+    try {
+      const len = key.readUInt32BE(0);
+      type = key.subarray(4, 4 + len).toString("utf8");
+    } catch {
+      /* leave unknown */
+    }
+    const verdict = checkHostKey(this.site.host, this.site.port, type, key);
+    if (!verdict.ok) {
+      this.hostKeyError =
+        `HOST KEY CHANGED for ${this.site.host}:${this.site.port}. Expected ${verdict.expected}, got ${verdict.actual}. ` +
+        `This could be a server rebuild or someone intercepting the connection. If you trust the new key, run: coolftp site trust ${this.site.name}`;
+      return false;
+    }
+    if (verdict.firstUse) this.log(`Recorded host key for ${this.site.host}:${this.site.port} (${type} ${verdict.fingerprint})`, "info");
+    return true;
+  }
 
   isConnected(): boolean {
     return this.sftp !== null;
@@ -37,6 +64,7 @@ export class SftpTransport implements Transport {
     if (!cfg.privateKey && !cfg.password && !cfg.agent) {
       throw new Error(`Site "${s.name}" has no password or private key configured.`);
     }
+    cfg.hostVerifier = (key: Buffer) => this.verifyHostKey(key);
     return cfg;
   }
 
@@ -58,7 +86,7 @@ export class SftpTransport implements Transport {
           });
         })
         .on("error", (err) => {
-          if (!this.sftp) reject(err);
+          if (!this.sftp) reject(this.hostKeyError ? new Error(this.hostKeyError) : err);
           else {
             this.sftp = null;
             this.client = null;

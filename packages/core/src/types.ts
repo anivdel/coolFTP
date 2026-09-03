@@ -17,6 +17,8 @@ export interface Site {
   /** Extra gitignore-style patterns applied on deploy. */
   ignore?: string[];
   color?: string;
+  /** Public URL that remoteRoot is served at, e.g. https://coolftp.com. Enables post-deploy verification. */
+  url?: string;
 }
 
 export interface ProjectConfig {
@@ -72,6 +74,8 @@ export interface DeployRecord {
   agent?: string;
   message?: string;
   git?: GitInfo;
+  /** Set when this deploy restored the tree of an earlier commit. */
+  rollbackOf?: string;
   added: number;
   changed: number;
   deleted: number;

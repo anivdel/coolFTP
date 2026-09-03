@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { configDir, readJson, writeJson, expandHome } from "./paths.js";
+import { protectSecret, revealSecret } from "./secrets.js";
 import type { Site } from "./types.js";
 
 const FILE = () => path.join(configDir(), "sites.json");
@@ -15,10 +16,11 @@ export function saveSites(sites: Site[]): void {
   writeJson(FILE(), { sites });
 }
 
+/** Site with secrets decrypted, ready to connect with. */
 export function getSite(name: string): Site {
   const s = loadSites().find((x) => x.name.toLowerCase() === name.toLowerCase());
   if (!s) throw new Error(`Unknown site "${name}". Run: coolftp site list`);
-  return s;
+  return { ...s, password: revealSecret(s.password), passphrase: revealSecret(s.passphrase) };
 }
 
 /** Sentinel the desktop app sends to keep a stored password without ever reading it back. */
@@ -31,6 +33,10 @@ export function upsertSite(site: Site): Site {
   if (site.password === KEEP_SECRET) site.password = existing?.password;
   if (site.passphrase === KEEP_SECRET || (site.passphrase === undefined && existing?.passphrase)) site.passphrase = existing?.passphrase;
   const normalised = normaliseSite(site);
+  normalised.password = protectSecret(normalised.password);
+  normalised.passphrase = protectSecret(normalised.passphrase);
+  if (!normalised.password) delete normalised.password;
+  if (!normalised.passphrase) delete normalised.passphrase;
   if (i >= 0) sites[i] = normalised;
   else sites.push(normalised);
   saveSites(sites);
@@ -54,6 +60,10 @@ export function normaliseSite(site: Site): Site {
   if (s.remoteRoot.length > 1) s.remoteRoot = s.remoteRoot.replace(/\/+$/, "");
   if (s.privateKeyPath) s.privateKeyPath = expandHome(s.privateKeyPath);
   if (s.localRoot) s.localRoot = path.resolve(expandHome(s.localRoot));
+  if (s.url && s.url.trim()) {
+    s.url = s.url.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(s.url)) s.url = "https://" + s.url;
+  } else delete s.url;
   if (!s.password) delete s.password;
   if (!s.privateKeyPath) delete s.privateKeyPath;
   if (!s.passphrase) delete s.passphrase;

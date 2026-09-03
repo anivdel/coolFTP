@@ -17,6 +17,25 @@ export interface AgentCall {
 
 export interface HubHandlers {
   onCall(call: AgentCall): void;
+  /** Ask the user to approve a destructive agent action. Resolves false on deny or timeout. */
+  confirm(call: AgentCall, detail: string): Promise<boolean>;
+}
+
+/** Which agent calls need a human click before they run. */
+function destructiveDetail(method: string, args: Record<string, any> = {}): string | null {
+  switch (method) {
+    case "remove":
+      return `Delete ${args.site}:${args.path}`;
+    case "rollback":
+      return `Roll back ${args.site ?? "the project site"}${args.to ? ` to ${args.to}` : " to the previous deploy"}. Files not in that commit will be deleted from the server.`;
+    case "deploy": {
+      const o = args.options ?? {};
+      if (o.delete) return `Deploy with --delete${o.deleteUntracked ? " --delete-untracked" : ""}: stale files will be removed from the server.`;
+      return null;
+    }
+    default:
+      return null;
+  }
 }
 
 /**
@@ -62,6 +81,13 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
       if (meta.op === op) write({ event, meta });
     });
     try {
+      const detail = destructiveDetail(payload.method, payload.args);
+      if (detail) {
+        child.log(`Waiting for approval in the coolFTP app: ${detail}`, "warn");
+        const approved = await handlers.confirm(call, detail);
+        if (!approved) throw new Error(`Denied in the coolFTP app: ${detail}`);
+        child.log("Approved by the user", "success");
+      }
       const result = await dispatch(cf, payload.method, payload.args ?? {}, child);
       write({ result: result ?? null });
       handlers.onCall({ ...call, endedAt: Date.now(), ok: true });

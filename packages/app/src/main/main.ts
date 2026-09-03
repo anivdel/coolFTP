@@ -13,6 +13,7 @@ const events = new Events({ agent: "user", op: "" });
 let win: BrowserWindow | null = null;
 let hub: { port: number; token: string; close: () => void } | null = null;
 const agentCalls: AgentCall[] = [];
+const pendingConfirms = new Map<string, (ok: boolean) => void>();
 
 function send(channel: string, payload: unknown) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -82,6 +83,23 @@ app.whenReady().then(async () => {
           if (agentCalls.length > 200) agentCalls.length = 200;
           send("cf:agent", call);
           if (call.endedAt && win && !win.isFocused()) win.flashFrame(true);
+        },
+        confirm(call, detail) {
+          return new Promise<boolean>((resolve) => {
+            if (!win || win.isDestroyed()) return resolve(false);
+            pendingConfirms.set(call.op, resolve);
+            if (win.isMinimized()) win.restore();
+            win.show();
+            win.focus();
+            win.flashFrame(true);
+            send("cf:confirm", { op: call.op, agent: call.agent, summary: call.summary, detail });
+            setTimeout(() => {
+              if (pendingConfirms.delete(call.op)) {
+                send("cf:confirm:expired", { op: call.op });
+                resolve(false);
+              }
+            }, 120_000).unref?.();
+          });
         },
       },
       VERSION,
@@ -195,6 +213,14 @@ ipcMain.handle("hub:info", () => ({
 }));
 
 ipcMain.handle("app:version", () => VERSION);
+
+ipcMain.on("cf:confirm:reply", (_e, op: string, ok: boolean) => {
+  const resolve = pendingConfirms.get(op);
+  if (resolve) {
+    pendingConfirms.delete(op);
+    resolve(Boolean(ok));
+  }
+});
 
 function cliPath(): string {
   // In dev the CLI lives beside the app package; when packaged, it is copied into resources.

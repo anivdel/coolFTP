@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { ConnectionPool } from "./connections.js";
@@ -7,7 +8,8 @@ import { configDir, formatBytes, rdirname, readJson, rjoin, shortId, writeJson, 
 import { resolveProject, writeProjectConfig } from "./project.js";
 import { scanLocal, walkLocalFiles } from "./scan.js";
 import { getSite, loadSites, publicSite, removeSite, upsertSite, type PublicSite } from "./sites.js";
-import { gitCommitAll, gitInfo } from "./git.js";
+import { gitCommitAll, gitInfo, gitRevParse, gitWorktreeAdd, gitWorktreeRemove } from "./git.js";
+import { forgetHostKey, listHostKeys } from "./knownhosts.js";
 import type {
   DeployRecord,
   DiffPlan,
@@ -36,6 +38,23 @@ export interface DeployOptions {
   commit?: boolean;
   /** Skip the configured build command. */
   skipBuild?: boolean;
+  /** Allow --delete to remove remote files coolFTP never uploaded (first deploy into a non-empty folder). */
+  deleteUntracked?: boolean;
+  /** Internal: mark the deploy as a rollback to this commit. */
+  rollbackOf?: string;
+}
+
+export interface VerifyCheck {
+  url: string;
+  status: number;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
+export interface VerifyResult {
+  ok: boolean;
+  checks: VerifyCheck[];
 }
 
 export interface DiffResult {
@@ -52,6 +71,10 @@ export interface DeployResult {
   record?: DeployRecord;
   remoteRoot: string;
   site: string;
+  /** Public URLs of the files that changed, when the site has a url configured. */
+  urls: string[];
+  /** HTTP checks run after the deploy, when the site has a url configured. */
+  verify?: VerifyResult;
 }
 
 /**
@@ -188,8 +211,18 @@ export class CoolFtp {
       }
     };
     try {
-      if (direction === "upload") await t.upload(local, remote, onProgress);
-      else await t.download(remote, local, onProgress);
+      for (let attempt = 1; ; attempt++) {
+        try {
+          if (direction === "upload") await t.upload(local, remote, onProgress);
+          else await t.download(remote, local, onProgress);
+          break;
+        } catch (err) {
+          if (attempt >= 3 || !t.isConnected()) throw err;
+          events.log(`Retrying ${remote} (attempt ${attempt + 1}/3): ${(err as Error).message}`, "warn");
+          await new Promise((r) => setTimeout(r, 400 * attempt));
+          tr.transferred = 0;
+        }
+      }
       tr.transferred = tr.size;
       tr.status = "done";
     } catch (err) {
@@ -345,7 +378,10 @@ export class CoolFtp {
   }
 
   async diff(cwd: string, opts: { site?: string; force?: boolean } = {}, events: Events = silentEvents()): Promise<DiffResult> {
-    const project = resolveProject(cwd, opts.site);
+    return this.diffProject(resolveProject(cwd, opts.site), opts, events);
+  }
+
+  private async diffProject(project: ResolvedProject, opts: { force?: boolean }, events: Events): Promise<DiffResult> {
     const site = getSite(project.config.site);
     const t = await this.pool.acquire(site, events);
     const remoteRoot = await this.resolveRemote(site, t, this.remoteRootFor(project, site));
@@ -390,8 +426,11 @@ export class CoolFtp {
   }
 
   async deploy(cwd: string, opts: DeployOptions = {}, events: Events = silentEvents()): Promise<DeployResult> {
+    return this.deployFrom(resolveProject(cwd, opts.site), opts, events);
+  }
+
+  private async deployFrom(project: ResolvedProject, opts: DeployOptions, events: Events, historyRoot = project.root): Promise<DeployResult> {
     const started = Date.now();
-    const project = resolveProject(cwd, opts.site);
     const site = getSite(project.config.site);
 
     if (project.config.build && !opts.skipBuild) {
@@ -405,11 +444,18 @@ export class CoolFtp {
       events.log(hash ? `Committed ${hash.slice(0, 7)}: ${msg}` : "Nothing to commit", hash ? "success" : "info");
     }
 
-    const { plan, local, remoteRoot } = await this.diff(cwd, { site: opts.site, force: opts.force }, events);
+    const { plan, local, remoteRoot } = await this.diffProject(project, { force: opts.force }, events);
+    if (opts.delete && plan.delete.length && plan.basis !== "manifest" && !opts.deleteUntracked) {
+      throw new Error(
+        `Refusing --delete: the server has no coolFTP manifest yet, so ${plan.delete.length} remote file(s) there were never uploaded by coolFTP ` +
+          `(${plan.delete.slice(0, 3).join(", ")}${plan.delete.length > 3 ? ", …" : ""}). ` +
+          `Deploy once without --delete to establish the manifest, or pass --delete-untracked if those files really should go.`,
+      );
+    }
     const total = plan.add.length + plan.change.length + (opts.delete ? plan.delete.length : 0);
     if (opts.dryRun) {
       events.log(`Dry run: ${plan.add.length} to add, ${plan.change.length} to change, ${plan.delete.length} ${opts.delete ? "to delete" : "stale (use --delete)"}.`);
-      return { dryRun: true, plan, remoteRoot, site: site.name };
+      return { dryRun: true, plan, remoteRoot, site: site.name, urls: this.publicUrls(site, remoteRoot, [...plan.add, ...plan.change]) };
     }
 
     const t = await this.pool.acquire(site, events);
@@ -421,9 +467,23 @@ export class CoolFtp {
       const dirs = new Set<string>();
       for (const rel of uploads) dirs.add(rdirname(rjoin(remoteRoot, rel)));
       for (const d of [...dirs].sort((a, b) => a.length - b.length)) await t.mkdirp(d);
-      await this.runPool(t.protocol === "sftp" ? 4 : 1, uploads, (rel) =>
-        this.transfer(t, "upload", path.join(project.localDir, rel), rjoin(remoteRoot, rel), local[rel].size, events),
-      );
+      const done: string[] = [];
+      try {
+        await this.runPool(t.protocol === "sftp" ? 4 : 1, uploads, async (rel) => {
+          await this.transfer(t, "upload", path.join(project.localDir, rel), rjoin(remoteRoot, rel), local[rel].size, events);
+          done.push(rel);
+        });
+      } catch (err) {
+        // Save what did land so the next deploy picks up where this one stopped.
+        if (done.length && t.isConnected()) {
+          const partial = (await this.readManifest(t, remoteRoot)) ?? { version: 1 as const, updatedAt: "", files: {}, deploys: [] };
+          for (const rel of done) partial.files[rel] = local[rel];
+          partial.updatedAt = new Date().toISOString();
+          await this.writeManifest(t, remoteRoot, partial).catch(() => undefined);
+          events.log(`Deploy stopped after ${done.length} of ${uploads.length} files. Progress saved; run deploy again to finish.`, "warn");
+        }
+        throw err;
+      }
       if (opts.delete) {
         for (const rel of plan.delete) {
           const p = rjoin(remoteRoot, rel);
@@ -445,6 +505,7 @@ export class CoolFtp {
       agent: events.meta.agent,
       message: opts.message,
       git: gitInfo(project.root),
+      rollbackOf: opts.rollbackOf,
       added: plan.add.length,
       changed: plan.change.length,
       deleted: opts.delete ? plan.delete.length : 0,
@@ -459,14 +520,119 @@ export class CoolFtp {
       deploys: [record, ...previous.deploys].slice(0, 50),
     };
     await this.writeManifest(t, remoteRoot, manifest);
-    this.recordLocalHistory(site.name, record, project.root);
+    this.recordLocalHistory(site.name, record, historyRoot);
     this.pool.touch(site.name);
     events.emit({ type: "deploy", record });
     events.log(
       `Deployed to ${site.name} in ${(record.durationMs / 1000).toFixed(1)}s: +${record.added} ~${record.changed} -${record.deleted}${record.git ? ` (${record.git.short} on ${record.git.branch}${record.git.dirty ? ", dirty" : ""})` : ""}`,
       "success",
     );
-    return { dryRun: false, plan, record, remoteRoot, site: site.name };
+    const urls = this.publicUrls(site, remoteRoot, [...uploads, ...(opts.delete ? [] : [])]);
+    const verify = site.url && total > 0 ? await this.verify(site, urls, events) : undefined;
+    return { dryRun: false, plan, record, remoteRoot, site: site.name, urls, verify };
+  }
+
+  /** Public URLs for deployed files, when the site declares where remoteRoot is served. */
+  private publicUrls(site: Site, remoteRoot: string, rels: string[]): string[] {
+    if (!site.url) return [];
+    const base = site.url.replace(/\/+$/, "");
+    let prefix = "";
+    if (remoteRoot !== site.remoteRoot && remoteRoot.startsWith(site.remoteRoot.replace(/\/+$/, "") + "/")) {
+      prefix = remoteRoot.slice(site.remoteRoot.replace(/\/+$/, "").length);
+    }
+    return rels
+      .filter((r) => !r.split("/").some((seg) => seg.startsWith(".")))
+      .map((r) => `${base}${prefix}/${r.replace(/(^|\/)index\.html$/, "$1")}`.replace(/\/+$/, "") || base);
+  }
+
+  /** GET the homepage and a few changed URLs so an agent can confirm the deploy is actually live. */
+  private async verify(site: Site, urls: string[], events: Events): Promise<VerifyResult> {
+    const home = site.url!.replace(/\/+$/, "") + "/";
+    const targets = [home, ...urls.filter((u) => u !== home && u + "/" !== home).slice(0, 4)];
+    const checks: VerifyCheck[] = [];
+    for (const url of targets) {
+      const started = Date.now();
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch(url, { redirect: "follow", signal: ctrl.signal, headers: { "user-agent": "coolftp-verify", "cache-control": "no-cache" } });
+        clearTimeout(timer);
+        await res.body?.cancel().catch(() => undefined);
+        checks.push({ url, status: res.status, ok: res.ok, ms: Date.now() - started });
+      } catch (err) {
+        checks.push({ url, status: 0, ok: false, ms: Date.now() - started, error: (err as Error).message });
+      }
+    }
+    for (const c of checks) events.log(`${c.status || "ERR"} ${c.url} (${c.ms}ms)${c.error ? `: ${c.error}` : ""}`, c.ok ? "success" : "error");
+    const ok = checks.every((c) => c.ok);
+    if (!ok) events.log("Verification failed: the site did not answer as expected after the deploy.", "error");
+    return { ok, checks };
+  }
+
+  /**
+   * Put the server back to the tree of an earlier commit. Defaults to the most recent deploy
+   * of this project whose commit differs from the one currently live.
+   */
+  async rollback(
+    cwd: string,
+    opts: { site?: string; to?: string; build?: boolean; message?: string } = {},
+    events: Events = silentEvents(),
+  ): Promise<DeployResult & { commit: string }> {
+    const project = resolveProject(cwd, opts.site);
+    const site = getSite(project.config.site);
+    if (!gitInfo(project.root)) throw new Error("Rollback needs a git repository: deploys roll back to the commit that was live.");
+    const hist = this.history(site.name, 200).filter((h) => h.project === toPosix(project.root) && h.git?.commit);
+    let commit: string | undefined;
+    let label: string | undefined;
+    if (opts.to) {
+      const byId = hist.find((h) => h.id === opts.to);
+      commit = byId ? byId.git!.commit : gitRevParse(project.root, opts.to);
+      label = byId ? `deploy ${byId.id} (${byId.git!.short})` : opts.to;
+      if (!commit) throw new Error(`Cannot resolve "${opts.to}" to a commit or a deploy id. See: coolftp history`);
+    } else {
+      const live = hist[0]?.git?.commit;
+      const prev = hist.find((h) => h.git!.commit !== live);
+      if (!prev) throw new Error("No earlier deploy with a different commit in this project's history. Pass --to <commit> to roll back to a specific commit.");
+      commit = prev.git!.commit;
+      label = `${prev.git!.short} from ${prev.at.slice(0, 16).replace("T", " ")}${prev.message ? ` (${prev.message})` : ""}`;
+    }
+    if (project.config.build && !opts.build) {
+      events.log(`This project has a build step. Rollback deploys the committed files of ${commit.slice(0, 7)} as they are; pass --build to run "${project.config.build}" in the checkout first.`, "warn");
+    }
+    events.log(`Rolling back ${site.name} to ${label}`);
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-rollback-"));
+    gitWorktreeAdd(project.root, tmp, commit);
+    try {
+      const snapshot: ResolvedProject = {
+        root: tmp,
+        localDir: path.join(tmp, path.relative(project.root, project.localDir)),
+        configPath: null,
+        config: project.config,
+      };
+      if (!fs.existsSync(snapshot.localDir)) throw new Error(`Commit ${commit.slice(0, 7)} has no "${project.config.localDir}" folder to deploy.`);
+      const result = await this.deployFrom(
+        snapshot,
+        { delete: true, skipBuild: !opts.build, message: opts.message ?? `rollback to ${commit.slice(0, 7)}`, rollbackOf: commit },
+        events,
+        project.root,
+      );
+      return { ...result, commit };
+    } finally {
+      gitWorktreeRemove(project.root, tmp);
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+
+  // ---------- host keys ----------
+
+  hostKeys() {
+    return listHostKeys();
+  }
+
+  /** Forget the recorded SSH host key so the next connection trusts whatever the server presents. */
+  trustSite(siteName: string): { site: string; forgot: boolean } {
+    const site = getSite(siteName);
+    return { site: site.name, forgot: forgetHostKey(site.host, site.port) };
   }
 
   private historyFile(siteName: string): string {
