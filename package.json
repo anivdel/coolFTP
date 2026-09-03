@@ -19,7 +19,8 @@
     "dev:ftp": "node scripts/dev-ftp-server.cjs",
     "dev:sftp": "node scripts/lib/sftp-server.cjs",
     "demo": "electron scripts/demo/render.cjs",
-    "demo:voice": "node scripts/demo/narrate.cjs"
+    "demo:voice": "node scripts/demo/narrate.cjs",
+    "social": "electron scripts/social/render.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

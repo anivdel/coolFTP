@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP social</title>
+<style>
+  :root { --bg:#0b0f17; --bg2:#101623; --line:#2a3850; --text:#e6edf7; --muted:#8b98b1; --cyan:#38bdf8; --sky:#93c5fd; --green:#34d399;
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace; --sans:"Segoe UI Variable","Segoe UI",system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+  .board { position:relative; overflow:hidden; background:
+    radial-gradient(900px 520px at 12% -10%, rgba(37,99,235,.42), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(56,189,248,.2), transparent 55%), var(--bg); }
+  .grad { background:linear-gradient(90deg,#7dd3fc,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .chip { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:rgba(16,22,35,.8); border-radius:999px; padding:8px 16px; font-family:var(--mono); color:var(--sky); }
+  .chip i { width:9px; height:9px; border-radius:50%; background:var(--sky); display:inline-block; }
+  .term { background:#070a10; border:1px solid var(--line); border-radius:14px; font-family:var(--mono); box-shadow:0 30px 60px rgba(0,0,0,.55); overflow:hidden; }
+  .term .bar { display:flex; gap:7px; padding:12px 14px; background:var(--bg2); border-bottom:1px solid #1f2a3d; }
+  .term .bar i { width:11px; height:11px; border-radius:50%; display:block; }
+  .term .bar i:nth-child(1){background:#fb7185}.term .bar i:nth-child(2){background:#fbbf24}.term .bar i:nth-child(3){background:#34d399}
+  .term pre { margin:0; padding:16px 20px; white-space:pre-wrap; line-height:1.55; }
+  .p{color:var(--muted)} .c{color:var(--cyan)} .m{color:var(--sky)} .g{color:var(--green)} .d{color:#5b6b86}
+
+  /* 1200 x 630 */
+  #og { width:1200px; height:630px; padding:56px 64px; display:grid; grid-template-columns:1.05fr 1fr; gap:36px; align-items:center; }
+  #og .logo { display:flex; align-items:center; gap:14px; font-size:34px; font-weight:700; }
+  #og .logo img { width:56px; height:56px; }
+  #og h1 { font-size:58px; line-height:1.05; margin:26px 0 16px; letter-spacing:-1px; }
+  #og p { font-size:23px; color:var(--muted); margin:0 0 24px; max-width:520px; line-height:1.4; }
+  #og .chips { display:flex; gap:10px; flex-wrap:wrap; font-size:17px; }
+  #og .term { font-size:16.5px; }
+  #og .url { position:absolute; right:64px; bottom:40px; font-family:var(--mono); font-size:22px; color:var(--cyan); }
+
+  /* 1080 x 1080 */
+  #sq { width:1080px; height:1080px; padding:72px; display:flex; flex-direction:column; }
+  #sq .logo { display:flex; align-items:center; gap:16px; font-size:40px; font-weight:700; }
+  #sq .logo img { width:72px; height:72px; }
+  #sq h1 { font-size:74px; line-height:1.02; margin:40px 0 20px; letter-spacing:-1.5px; }
+  #sq p { font-size:28px; color:var(--muted); margin:0 0 28px; line-height:1.4; }
+  #sq .chips { display:flex; gap:12px; flex-wrap:wrap; font-size:20px; margin-bottom:36px; }
+  #sq .term { font-size:20px; }
+  #sq .url { margin-top:auto; display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:28px; color:var(--cyan); }
+  #sq .url span { color:var(--muted); font-size:20px; font-family:var(--sans); }
+</style>
+</head>
+<body>
+<div class="board" id="og">
+  <div>
+    <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span></div>
+    <h1>The FTP client your <span class="grad">coding agent</span> can drive.</h1>
+    <p>Say "deploy this". Only changed files go up, the commit is recorded, the site is verified. You watch it happen live.</p>
+    <div class="chips"><span class="chip"><i></i>Claude Code</span><span class="chip"><i></i>Codex</span><span class="chip"><i></i>Cursor</span><span class="chip"><i></i>any MCP agent</span></div>
+  </div>
+  <div class="term"><div class="bar"><i></i><i></i><i></i></div><pre><span class="p">›</span> deploy this
+
+<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "nav fix")
+  <span class="c">↑</span> index.html <span class="d">4.1 KB</span>
+  <span class="c">↑</span> css/site.css <span class="d">12.8 KB</span>
+  <span class="d">·</span> 214 unchanged, skipped
+  <span class="g">✔</span> Deployed in 1.8s <span class="d">(a91c2e0)</span>
+  <span class="g">✔</span> 200 https://coolftp.com/</pre></div>
+  <div class="url">coolftp.com</div>
+</div>
+
+<div class="board" id="sq">
+  <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span></div>
+  <h1>The FTP client your <span class="grad">coding agent</span> can drive.</h1>
+  <p>Say "deploy this". Only changed files go up, the git commit is recorded, and the site is verified. You watch it happen live in the app.</p>
+  <div class="chips"><span class="chip"><i></i>Claude Code</span><span class="chip"><i></i>Codex</span><span class="chip"><i></i>Cursor</span><span class="chip"><i></i>any MCP agent</span></div>
+  <div class="term"><div class="bar"><i></i><i></i><i></i></div><pre><span class="p">›</span> deploy this
+
+<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "nav fix")
+  <span class="c">↑</span> index.html <span class="d">4.1 KB</span>
+  <span class="c">↑</span> css/site.css <span class="d">12.8 KB</span>
+  <span class="d">·</span> 214 unchanged, skipped
+  <span class="g">✔</span> Deployed in 1.8s <span class="d">(a91c2e0)</span>
+  <span class="g">✔</span> 200 https://coolftp.com/</pre></div>
+  <div class="url">coolftp.com <span>free · open source · Windows</span></div>
+</div>
+</body>
+</html>
