@@ -97,7 +97,11 @@
     td:first-child { color: var(--text); font-weight: 600; }
     .yes { color: var(--green); } .no { color: var(--muted); } .part { color: var(--yellow); }
 
-    pre.code { background: #070a10; border: 1px solid var(--line-2); border-radius: 12px; padding: 16px 18px; overflow: auto; font-size: 13px; line-height: 1.6; margin: 0; }
+    pre.code { background: #070a10; border: 1px solid var(--line-2); border-radius: 12px; padding: 14px 18px; overflow: auto; font-size: 13px; line-height: 1.6; margin: 0; white-space: normal; word-break: break-word; }
+    pre.code .d, pre.code .cmd { display: block; white-space: pre-wrap; }
+    pre.code .cmd { padding-left: 1.6em; text-indent: -1.6em; }
+    pre.code .d { margin-top: 10px; }
+    pre.code .d:first-child { margin-top: 0; }
     pre.code .d { color: #5b6b86; }
     pre.code .c { color: var(--cyan); }
     pre.code .m { color: var(--sky); }
@@ -247,30 +251,34 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <div class="two">
         <div>
           <h4>Install and add a server</h4>
-<pre class="code"><span class="d"># CLI (works with or without the desktop app)</span>
-npm i -g coolftp
-
-<span class="d"># SFTP with your existing key or ssh-agent</span>
-coolftp site add coolftp.com <span class="c">--host</span> coolftp.com <span class="c">--user</span> deploy <span class="c">--root</span> /var/www/html
-
-<span class="d"># shared host, FTPS with a password</span>
-coolftp site add oldhost <span class="c">--host</span> ftp.oldhost.net <span class="c">--user</span> me <span class="c">--protocol</span> ftps <span class="c">--password</span> ... <span class="c">--root</span> /public_html
-
-coolftp site test coolftp.com</pre>
+<pre class="code"><span class="d"># install the CLI (works with or without the desktop app)</span>
+<span class="cmd">npm i -g coolftp</span>
+<span class="d"># add a server over SFTP, using your existing key or ssh-agent</span>
+<span class="cmd">coolftp site add coolftp.com <span class="c">--host</span> coolftp.com <span class="c">--user</span> deploy <span class="c">--root</span> /var/www/html <span class="c">--url</span> https://coolftp.com</span>
+<span class="d"># or a shared host over FTPS with a password</span>
+<span class="cmd">coolftp site add oldhost <span class="c">--host</span> ftp.oldhost.net <span class="c">--user</span> me <span class="c">--protocol</span> ftps <span class="c">--password</span> ... <span class="c">--root</span> /public_html</span>
+<span class="d"># connect once to check it and record the host key</span>
+<span class="cmd">coolftp site test coolftp.com</span></pre>
         </div>
         <div>
           <h4>Link a project and deploy</h4>
-<pre class="code"><span class="d"># in your project folder</span>
-coolftp init coolftp.com <span class="c">--local-dir</span> dist <span class="c">--build</span> "npm run build"
-
-coolftp diff                 <span class="d"># what would go up</span>
-coolftp deploy <span class="c">-m</span> "v1"       <span class="d"># only changed files</span>
-coolftp deploy <span class="c">--delete</span>      <span class="d"># also remove stale files</span>
-coolftp deploy <span class="c">--commit</span> <span class="c">-m</span> "fix nav"  <span class="d"># git commit, then deploy</span>
-coolftp history</pre>
+<pre class="code"><span class="d"># in your project folder: link it to the site, deploy the dist folder, build first</span>
+<span class="cmd">coolftp init coolftp.com <span class="c">--local-dir</span> dist <span class="c">--build</span> "npm run build"</span>
+<span class="d"># what would go up</span>
+<span class="cmd">coolftp diff</span>
+<span class="d"># upload only the changed files</span>
+<span class="cmd">coolftp deploy <span class="c">-m</span> "v1"</span>
+<span class="d"># also remove files you deleted locally</span>
+<span class="cmd">coolftp deploy <span class="c">--delete</span></span>
+<span class="d"># git commit, then deploy</span>
+<span class="cmd">coolftp deploy <span class="c">--commit</span> <span class="c">-m</span> "fix nav"</span>
+<span class="d"># put the previous live version back</span>
+<span class="cmd">coolftp rollback</span>
+<span class="d"># what went live, when, from which commit, by whom</span>
+<span class="cmd">coolftp history</span></pre>
           <h4 style="margin-top:16px">Wire up Claude Code</h4>
-<pre class="code">claude mcp add coolftp -- coolftp mcp
-<span class="d"># then in Claude Code:</span>  <span class="m">"deploy this"</span></pre>
+<pre class="code"><span class="cmd">claude mcp add coolftp -- coolftp mcp</span>
+<span class="d"># then, in Claude Code, just say: <span class="m">"deploy this"</span></span></pre>
         </div>
       </div>
       <p class="note" style="margin-top:14px">
