@@ -1,6 +1,7 @@
 import type { CoolFtp } from "./commands.js";
 import type { Events } from "./events.js";
 import type { ProjectConfig, Site } from "./types.js";
+import { activateLicense, getLicenseStatus, removeLicense } from "./license.js";
 
 /**
  * A single string-keyed dispatch table so that the CLI (direct mode), the desktop app's
@@ -30,6 +31,9 @@ export const RPC_METHODS: Record<string, Handler> = {
   rollback: (cf, a, ev) => cf.rollback(a.cwd, { site: a.site, to: a.to, build: a.build, message: a.message }, ev),
   hostKeys: (cf) => cf.hostKeys(),
   trustSite: (cf, a) => cf.trustSite(a.site),
+  license: () => getLicenseStatus(),
+  activateLicense: (_cf, a) => activateLicense(String(a.key ?? "")),
+  removeLicense: () => ({ removed: removeLicense(), status: getLicenseStatus() }),
   connections: (cf) => cf.pool.status(),
   disconnect: (cf, a) => cf.pool.disconnect(a.site),
 };

@@ -1,0 +1,8 @@
+# Only the two endpoints are reachable; everything else in this folder is denied.
+<FilesMatch "^(stripe-webhook|resend)\.php$">
+  Require all granted
+</FilesMatch>
+<FilesMatch "^(config|config\.example|lib)\.php$">
+  Require all denied
+</FilesMatch>
+Options -Indexes

@@ -482,6 +482,63 @@ program
     }),
   );
 
+// ---------------- license ----------------
+
+interface LicenseStatusLike {
+  installed: boolean;
+  valid: boolean;
+  pro: boolean;
+  reason?: string;
+  license?: { email: string; issued: string; updatesUntil: string; seats: number; id: string };
+  buildDate: string;
+  buyUrl: string;
+}
+
+function printLicense(s: LicenseStatusLike) {
+  if (s.pro && s.license) {
+    process.stdout.write(`${c.green("✔ coolFTP Pro")} licensed to ${c.bold(s.license.email)}, updates until ${s.license.updatesUntil} (this build: ${s.buildDate})\n`);
+  } else if (s.installed && s.valid) {
+    process.stdout.write(`${c.yellow("! coolFTP Pro, updates ended")} ${s.reason}\n`);
+  } else {
+    process.stdout.write(`${c.dim("coolFTP Free")}  ${s.reason ?? ""}\n${c.dim(`Pro: ${s.buyUrl}`)}\n`);
+  }
+}
+
+const license = program.command("license").description("show or manage the Pro license");
+
+license
+  .command("status", { isDefault: true })
+  .description("show the license status")
+  .action(() =>
+    withRunner(async (r, g) => {
+      const s = await r.run<LicenseStatusLike>("license", {});
+      if (!g.json) printLicense(s);
+      return s;
+    }),
+  );
+
+license
+  .command("activate <key>")
+  .description("install a Pro license key on this machine")
+  .action((key: string) =>
+    withRunner(async (r, g) => {
+      const s = await r.run<LicenseStatusLike>("activateLicense", { key });
+      if (!g.json) printLicense(s);
+      return s;
+    }),
+  );
+
+license
+  .command("remove")
+  .description("remove the license from this machine")
+  .action(() =>
+    withRunner(async (r, g) => {
+      const res = await r.run<{ removed: boolean; status: LicenseStatusLike }>("removeLicense", {});
+      if (!g.json) process.stderr.write(res.removed ? c.green("✔ license removed\n") : c.dim("no license was installed\n"));
+      return res;
+    }),
+  );
+
 // ---------------- agent integration ----------------
 
 program

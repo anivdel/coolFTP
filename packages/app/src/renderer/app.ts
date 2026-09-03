@@ -951,6 +951,50 @@ async function main() {
     renderAgents();
   };
 
+  // Pro license
+  interface LicenseStatus { installed: boolean; valid: boolean; pro: boolean; reason?: string; license?: { email: string; updatesUntil: string; seats: number }; buildDate: string; buyUrl: string }
+  const renderLicense = (s: LicenseStatus) => {
+    $("proBtn").textContent = s.pro ? "Pro ✔" : "Pro";
+    $("proBtn").classList.toggle("primary", s.pro);
+    $("proStatus").innerHTML = s.pro && s.license
+      ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, updates until ${esc(s.license.updatesUntil)}, up to ${s.license.seats} machines. This build: ${esc(s.buildDate)}.`
+      : s.installed && s.valid
+        ? `<b style="color:var(--yellow)">Updates ended.</b> ${esc(s.reason ?? "")}`
+        : `<b>coolFTP Free.</b> ${esc(s.reason ?? "")} Pro adds environments, deploy notifications, and protected sites.`;
+    ($("proBuy") as HTMLAnchorElement).onclick = (e) => {
+      e.preventDefault();
+      window.coolftp.shell.external(s.buyUrl);
+    };
+    $("proRemove").classList.toggle("hidden", !s.installed);
+  };
+  const refreshLicense = async () => {
+    const s = await guard(rpc<LicenseStatus>("license"));
+    if (s) renderLicense(s);
+    return s;
+  };
+  refreshLicense();
+  $("proBtn").onclick = async () => {
+    await refreshLicense();
+    $<HTMLTextAreaElement>("proKey").value = "";
+    $("proModal").classList.remove("hidden");
+    $("proKey").focus();
+  };
+  $("proActivate").onclick = async () => {
+    const key = $<HTMLTextAreaElement>("proKey").value.trim();
+    if (!key) return toast("Paste the key from your license email", "error");
+    const s = await guard(rpc<LicenseStatus>("activateLicense", { key }));
+    if (!s) return;
+    renderLicense(s);
+    toast(s.pro ? "Pro activated. Thank you!" : "Key accepted, but this build is newer than your updates period.", s.pro ? "success" : "error", 5000);
+    if (s.pro) $("proModal").classList.add("hidden");
+  };
+  $("proRemove").onclick = async () => {
+    if (!(await confirmDialog("Remove the license from this machine?"))) return;
+    await guard(rpc("removeLicense"));
+    await refreshLicense();
+    toast("License removed", "info");
+  };
+
   // modals
   document.querySelectorAll<HTMLElement>("[data-close]").forEach((b) => (b.onclick = () => $(b.dataset.close!).classList.add("hidden")));
   document.addEventListener("keydown", (e) => {

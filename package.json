@@ -20,7 +20,8 @@
     "dev:sftp": "node scripts/lib/sftp-server.cjs",
     "demo": "electron scripts/demo/render.cjs",
     "demo:voice": "node scripts/demo/narrate.cjs",
-    "social": "electron scripts/social/render.cjs"
+    "social": "electron scripts/social/render.cjs",
+    "test:license": "node scripts/license/test.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

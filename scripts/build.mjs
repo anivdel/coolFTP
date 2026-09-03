@@ -7,8 +7,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const watch = process.argv.includes("--watch");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const alias = { "@coolftp/core": path.join(root, "packages/core/src/index.ts") };
+// "@coolftp/pro" resolves to the proprietary package when present, else to the open-source stub.
+const proEntry = path.join(root, "packages/pro/src/index.ts");
+const alias = {
+  "@coolftp/core": path.join(root, "packages/core/src/index.ts"),
+  "@coolftp/pro": fs.existsSync(proEntry) ? proEntry : path.join(root, "packages/core/src/pro-stub.ts"),
+};
 const nodeExternal = ["electron", "cpu-features", "*.node"];
+const buildDate = new Date().toISOString().slice(0, 10);
+console.log(`build ${pkg.version} dated ${buildDate}, pro: ${fs.existsSync(proEntry) ? "included" : "stub"}`);
 
 /** @type {esbuild.BuildOptions[]} */
 const targets = [
@@ -22,7 +29,7 @@ const targets = [
     alias,
     external: nodeExternal,
     banner: { js: "#!/usr/bin/env node" },
-    define: { __VERSION__: JSON.stringify(pkg.version) },
+    define: { __VERSION__: JSON.stringify(pkg.version), __BUILD_DATE__: JSON.stringify(buildDate) },
     sourcemap: true,
     logLevel: "info",
   },
@@ -35,7 +42,7 @@ const targets = [
     bundle: true,
     alias,
     external: nodeExternal,
-    define: { __VERSION__: JSON.stringify(pkg.version) },
+    define: { __VERSION__: JSON.stringify(pkg.version), __BUILD_DATE__: JSON.stringify(buildDate) },
     sourcemap: true,
     logLevel: "info",
   },

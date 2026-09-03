@@ -140,6 +140,7 @@
         <a href="#features">Features</a>
         <a href="#compare">vs FileZilla</a>
         <a href="#quickstart">Quickstart</a>
+        <a href="#pro">Pricing</a>
         <a href="#faq">FAQ</a>
       </nav>
     </header>
@@ -298,6 +299,50 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
         Project file (<code>.coolftp.json</code>): <code>{ "site": "coolftp.com", "localDir": "dist", "build": "npm run build", "ignore": ["*.map"] }</code>.
         Commit it. Anyone on the team, human or agent, deploys the same way.
       </p>
+    </section>
+
+    <section id="pro">
+      <h2>Free for the work. Pro for the production.</h2>
+      <p class="sub">Everything a solo dev needs to ship is free and stays free. Pro adds the pieces you want once a site matters.</p>
+      <div class="two" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:none">
+        <div class="card" style="padding:26px">
+          <h3 style="margin:0 0 4px;font-size:22px">Free</h3>
+          <p class="muted" style="margin:0 0 18px">Open source, MIT, no account.</p>
+          <ul style="margin:0;padding-left:20px;line-height:1.9;color:var(--text)">
+            <li>SFTP, FTPS, FTP, unlimited sites</li>
+            <li>Hash-based deploys, only changed files go up</li>
+            <li>Deploy history with the git commit</li>
+            <li>One-command rollback</li>
+            <li>Post-deploy verification</li>
+            <li>Live agent feed and the approval dialog</li>
+            <li>CLI and MCP server for Claude Code, Codex, Cursor</li>
+          </ul>
+          <div style="margin-top:22px"><a class="btn" href="#download">Download</a></div>
+        </div>
+        <div class="card" style="padding:26px;border-color:var(--cyan);box-shadow:0 0 0 1px rgba(56,189,248,.25)">
+          <h3 style="margin:0 0 4px;font-size:22px">Pro <span style="font-weight:400;color:var(--muted);font-size:16px">&nbsp;$49, one time</span></h3>
+          <p class="muted" style="margin:0 0 18px">Per person, up to three machines. One year of updates included; builds from that year keep working forever.</p>
+          <ul style="margin:0;padding-left:20px;line-height:1.9;color:var(--text)">
+            <li>Everything in Free</li>
+            <li><b>Environments</b>: deploy to staging, promote exactly that to production</li>
+            <li><b>Deploy notifications</b>: Slack, Discord, or a webhook with the commit and the verification result</li>
+            <li><b>Protected sites</b>: always require approval, even from you</li>
+            <li>Commercial-use license and priority support</li>
+          </ul>
+          <div style="margin-top:22px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <a class="btn primary" href="https://buy.stripe.com/REPLACE_WITH_PRO_LINK">Buy Pro <small>$49</small></a>
+            <a class="btn" href="https://buy.stripe.com/REPLACE_WITH_RENEWAL_LINK">Renew updates <small>$29</small></a>
+          </div>
+          <p class="note" style="margin-top:12px">Secure checkout by Stripe. Your key arrives by email from licenses@coolftp.com within a minute.</p>
+        </div>
+      </div>
+      <details style="margin-top:18px"><summary>Lost your license key?</summary>
+        <form id="resendForm" style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap" onsubmit="event.preventDefault();const f=this;fetch('api/resend.php',{method:'POST',body:new FormData(f)}).then(r=>r.json()).then(j=>{f.querySelector('span').textContent=j.message||j.error||'Sent.'}).catch(()=>{f.querySelector('span').textContent='Could not reach the server.'})">
+          <input name="email" type="email" required placeholder="the email you bought with" style="flex:1;min-width:240px;padding:10px 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--bg-2);color:var(--text)" />
+          <button class="btn" type="submit">Re-send my key</button>
+          <span class="muted" style="align-self:center"></span>
+        </form>
+      </details>
     </section>
 
     <section id="download">

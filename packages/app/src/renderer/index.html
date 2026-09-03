@@ -22,6 +22,7 @@
       <div class="topbar-actions">
         <button id="diffBtn" class="btn ghost" title="Preview what deploy would do">Diff</button>
         <button id="deployBtn" class="btn accent" title="Deploy the project folder">Deploy ▲</button>
+        <button id="proBtn" class="btn ghost" title="coolFTP Pro license">Pro</button>
         <div id="hubPill" class="pill" title="Local agent hub: coding agents route their commands through this app">
           <span class="dot"></span><span id="hubText">hub off</span>
         </div>
@@ -176,6 +177,21 @@
       <form id="promptForm"><input id="promptInput" autocomplete="off" spellcheck="false" />
         <div class="row modal-foot"><span class="spacer"></span><button type="button" class="btn ghost" id="promptCancel">Cancel</button><button type="submit" class="btn primary">OK</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Pro license -->
+  <div class="modal hidden" id="proModal">
+    <div class="modal-card">
+      <div class="modal-head"><h2>coolFTP Pro</h2><button class="icon close" data-close="proModal">✕</button></div>
+      <p id="proStatus"></p>
+      <label>License key <textarea id="proKey" rows="4" spellcheck="false" placeholder="CFP1.…" style="font-family:var(--mono);font-size:12px;resize:vertical"></textarea></label>
+      <div class="row modal-foot">
+        <a href="#" id="proBuy" class="muted small">Get a key at coolftp.com</a>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="proRemove">Remove</button>
+        <button class="btn primary" id="proActivate">Activate</button>
+      </div>
     </div>
   </div>
 

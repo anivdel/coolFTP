@@ -128,6 +128,19 @@ npm run dev:sftp    # sftp://demo:secret@127.0.0.1:2222, remote root /public_htm
 
 Both seed a temp folder with a few files. Add a site pointing at one, connect in the app, and deploy any folder at it.
 
+## Pro licensing
+
+The repository is MIT except `packages/pro`, which is proprietary (see `packages/pro/LICENSE`). The build resolves `@coolftp/pro` to that package when it exists and to `packages/core/src/pro-stub.ts` otherwise, so a checkout without the Pro directory builds and runs as coolFTP Free.
+
+Keys are `CFP1.<payload>.<signature>`, Ed25519-signed, verified offline against the public key in `packages/core/src/license-pubkey.ts`. A key unlocks Pro in every build dated on or before its `updatesUntil` date (one year from purchase). Builds dated after that run as Free until the key is renewed.
+
+- `node scripts/license/keygen.cjs` creates the signing key pair once. The private half lives in `scripts/license/private/` (git-ignored). Back it up; losing it invalidates every key ever issued.
+- `node scripts/license/issue.cjs --email x@y.z` issues a key by hand.
+- `npm run test:license` exercises activation, tampering, expiry, and removal through the CLI.
+- `coolftp license`, `coolftp license activate <key>`, `coolftp license remove`, or the Pro button in the app.
+
+Purchases run through Stripe Checkout. `site/api/stripe-webhook.php` receives `checkout.session.completed`, signs a key with the libsodium copy of the private key, stores a record outside the web root, and emails the key from `licenses@coolftp.com`. `site/api/resend.php` re-sends a key for an email address, rate limited. Real values go in `site/api/config.php`, which is git-ignored; `config.example.php` shows the shape.
+
 ## Package the app
 
 ```bash
