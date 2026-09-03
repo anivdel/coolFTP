@@ -548,7 +548,9 @@ export class CoolFtp {
   /** GET the homepage and a few changed URLs so an agent can confirm the deploy is actually live. */
   private async verify(site: Site, urls: string[], events: Events): Promise<VerifyResult> {
     const home = site.url!.replace(/\/+$/, "") + "/";
-    const targets = [home, ...urls.filter((u) => u !== home && u + "/" !== home).slice(0, 4)];
+    // Server-side scripts and config files are not pages: a 403 or 405 there is usually the intended answer.
+    const isPage = (u: string) => !/\.(php|phtml|cgi|pl|py|rb|asp|aspx|jsp|env|ini|htaccess|json)$/i.test(u) && !/\/(api|cgi-bin|includes?|config)\//i.test(u);
+    const targets = [home, ...urls.filter((u) => u !== home && u + "/" !== home && isPage(u)).slice(0, 4)];
     const checks: VerifyCheck[] = [];
     for (const url of targets) {
       const started = Date.now();
