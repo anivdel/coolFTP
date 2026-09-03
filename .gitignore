@@ -4,3 +4,5 @@ release/
 *.log
 .DS_Store
 site/releases/
+site/demo.mp4
+scripts/demo/stills/
