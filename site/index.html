@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>coolFTP</title>
+  <meta name="description" content="coolFTP is a desktop SFTP and FTP client built for developers who ship with coding agents. Your agent runs coolftp deploy, you watch it happen." />
+  <meta property="og:title" content="coolFTP" />
+  <meta property="og:description" content="The FTP client your coding agent can drive. SFTP, FTPS, hash-based deploys, deploy history with git commits, and an MCP server for Claude Code." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%232563eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230b0f17'/%3E%3Cpath d='M36 8 18 36h12l-4 20 20-30H34z' fill='url(%23g)'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #0b0f17; --bg-2: #101623; --bg-3: #161e2e; --line: #1f2a3d; --line-2: #2a3850;
+      --text: #e6edf7; --muted: #8b98b1; --cyan: #38bdf8; --sky: #93c5fd; --green: #34d399; --yellow: #fbbf24; --red: #fb7185;
+      --mono: "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, "SF Mono", monospace;
+      --sans: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Inter", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; color: var(--text); font: 16px/1.6 var(--sans);
+      background:
+        radial-gradient(1100px 600px at 15% -10%, rgba(37, 99, 235, 0.32), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, 0.18), transparent 55%),
+        var(--bg);
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre, kbd { font-family: var(--mono); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; letter-spacing: 0.2px; color: var(--text); }
+    .logo svg { width: 36px; height: 36px; filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5)); }
+    .logo b { background: linear-gradient(90deg, #7dd3fc, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    nav a { color: var(--muted); margin-left: 22px; font-size: 14px; }
+    nav a:hover { color: var(--text); text-decoration: none; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; border: 1px solid var(--line-2);
+      background: var(--bg-3); color: var(--text); font-weight: 600; transition: 0.15s; white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--cyan); text-decoration: none; transform: translateY(-1px); }
+    .btn.primary { background: linear-gradient(135deg, #0ea5e9, #2563eb); border-color: transparent; color: #fff; box-shadow: 0 0 30px rgba(37, 99, 235, 0.4); }
+    .btn.primary:hover { filter: brightness(1.1); }
+    .btn small { font-weight: 400; color: rgba(255, 255, 255, 0.7); font-size: 12px; }
+
+    .hero { padding: 70px 0 40px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: center; }
+    .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--sky); margin-bottom: 14px; }
+    h1 { font-size: clamp(36px, 5vw, 58px); line-height: 1.05; margin: 0 0 18px; letter-spacing: -0.5px; }
+    h1 span { background: linear-gradient(90deg, #7dd3fc, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lede { font-size: 18px; color: var(--muted); max-width: 520px; margin: 0 0 26px; }
+    .cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .cta .alt { color: var(--muted); font-size: 13px; }
+    .cta .alt code { color: var(--text); background: var(--bg-3); padding: 2px 6px; border-radius: 5px; }
+
+    .term {
+      background: #070a10; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.08);
+      font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    }
+    .term .bar { display: flex; gap: 6px; padding: 10px 12px; background: var(--bg-2); border-bottom: 1px solid var(--line); }
+    .term .bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--line-2); display: block; }
+    .term .bar i:nth-child(1) { background: #fb7185; } .term .bar i:nth-child(2) { background: #fbbf24; } .term .bar i:nth-child(3) { background: #34d399; }
+    .term .bar span { margin-left: auto; color: var(--muted); font-size: 11px; }
+    .term pre { margin: 0; padding: 16px 18px; white-space: pre-wrap; word-break: break-word; }
+    .term .p { color: var(--muted); }
+    .term .c { color: var(--cyan); }
+    .term .m { color: var(--sky); }
+    .term .g { color: var(--green); }
+    .term .y { color: var(--yellow); }
+    .term .d { color: #5b6b86; }
+    .cursor::after { content: "▍"; color: var(--cyan); animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    section { padding: 56px 0; border-top: 1px solid var(--line); }
+    h2 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.3px; }
+    .sub { color: var(--muted); margin: 0 0 30px; max-width: 640px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .card .ic { width: 28px; height: 28px; border-radius: 8px; display: inline-grid; place-items: center; background: rgba(56, 189, 248, 0.12); color: var(--cyan); font-size: 14px; }
+    .card.m .ic { background: rgba(147, 197, 253, 0.12); color: var(--sky); }
+    .card.g .ic { background: rgba(52, 211, 153, 0.12); color: var(--green); }
+
+    .flow { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .steps li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--bg-3); border: 1px solid var(--line-2); font-family: var(--mono); font-size: 12px; color: var(--cyan); }
+    .steps b { display: block; }
+    .steps span { color: var(--muted); font-size: 14px; }
+    .steps code { background: var(--bg-3); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+    td:first-child { color: var(--text); font-weight: 600; }
+    .yes { color: var(--green); } .no { color: var(--muted); } .part { color: var(--yellow); }
+
+    pre.code { background: #070a10; border: 1px solid var(--line-2); border-radius: 12px; padding: 16px 18px; overflow: auto; font-size: 13px; line-height: 1.6; margin: 0; }
+    pre.code .d { color: #5b6b86; }
+    pre.code .c { color: var(--cyan); }
+    pre.code .m { color: var(--sky); }
+    pre.code .g { color: var(--green); }
+    .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .two > div { min-width: 0; }
+    .two h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 500; }
+
+    details { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; background: var(--bg-2); }
+    summary { cursor: pointer; font-weight: 600; }
+    details p { color: var(--muted); margin: 8px 0 0; font-size: 14px; }
+
+    footer { padding: 34px 0 50px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line); }
+    .note { font-size: 12px; color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .hero, .flow, .two { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr 1fr; }
+      nav { display: none; }
+    }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="logo" href="#" aria-label="coolFTP">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="14" fill="#0b0f17" stroke="#2a3850"/>
+          <path d="M36 8 18 36h12l-4 20 20-30H34z" fill="url(#g)"/>
+          <path d="M10 50h10M44 14h10" stroke="#2a3850" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>cool<b>FTP</b></span>
+      </a>
+      <nav>
+        <a href="#agents">For agents</a>
+        <a href="#features">Features</a>
+        <a href="#compare">vs FileZilla</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <div>
+        <div class="eyebrow">SFTP · FTPS · FTP · MCP</div>
+        <h1>The FTP client your <span>coding agent</span> can drive.</h1>
+        <p class="lede">
+          You write code with Claude Code, Cursor, or Codex. The last step is still dragging files into a 2006-era FTP window.
+          coolFTP fixes the last step. Your agent runs <code>coolftp deploy</code>, and you watch every file land on your server, live.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href="#download">Download for Windows <small>free, open source</small></a>
+          <a class="btn" href="#quickstart">Read the quickstart</a>
+        </div>
+        <p class="cta alt" style="margin-top:14px">Or install the CLI: <code>npm i -g coolftp</code></p>
+      </div>
+      <div class="term" aria-label="Example session">
+        <div class="bar"><i></i><i></i><i></i><span>claude code · my-site</span></div>
+        <pre><span class="p">›</span> ship it to the server
+
+<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "nav fix + og tags")
+  <span class="d">via coolFTP app (port 51422)</span>
+  <span class="d">·</span> Running build: npm run build
+  <span class="d">·</span> Scanning ./dist
+  <span class="c">↑</span> index.html <span class="d">4.1 KB</span>
+  <span class="c">↑</span> css/site.css <span class="d">12.8 KB</span>
+  <span class="c">↑</span> js/nav.js <span class="d">2.2 KB</span>
+  <span class="g">✔</span> Deployed to coolftp.com in 1.8s: +0 ~3 -0 <span class="d">(a91c2e0 on main)</span>
+
+<span class="d">⏺</span> Live. Three changed files went up; 214 unchanged files were skipped
+  because their hashes matched the manifest on the server.
+
+<span class="p">›</span> <span class="cursor"></span></pre>
+      </div>
+    </div>
+
+    <section id="agents">
+      <h2>Built for the way you actually ship now</h2>
+      <p class="sub">Every FTP client assumes a human is clicking. coolFTP assumes a human is watching and an agent is doing.</p>
+      <div class="flow">
+        <ol class="steps">
+          <li><div><b>Link a folder once</b><span>Run <code>coolftp init my-server</code> in the project. It writes a tiny <code>.coolftp.json</code> so nobody has to remember hosts or paths again, agents included.</span></div></li>
+          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_ls</code>, <code>coolftp_read</code> and friends. Any other agent just calls the CLI.</span></div></li>
+          <li><div><b>Keep the app open</b><span>Agent commands route through the running desktop app. You see each call in the Agents panel, each file in the transfer queue, and each deploy in history, tagged with who did it.</span></div></li>
+          <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, and tells you what it skipped.</span></div></li>
+        </ol>
+        <div class="term">
+          <div class="bar"><i></i><i></i><i></i><span>coolFTP · Agents</span></div>
+          <pre><span class="m">◆ claude-code</span>   diff …/my-site → coolftp.com          <span class="g">ok</span>  0.6s
+<span class="m">◆ claude-code</span>   deploy …/my-site: nav fix + og tags  <span class="g">ok</span>  1.8s
+<span class="m">◆ cursor</span>        read coolftp.com:/.htaccess          <span class="g">ok</span>  0.2s
+<span class="m">◆ codex</span>         upload …/assets/hero.webp            <span class="y">running</span>
+
+<span class="d">Coding agents drive this app through a local hub on port 51422.
+Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2>Features that earn their place</h2>
+      <p class="sub">No ribbon toolbars. No "site manager wizard". The things a working developer needs, and a couple of things no other client has.</p>
+      <div class="grid">
+        <div class="card"><h3><span class="ic">⇅</span>SFTP first, FTP still there</h3><p>Key auth with your existing ssh-agent, or a password if you must. FTPS and plain FTP for the shared hosts that never upgraded.</p></div>
+        <div class="card m"><h3><span class="ic">#</span>Hash-based deploys</h3><p>A manifest on the server records the SHA-256 of every file it has. Deploys upload only what changed, even if timestamps lie.</p></div>
+        <div class="card g"><h3><span class="ic">⎇</span>Deploy history with git</h3><p>Each deploy stores the commit, branch, dirty flag, message, byte count and which agent ran it. "What is live right now?" has an answer.</p></div>
+        <div class="card"><h3><span class="ic">◆</span>Live agent feed</h3><p>Every call an agent makes shows up as it happens, with the arguments in plain words. Failures flash the window.</p></div>
+        <div class="card m"><h3><span class="ic">⌘</span>MCP server built in</h3><p>Fourteen typed tools for Claude Code and any MCP client. Sites, diff, deploy, ls, read, write, upload, download, rename, delete, history.</p></div>
+        <div class="card g"><h3><span class="ic">∅</span>Ignore rules that make sense</h3><p><code>.git</code>, <code>node_modules</code>, <code>.env</code> and logs never go up. Add a <code>.coolftpignore</code> for the rest, gitignore syntax.</p></div>
+        <div class="card"><h3><span class="ic">▶</span>Build before deploy</h3><p>Set <code>"build": "npm run build"</code> in the project file and every deploy runs it first, agent-triggered or not.</p></div>
+        <div class="card m"><h3><span class="ic">⌫</span>Stale file cleanup, opt-in</h3><p>Files you deleted locally are listed as stale and left alone until you pass <code>--delete</code>. No surprise wipes.</p></div>
+        <div class="card g"><h3><span class="ic">▤</span>Two panes, no clutter</h3><p>Local on the left, remote on the right, drag and drop from Explorer, preview text files in place, keyboard driven.</p></div>
+      </div>
+    </section>
+
+    <section id="compare">
+      <h2>How it compares</h2>
+      <p class="sub">FileZilla and CuteFTP are fine tools from a different era. Here is the honest comparison.</p>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th></th><th>coolFTP</th><th>FileZilla</th><th>CuteFTP</th><th>rsync / scp</th></tr></thead>
+          <tbody>
+            <tr><td>SFTP with ssh-agent keys</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+            <tr><td>Uploads only files whose content changed</td><td class="yes">yes, by hash</td><td class="part">by size or time</td><td class="part">by size or time</td><td class="yes">yes</td></tr>
+            <tr><td>Deploy history with git commit</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Driveable by Claude Code / MCP</td><td class="yes">built in</td><td class="no">no</td><td class="no">no</td><td class="part">shell only</td></tr>
+            <tr><td>Shows agent actions live in a GUI</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Per-project config committed with the code</td><td class="yes">.coolftp.json</td><td class="no">global XML</td><td class="no">global</td><td class="part">scripts</td></tr>
+            <tr><td>Runs a build step before deploy</td><td class="yes">yes</td><td class="no">no</td><td class="part">macros</td><td class="part">scripts</td></tr>
+            <tr><td>Works on shared hosts with FTP only</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td><td class="no">no</td></tr>
+            <tr><td>Price</td><td>free, MIT</td><td>free, GPL</td><td>paid</td><td>free</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quickstart</h2>
+      <p class="sub">Three commands from install to deploy. Everything the desktop app does, the CLI does too, so this works on a server with no screen.</p>
+      <div class="two">
+        <div>
+          <h4>Install and add a server</h4>
+<pre class="code"><span class="d"># CLI (works with or without the desktop app)</span>
+npm i -g coolftp
+
+<span class="d"># SFTP with your existing key or ssh-agent</span>
+coolftp site add coolftp.com <span class="c">--host</span> coolftp.com <span class="c">--user</span> deploy <span class="c">--root</span> /var/www/html
+
+<span class="d"># shared host, FTPS with a password</span>
+coolftp site add oldhost <span class="c">--host</span> ftp.oldhost.net <span class="c">--user</span> me <span class="c">--protocol</span> ftps <span class="c">--password</span> ... <span class="c">--root</span> /public_html
+
+coolftp site test coolftp.com</pre>
+        </div>
+        <div>
+          <h4>Link a project and deploy</h4>
+<pre class="code"><span class="d"># in your project folder</span>
+coolftp init coolftp.com <span class="c">--local-dir</span> dist <span class="c">--build</span> "npm run build"
+
+coolftp diff                 <span class="d"># what would go up</span>
+coolftp deploy <span class="c">-m</span> "v1"       <span class="d"># only changed files</span>
+coolftp deploy <span class="c">--delete</span>      <span class="d"># also remove stale files</span>
+coolftp deploy <span class="c">--commit</span> <span class="c">-m</span> "fix nav"  <span class="d"># git commit, then deploy</span>
+coolftp history</pre>
+          <h4 style="margin-top:16px">Wire up Claude Code</h4>
+<pre class="code">claude mcp add coolftp -- coolftp mcp
+<span class="d"># then in Claude Code:</span>  <span class="m">"deploy this"</span></pre>
+        </div>
+      </div>
+      <p class="note" style="margin-top:14px">
+        Project file (<code>.coolftp.json</code>): <code>{ "site": "coolftp.com", "localDir": "dist", "build": "npm run build", "ignore": ["*.map"] }</code>.
+        Commit it. Anyone on the team, human or agent, deploys the same way.
+      </p>
+    </section>
+
+    <section id="download">
+      <h2>Download</h2>
+      <p class="sub">Windows installer and portable build. macOS and Linux builds come from the same Electron source; run <code>npm run dist</code> to build them yourself until signed builds are published.</p>
+      <div class="cta">
+        <a class="btn primary" href="releases/coolFTP-Setup.exe">coolFTP Setup for Windows <small>x64</small></a>
+        <a class="btn" href="releases/coolFTP-portable.exe">Portable .exe</a>
+        <a class="btn" href="https://github.com/coolftp/coolftp">Source on GitHub</a>
+      </div>
+      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. Verify the SHA-256 on the releases page if that matters to you. It should.</p>
+    </section>
+
+    <section id="faq">
+      <h2>Questions a developer would ask</h2>
+      <details open><summary>Where does the manifest live and is it public?</summary><p>At <code>&lt;remote root&gt;/.coolftp/manifest.json</code>, alongside a <code>.htaccess</code> with <code>Require all denied</code>. Apache and LiteSpeed honour it. On nginx add a <code>location ~ /\.coolftp</code> deny rule, or point <code>remoteRoot</code> one level above the web root. The manifest contains file paths and hashes, never contents or credentials.</p></details>
+      <details><summary>What if the server already has files coolFTP did not upload?</summary><p>The first deploy has no manifest, so coolFTP walks the remote tree and compares sizes. Files it has never seen are treated as stale and never deleted unless you pass <code>--delete</code>. After that first deploy, hashes take over.</p></details>
+      <details><summary>How are passwords stored?</summary><p>In <code>sites.json</code> in your user profile, plain text, same as FileZilla's <code>sitemanager.xml</code>. Use SSH keys and the ssh-agent instead; then nothing secret is stored at all. The app never sends passwords to the renderer or to agents. Agents only ever see <code>hasPassword: true</code>.</p></details>
+      <details><summary>Can an agent delete my whole site?</summary><p>An agent can only do what the CLI can do, under your user account, against sites you saved. Deleting the site root is refused outright. Stale-file deletion requires an explicit flag. Every call is logged with the agent name, and the app flashes when one fails. If you want a read-only agent, give it a site whose user has read-only permissions on the server. That is the right layer for it.</p></details>
+      <details><summary>Does it need the desktop app running?</summary><p>No. The CLI and the MCP server run everything in-process when the app is closed. When the app is open they route through it, so you get the live view and share its open connection.</p></details>
+      <details><summary>Why Electron?</summary><p>Because the same TypeScript core runs the CLI, the MCP server and the app, and because ssh2 and basic-ftp are the most battle-tested SFTP and FTP libraries in any language that also ships a GUI toolkit. The bundle is bigger than a native app. The code is smaller.</p></details>
+    </section>
+
+    <footer>
+      <div>coolFTP · MIT licensed · built by a working dev for working devs</div>
+      <div><a href="https://github.com/coolftp/coolftp">GitHub</a> · <a href="https://github.com/coolftp/coolftp/issues">Issues</a> · <a href="#quickstart">Docs</a></div>
+    </footer>
+  </div>
+</body>
+</html>

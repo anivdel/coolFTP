@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "coolftp": {
+      "command": "node",
+      "args": ["packages/cli/dist/coolftp.js", "mcp"]
+    }
+  }
+}

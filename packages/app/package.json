@@ -1,0 +1,9 @@
+{
+  "name": "@coolftp/app",
+  "productName": "coolFTP",
+  "version": "0.1.0",
+  "private": true,
+  "description": "coolFTP desktop",
+  "main": "dist/main.js",
+  "author": "coolFTP"
+}

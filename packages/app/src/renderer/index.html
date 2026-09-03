@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>coolFTP</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">⚡</span>
+        <span class="brand-name">cool<b>FTP</b></span>
+        <span class="brand-ver" id="version"></span>
+      </div>
+      <div class="site-picker">
+        <select id="siteSelect" title="Site"></select>
+        <button id="connectBtn" class="btn primary" title="Connect (Ctrl+Enter)">Connect</button>
+        <button id="sitesBtn" class="btn ghost" title="Manage sites">Sites</button>
+      </div>
+      <div class="topbar-actions">
+        <button id="diffBtn" class="btn ghost" title="Preview what deploy would do">Diff</button>
+        <button id="deployBtn" class="btn accent" title="Deploy the project folder">Deploy ▲</button>
+        <div id="hubPill" class="pill" title="Local agent hub: coding agents route their commands through this app">
+          <span class="dot"></span><span id="hubText">hub off</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="panes">
+      <section class="pane" id="localPane">
+        <div class="pane-head">
+          <span class="pane-title">LOCAL</span>
+          <select id="driveSelect" class="drive"></select>
+          <button class="icon" id="localUp" title="Up">↑</button>
+          <input id="localPath" class="path" spellcheck="false" />
+          <button class="icon" id="localBrowse" title="Choose folder">📁</button>
+          <button class="icon" id="localRefresh" title="Refresh (F5)">⟳</button>
+        </div>
+        <div class="list-head">
+          <span class="col-name">Name</span><span class="col-size">Size</span><span class="col-date">Modified</span>
+        </div>
+        <div class="list" id="localList" tabindex="0"></div>
+        <div class="pane-foot">
+          <button class="btn small" id="uploadBtn" title="Upload selected to remote folder">Upload ⇒</button>
+          <button class="btn small ghost" id="localNewFolder">New folder</button>
+          <button class="btn small ghost" id="localOpen">Open in Explorer</button>
+          <span class="spacer"></span>
+          <span id="localStatus" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="pane" id="remotePane">
+        <div class="pane-head">
+          <span class="pane-title">REMOTE</span>
+          <button class="icon" id="remoteUp" title="Up">↑</button>
+          <input id="remotePath" class="path" spellcheck="false" placeholder="not connected" />
+          <button class="icon" id="remoteRoot" title="Go to site root">⌂</button>
+          <button class="icon" id="remoteRefresh" title="Refresh (F5)">⟳</button>
+        </div>
+        <div class="list-head">
+          <span class="col-name">Name</span><span class="col-size">Size</span><span class="col-date">Modified</span>
+        </div>
+        <div class="list" id="remoteList" tabindex="0">
+          <div class="empty">Pick a site and hit <b>Connect</b>.<br /><span class="muted">Drop files here to upload.</span></div>
+        </div>
+        <div class="pane-foot">
+          <button class="btn small" id="downloadBtn" title="Download selected to local folder">⇐ Download</button>
+          <button class="btn small ghost" id="remoteNewFolder">New folder</button>
+          <button class="btn small ghost" id="remoteRename">Rename</button>
+          <button class="btn small danger" id="remoteDelete">Delete</button>
+          <span class="spacer"></span>
+          <span id="remoteStatus" class="muted"></span>
+        </div>
+      </section>
+    </main>
+
+    <section class="bottom">
+      <nav class="tabs">
+        <button class="tab active" data-tab="transfers">Transfers <span class="badge" id="transferBadge"></span></button>
+        <button class="tab" data-tab="agents">Agents <span class="badge live" id="agentBadge"></span></button>
+        <button class="tab" data-tab="activity">Activity</button>
+        <button class="tab" data-tab="history">Deploys</button>
+        <span class="spacer"></span>
+        <button class="btn small ghost" id="clearBtn">Clear</button>
+      </nav>
+      <div class="tab-body" id="tab-transfers"></div>
+      <div class="tab-body hidden" id="tab-agents"></div>
+      <div class="tab-body hidden" id="tab-activity"></div>
+      <div class="tab-body hidden" id="tab-history"></div>
+    </section>
+  </div>
+
+  <!-- Site manager -->
+  <div class="modal hidden" id="sitesModal">
+    <div class="modal-card wide">
+      <div class="modal-head"><h2>Sites</h2><button class="icon close" data-close="sitesModal">✕</button></div>
+      <div class="sites-layout">
+        <div class="sites-list" id="sitesList"></div>
+        <form id="siteForm" class="site-form" autocomplete="off">
+          <label>Name <input name="name" required placeholder="my-webserver" /></label>
+          <div class="row">
+            <label class="grow">Host <input name="host" required placeholder="coolftp.com" /></label>
+            <label class="narrow">Port <input name="port" type="number" placeholder="22" /></label>
+          </div>
+          <div class="row">
+            <label class="grow">Username <input name="username" required /></label>
+            <label class="narrow">Protocol
+              <select name="protocol"><option value="sftp">SFTP</option><option value="ftps">FTPS</option><option value="ftp">FTP</option></select>
+            </label>
+          </div>
+          <label>Password <input name="password" type="password" placeholder="leave blank to use a key or the ssh agent" /></label>
+          <label>Private key
+            <span class="row"><input name="privateKeyPath" class="grow" placeholder="~/.ssh/id_ed25519 (auto)" /><button type="button" class="btn small ghost" id="pickKey">…</button></span>
+          </label>
+          <label>Remote root <input name="remoteRoot" placeholder="/public_html" /></label>
+          <label>Local project folder
+            <span class="row"><input name="localRoot" class="grow" placeholder="optional default project folder" /><button type="button" class="btn small ghost" id="pickLocalRoot">…</button></span>
+          </label>
+          <label>Ignore patterns <input name="ignore" placeholder="*.psd, src/, notes.md (comma separated)" /></label>
+          <div class="row">
+            <label class="narrow">Colour <input name="color" type="color" value="#38bdf8" /></label>
+            <span class="spacer"></span>
+            <button type="button" class="btn ghost" id="siteTest">Test connection</button>
+            <button type="button" class="btn danger ghost" id="siteDelete">Delete</button>
+            <button type="submit" class="btn primary">Save</button>
+          </div>
+          <p class="muted small">Passwords are stored in plain text in sites.json. For SFTP, key authentication is safer and works with the ssh agent.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deploy -->
+  <div class="modal hidden" id="deployModal">
+    <div class="modal-card wide">
+      <div class="modal-head"><h2 id="deployTitle">Deploy</h2><button class="icon close" data-close="deployModal">✕</button></div>
+      <div class="deploy-head">
+        <label class="grow">Project folder
+          <span class="row"><input id="deployDir" class="grow" spellcheck="false" /><button type="button" class="btn small ghost" id="deployPick">…</button></span>
+        </label>
+        <label>Site <select id="deploySite"></select></label>
+        <label>Remote root <input id="deployRemoteRoot" placeholder="site default" spellcheck="false" /></label>
+      </div>
+      <div class="deploy-head">
+        <label class="grow">Message <input id="deployMessage" placeholder="what changed (optional)" /></label>
+        <label class="check"><input type="checkbox" id="deployDelete" /> delete stale remote files</label>
+        <label class="check"><input type="checkbox" id="deployForce" /> re-upload everything</label>
+        <label class="check"><input type="checkbox" id="deployCommit" /> git commit first</label>
+      </div>
+      <div class="plan" id="planBox"><div class="empty muted">Choose a project folder and click <b>Preview</b>.</div></div>
+      <div class="row modal-foot">
+        <span id="planSummary" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="planSaveLink" title="Write .coolftp.json so the CLI and agents deploy this folder to this site">Link folder to site</button>
+        <button class="btn ghost" id="planBtn">Preview</button>
+        <button class="btn accent" id="planDeployBtn" disabled>Deploy ▲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Viewer -->
+  <div class="modal hidden" id="viewerModal">
+    <div class="modal-card wide tall">
+      <div class="modal-head"><h2 id="viewerTitle">File</h2><button class="icon close" data-close="viewerModal">✕</button></div>
+      <pre id="viewerBody" class="viewer"></pre>
+    </div>
+  </div>
+
+  <!-- Prompt -->
+  <div class="modal hidden" id="promptModal">
+    <div class="modal-card">
+      <div class="modal-head"><h2 id="promptTitle">Name</h2></div>
+      <form id="promptForm"><input id="promptInput" autocomplete="off" spellcheck="false" />
+        <div class="row modal-foot"><span class="spacer"></span><button type="button" class="btn ghost" id="promptCancel">Cancel</button><button type="submit" class="btn primary">OK</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toasts"></div>
+  <div id="ctxMenu" class="ctx hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

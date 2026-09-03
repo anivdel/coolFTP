@@ -1,0 +1,14 @@
+{
+  "name": "coolftp",
+  "version": "0.1.0",
+  "description": "coolFTP command line + MCP server for coding agents",
+  "bin": {
+    "coolftp": "dist/coolftp.js"
+  },
+  "dependencies": {
+    "@coolftp/core": "*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "commander": "^12.1.0",
+    "zod": "^3.23.8"
+  }
+}

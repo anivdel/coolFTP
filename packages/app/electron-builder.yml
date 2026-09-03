@@ -1,0 +1,34 @@
+appId: com.coolftp.app
+productName: coolFTP
+electronVersion: "31.7.7"
+directories:
+  app: packages/app
+  output: release
+  buildResources: packages/app/assets
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: packages/cli/dist
+    to: cli
+    filter: ["coolftp.js"]
+npmRebuild: false
+nodeGypRebuild: false
+asar: true
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+portable:
+  artifactName: "${productName}-portable.exe"
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+linux:
+  target: AppImage
+  category: Development
