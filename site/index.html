@@ -106,9 +106,9 @@
     pre.code .c { color: var(--cyan); }
     pre.code .m { color: var(--sky); }
     pre.code .g { color: var(--green); }
-    .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 860px; }
     .two > div { min-width: 0; }
-    .two h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 500; }
+    .two h4 { margin: 0 0 8px; font-size: 15px; color: var(--text); font-weight: 600; }
 
     details { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; background: var(--bg-2); }
     summary { cursor: pointer; font-weight: 600; }
@@ -276,7 +276,9 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
 <span class="cmd">coolftp rollback</span>
 <span class="d"># what went live, when, from which commit, by whom</span>
 <span class="cmd">coolftp history</span></pre>
-          <h4 style="margin-top:16px">Wire up Claude Code</h4>
+        </div>
+        <div>
+          <h4>Wire up Claude Code</h4>
 <pre class="code"><span class="cmd">claude mcp add coolftp -- coolftp mcp</span>
 <span class="d"># then, in Claude Code, just say: <span class="m">"deploy this"</span></span></pre>
         </div>
