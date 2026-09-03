@@ -1,8 +1,25 @@
 # coolFTP
 
-A desktop SFTP / FTPS / FTP client that coding agents can drive.
+**The FTP client your coding agent can drive.** A desktop SFTP / FTPS / FTP client for Windows, plus a CLI and an MCP server, built for people who write code with Claude Code, Codex, or Cursor and still have to get files onto a web server.
 
-You write code with Claude Code (or Cursor, Codex, whatever). The agent runs `coolftp deploy`. The desktop app shows every call and every file as it lands on your web server. Deploys upload only files whose content hash changed, and each deploy records the git commit that produced it.
+Say "deploy this". The agent calls coolFTP. Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and you watch every step live in the app. Free and MIT. Website: [coolftp.com](https://coolftp.com).
+
+![coolFTP after an agent deploy](docs/app.png)
+
+Agents ask before they delete anything:
+
+![Approval dialog](docs/approval.png)
+
+## Why
+
+Every FTP client assumes a human is clicking. coolFTP assumes a human is watching and an agent is doing.
+
+- **Hash-based deploys.** A manifest on the server records the SHA-256 of every deployed file. Timestamps lie; hashes do not.
+- **Deploy history with git.** Each deploy stores the commit, branch, dirty flag, message, byte count, and which agent ran it.
+- **One-command rollback.** `coolftp rollback` restores the previous live commit through a temporary git worktree.
+- **Verification.** Give a site its public URL and every deploy fetches the changed pages and reports the status codes.
+- **Live agent feed and approval dialog.** Deletes, `--delete` deploys, and rollbacks wait for your click while the app is open.
+- **Safety by default.** Pinned SSH host keys, passwords encrypted with your Windows account, a first-deploy guard that refuses to delete files it never uploaded, resumable deploys.
 
 ```
 packages/core   shared TypeScript library: transports, sites, hash manifest, sync, deploy
@@ -128,11 +145,11 @@ npm run dev:sftp    # sftp://demo:secret@127.0.0.1:2222, remote root /public_htm
 
 Both seed a temp folder with a few files. Add a site pointing at one, connect in the app, and deploy any folder at it.
 
-## Pro licensing
+## Free and Pro
 
-The repository is MIT except `packages/pro`, which is proprietary (see `packages/pro/LICENSE`). The build resolves `@coolftp/pro` to that package when it exists and to `packages/core/src/pro-stub.ts` otherwise, so a checkout without the Pro directory builds and runs as coolFTP Free.
+All of the code is MIT. coolFTP is free for personal projects. **coolFTP Pro** is a 49 dollar one-time license for commercial use, with priority support and a year of updates, sold at [coolftp.com](https://coolftp.com/#pro). Buying it is how the project gets funded; there is no feature wall in this repository.
 
-Keys are `CFP1.<payload>.<signature>`, Ed25519-signed, verified offline against the public key in `packages/core/src/license-pubkey.ts`. A key unlocks Pro in every build dated on or before its `updatesUntil` date (one year from purchase). Builds dated after that run as Free until the key is renewed.
+Keys are `CFP1.<payload>.<signature>`, Ed25519-signed, verified offline against the public key in `packages/core/src/license-pubkey.ts`. A key is valid for every build dated on or before its `updatesUntil` date.
 
 - `node scripts/license/keygen.cjs` creates the signing key pair once. The private half lives in `scripts/license/private/` (git-ignored). Back it up; losing it invalidates every key ever issued.
 - `node scripts/license/issue.cjs --email x@y.z` issues a key by hand.

@@ -960,7 +960,7 @@ async function main() {
       ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, updates until ${esc(s.license.updatesUntil)}, up to ${s.license.seats} machines. This build: ${esc(s.buildDate)}.`
       : s.installed && s.valid
         ? `<b style="color:var(--yellow)">Updates ended.</b> ${esc(s.reason ?? "")}`
-        : `<b>coolFTP Free.</b> ${esc(s.reason ?? "")} Pro adds environments, deploy notifications, and protected sites.`;
+        : `<b>coolFTP Free</b>, for personal projects. Using it for client or commercial work? A Pro license is $49 once, per person, and funds the project. Paste your key below.`;
     ($("proBuy") as HTMLAnchorElement).onclick = (e) => {
       e.preventDefault();
       window.coolftp.shell.external(s.buyUrl);

@@ -1,8 +1,0 @@
-{
-  "name": "@coolftp/pro",
-  "version": "0.1.0",
-  "private": true,
-  "license": "SEE LICENSE IN LICENSE",
-  "description": "coolFTP Pro features. Not open source; see LICENSE.",
-  "main": "src/index.ts"
-}
