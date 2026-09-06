@@ -65,6 +65,21 @@ export class ConnectionPool {
     slot.idle.unref?.();
   }
 
+  /**
+   * Reset the idle timer for whichever site owns this transport. Long commands
+   * (a deploy of thousands of files) hold one transport for minutes, so they
+   * call this per file; otherwise the timer armed by acquire() fires mid-task
+   * and the transfer dies with "User closed client during task".
+   */
+  touchTransport(t: Transport): void {
+    for (const [key, slot] of this.slots) {
+      if (slot.transport === t) {
+        this.touch(key);
+        return;
+      }
+    }
+  }
+
   status(): Array<{ site: string; connected: boolean; protocol: string }> {
     return [...this.slots.values()].map((s) => ({
       site: s.site.name,

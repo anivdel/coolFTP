@@ -208,11 +208,13 @@ export class CoolFtp {
       if (now - lastEmit > 100) {
         lastEmit = now;
         events.emit({ type: "transfer", transfer: { ...tr } });
+        this.pool.touchTransport(t);
       }
     };
     try {
       for (let attempt = 1; ; attempt++) {
         try {
+          this.pool.touchTransport(t);
           if (direction === "upload") await t.upload(local, remote, onProgress);
           else await t.download(remote, local, onProgress);
           break;
