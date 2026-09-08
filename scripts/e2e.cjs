@@ -51,7 +51,7 @@ async function suite(label, { protocol, port, serverRoot, tmp, afterDeploys }) {
   const env = { ...process.env, ...GIT_ENV, COOLFTP_HOME: HOME, NO_COLOR: "1", COOLFTP_AGENT: "e2e" };
   const cli = (args, opts = {}) =>
     new Promise((resolve, reject) => {
-      execFile("node", [CLI, "--direct", ...args], { cwd: opts.cwd || PROJECT, env, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      execFile("node", [CLI, "--direct", ...args], { cwd: opts.cwd || PROJECT, env: { ...env, ...(opts.env || {}) }, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
         if (err) reject(Object.assign(err, { stdout, stderr }));
         else resolve(stdout);
       });
@@ -161,6 +161,31 @@ async function suite(label, { protocol, port, serverRoot, tmp, afterDeploys }) {
 
     const hist = await cliJson(["history"]);
     check("history has 5 deploys", hist.length === 5 && hist[0].agent === "e2e", JSON.stringify(hist.map((h) => h.message)));
+
+    // A project that deploys into a sub-directory of the site root, served at its own URL.
+    // Browsing commands must follow that directory, and URLs must not include the FTP path.
+    await cliJson(["init", "demo", "--remote-root", "/public_html/app", "--url", "https://example.test/app/"]);
+    const linked = JSON.parse(fs.readFileSync(path.join(PROJECT, ".coolftp.json"), "utf8"));
+    check("init stores remoteRoot and url", linked.remoteRoot === "/public_html/app" && linked.url === "https://example.test/app", JSON.stringify(linked));
+    const dryApp = await cliJson(["deploy", "--dry-run"]);
+    check("dry run urls use the project url", dryApp.urls.length > 0 && dryApp.urls.every((u) => u === "https://example.test/app" || u.startsWith("https://example.test/app/")) && !dryApp.urls.some((u) => u.includes("public_html")), JSON.stringify(dryApp.urls));
+    await cliJson(["push", path.join(tmp, "extra.txt"), "js/extra.txt"]);
+    check("push lands under the project remoteRoot", fs.existsSync(remote("app", "js", "extra.txt")) && !fs.existsSync(remote("js", "extra.txt")));
+    const lsApp = await cliJson(["ls"]);
+    check("ls defaults to the project remoteRoot", lsApp.path === "/public_html/app" && lsApp.entries.some((e) => e.name === "js"), JSON.stringify(lsApp));
+    const lsAbs = await cliJson(["ls", "/public_html"]);
+    check("absolute paths still reach the site root", lsAbs.path === "/public_html" && lsAbs.entries.some((e) => e.name === "app"), JSON.stringify(lsAbs.path));
+    const catApp = await cliJson(["cat", "js/extra.txt"]);
+    check("cat follows the project remoteRoot", catApp.content === "extra");
+    await cliJson(["mv", "js/extra.txt", "js/moved.txt"]);
+    check("mv follows the project remoteRoot", fs.existsSync(remote("app", "js", "moved.txt")));
+    await cliJson(["rm", "js"]);
+    check("rm follows the project remoteRoot", !fs.existsSync(remote("app", "js")));
+    const winPath = await cliFails(["ls", "D:/Program Files/Git/public_html"]);
+    check("a Windows path is refused as a remote path", winPath !== null && /looks like a Windows path/.test(winPath), winPath);
+    const unmangled = await cliJson(["ls", "C:/Program Files/Git/public_html"], { env: { EXEPATH: "C:\\Program Files\\Git" } });
+    check("Git Bash path mangling is undone", unmangled.path === "/public_html", unmangled.path);
+    await cliJson(["init", "demo"]);
 
     if (afterDeploys) await afterDeploys(ctx);
 

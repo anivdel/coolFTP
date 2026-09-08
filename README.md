@@ -83,6 +83,16 @@ coolftp history
 
 Commit it. Add a `.coolftpignore` (gitignore syntax) for anything that must never go up. `.git`, `node_modules`, `.env*`, `*.log` and the coolFTP files are always excluded.
 
+When a site's FTP root is not the web root (shared hosts often log you in one level above `public_html`), point the project at the right folder and tell coolFTP where it is served:
+
+```bash
+coolftp init myhost --remote-root /public_html --url https://example.com
+```
+
+Every command then works relative to that folder: `coolftp push js/app.js js/app.js`, `coolftp ls`, `coolftp cat`, `coolftp rm` all resolve against `/public_html`, the same place `deploy` writes to. Paths starting with `/` are still absolute on the server. The `url` makes the changed-file URLs and the post-deploy check point at `https://example.com/js/app.js` rather than at the FTP path.
+
+Git Bash rewrites arguments that start with `/` into Windows paths before any program sees them. coolFTP undoes that when it recognises the Git install prefix and refuses anything else that looks like a drive path, so `coolftp ls /public_html` works from Git Bash too. If you hit the refusal, use a relative path or set `MSYS_NO_PATHCONV=1`.
+
 ## Let Claude Code drive it
 
 MCP (recommended, gives Claude typed tools):
@@ -104,14 +114,14 @@ Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`
 - **Approval dialog.** While the desktop app is open, an agent call that deletes a path, deploys with `--delete`, or rolls back pops a dialog in the app and waits for your click. No answer within two minutes is a deny. There is a checkbox to auto-approve for the rest of the session.
 - **First-deploy delete guard.** Before a manifest exists on the server, `--delete` is refused if the target folder contains files coolFTP never uploaded. Pass `--delete-untracked` to override.
 - **Rollback.** `coolftp rollback` restores the previous commit that was live for the project, using a temporary git worktree so your working tree is untouched. `--to <commit|deployId>` targets any point in history. The Deploys tab in the app has the same buttons.
-- **Verification.** Give a site a public `--url` and every deploy prints the URLs of changed files, then fetches the homepage and up to four of them and reports the status codes. MCP results carry the same data so an agent can confirm the site is live.
+- **Verification.** Give a site a public `--url` (or a project one with `coolftp init --url`) and every deploy prints the URLs of changed files, then fetches the homepage and up to four of them and reports the status codes. MCP results carry the same data so an agent can confirm the site is live.
 - **Host key pinning.** SFTP host keys are recorded on first use in `known_hosts.json` and a changed key is refused with a loud error. `coolftp site trust <name>` forgets the recorded key after a legitimate server rebuild; `coolftp site keys` lists them.
 - **Encrypted passwords.** On Windows, passwords and key passphrases in `sites.json` are encrypted with DPAPI under your user account. The CLI and the app share the store.
 - **Resumable deploys.** Transfers retry up to three times. If a deploy still fails partway, files that landed are written to the manifest so the next run does not repeat them.
 
 Any agent with a shell can simply run `coolftp deploy` inside a linked project. The CLI detects Claude Code, Cursor, Codex, Gemini CLI and Aider from their environment and labels the call accordingly; pass `--agent <name>` to override.
 
-This repo also ships a `/deploy` skill for Claude Code in `.claude/skills/deploy`.
+This repo also ships a `/deploy` skill for Claude Code in `.claude/skills/deploy`. Copy that folder to `~/.claude/skills/deploy` and register the MCP server with `claude mcp add --scope user` so every project on the machine gets it, not only this checkout.
 
 ## How agent calls reach the app
 

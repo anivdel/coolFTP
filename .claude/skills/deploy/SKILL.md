@@ -11,7 +11,7 @@ Locate the CLI: if a global `coolftp` exists use it, otherwise use `node "<repo>
 
 ## Steps
 
-1. Check the project is linked: `coolftp status`. If there is no `.coolftp.json`, ask the user which site to use (list them with `coolftp site list`) and run `coolftp init <site>` with `--local-dir` if the deployable output is a build folder such as `dist`.
+1. Check the project is linked: `coolftp status`. If there is no `.coolftp.json`, ask the user which site to use (list them with `coolftp site list`) and run `coolftp init <site>` with `--local-dir` if the deployable output is a build folder such as `dist`. If the site's FTP root is not the web root (for example the login lands one level above `public_html`), pass `--remote-root /public_html` and `--url https://the-domain.com` so verification checks the real URLs.
 2. Preview first: `coolftp diff`. Summarise the plan in one line (new, changed, stale, bytes). If the plan is unexpectedly large or includes files that look private, stop and ask.
 3. Deploy: `coolftp deploy -m "<one line describing the change>"`. Add `--commit` when the user asked to commit as part of deploying. Never pass `--delete` unless the user explicitly asked for stale remote files to be removed.
 4. Report the result line coolFTP prints (counts, duration, commit). If the site has a public URL configured, coolFTP also prints the changed URLs and the verification checks; report whether verification passed. If it failed, say which URL answered what, and do not claim the deploy is live.
@@ -23,6 +23,12 @@ When the user says "roll back", "undo the deploy", or "put it back how it was": 
 ## Approval
 
 While the coolFTP desktop app is open, deletes, `--delete` deploys, and rollbacks wait for the user to click Allow in the app. If a call comes back "Denied in the coolFTP app", stop and ask; do not retry or route around it with `--direct`.
+
+## Single files and browsing
+
+For one file, `coolftp push <local> <remote>` (or `coolftp_upload`). Relative remote paths, and the paths for `ls`, `cat`, `pull`, `rm`, `mkdir` and `mv`, resolve against the project's remote directory from `.coolftp.json`, the same place `deploy` writes to. So inside a project linked with `--remote-root /public_html`, `coolftp push js/app.js js/app.js` lands at `/public_html/js/app.js`. Only paths starting with `/` are absolute on the server.
+
+Deleting remote files goes through `coolftp_delete` (or `coolftp rm`); the app asks the user to approve it. Do not work around a denied delete.
 
 ## Notes
 

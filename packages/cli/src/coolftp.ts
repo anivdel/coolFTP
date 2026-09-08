@@ -5,6 +5,8 @@ import {
   formatBytes,
   findProjectFile,
   readJson,
+  cleanRemotePath,
+  projectRemotePath,
   defaultPrivateKey,
   type CoolEvent,
   type EventMeta,
@@ -125,6 +127,15 @@ async function resolveSite(runner: Runner, explicit?: string): Promise<string> {
   throw new Error(`Several sites exist (${sites.map((s) => s.name).join(", ")}). Pass --site <name> or run coolftp init <site>.`);
 }
 
+/**
+ * Site plus the remote path a browsing command acts on. Relative paths follow the project's
+ * remoteRoot from .coolftp.json, the same directory deploy writes to.
+ */
+async function resolveTarget(runner: Runner, explicit: string | undefined, p: string | undefined): Promise<{ site: string; path: string | undefined }> {
+  const site = await resolveSite(runner, explicit);
+  return { site, path: projectRemotePath(process.cwd(), site, cleanRemotePath(p)) };
+}
+
 // ---------------- site ----------------
 
 const site = program.command("site").description("manage saved servers");
@@ -154,7 +165,7 @@ site
         password: o.password,
         privateKeyPath: o.key,
         passphrase: o.passphrase,
-        remoteRoot: o.root,
+        remoteRoot: cleanRemotePath(o.root),
         localRoot: o.local,
         color: o.color,
         url: o.url,
@@ -241,13 +252,15 @@ program
   .command("init <site>")
   .description("link the current directory to a site (writes .coolftp.json)")
   .option("-r, --remote-root <path>", "remote directory for this project (defaults to the site root)")
+  .option("-u, --url <url>", "public URL that directory is served at, e.g. https://example.com (enables post-deploy checks)")
   .option("-d, --local-dir <dir>", "sub-directory to deploy, e.g. dist")
   .option("-b, --build <command>", "command to run before each deploy, e.g. \"npm run build\"")
   .option("-i, --ignore <patterns...>", "extra gitignore-style patterns")
   .action((siteName: string, o) =>
     withRunner(async (r, g) => {
       const config: ProjectConfig = { site: siteName };
-      if (o.remoteRoot) config.remoteRoot = o.remoteRoot;
+      if (o.remoteRoot) config.remoteRoot = cleanRemotePath(o.remoteRoot);
+      if (o.url) config.url = String(o.url).replace(/\/+$/, "");
       if (o.localDir) config.localDir = o.localDir;
       if (o.build) config.build = o.build;
       if (o.ignore?.length) config.ignore = o.ignore;
@@ -268,7 +281,7 @@ program
       const info = { project: file, config: cfg, app: r.mode === "hub" ? { running: true, port: r.hubPort, pid: hub?.pid } : { running: false }, agent: g.agent };
       if (!g.json) {
         process.stdout.write(`${c.bold("project")}  ${file ?? c.dim("no .coolftp.json (run coolftp init <site>)")}\n`);
-        if (cfg) process.stdout.write(`${c.bold("site")}     ${cfg.site}${cfg.remoteRoot ? ` → ${cfg.remoteRoot}` : ""}${cfg.localDir ? c.dim(`  (deploys ${cfg.localDir}/)`) : ""}\n`);
+        if (cfg) process.stdout.write(`${c.bold("site")}     ${cfg.site}${cfg.remoteRoot ? ` → ${cfg.remoteRoot}` : ""}${cfg.url ? c.dim(`  ${cfg.url}`) : ""}${cfg.localDir ? c.dim(`  (deploys ${cfg.localDir}/)`) : ""}\n`);
         process.stdout.write(`${c.bold("app")}      ${r.mode === "hub" ? c.green(`running on port ${r.hubPort}`) : c.dim("not running (commands run directly)")}\n`);
         process.stdout.write(`${c.bold("agent")}    ${g.agent}\n`);
         process.stdout.write(`${c.bold("config")}   ${configDir()}${r.mode === "hub" ? c.dim("  (sites come from the app while it is open)") : ""}\n`);
@@ -281,13 +294,13 @@ program
 
 program
   .command("ls [path]")
-  .description("list a remote directory (relative to the site root)")
+  .description("list a remote directory (relative to the project's remote directory, or the site root)")
   .option("-s, --site <name>")
   .option("-l, --long", "show sizes and dates")
   .action((p: string | undefined, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      const res = await r.run<{ path: string; entries: RemoteEntry[] }>("ls", { site: s, path: p }, printer(g));
+      const { site: s, path: rp } = await resolveTarget(r, o.site, p);
+      const res = await r.run<{ path: string; entries: RemoteEntry[] }>("ls", { site: s, path: rp }, printer(g));
       if (!g.json) {
         process.stdout.write(c.dim(`${s}:${res.path}\n`));
         for (const e of res.entries) {
@@ -306,8 +319,8 @@ program
   .option("-s, --site <name>")
   .action((p: string, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      const res = await r.run<{ content: string; truncated: boolean }>("read", { site: s, path: p });
+      const { site: s, path: rp } = await resolveTarget(r, o.site, p);
+      const res = await r.run<{ content: string; truncated: boolean }>("read", { site: s, path: rp });
       if (!g.json) {
         process.stdout.write(res.content);
         if (res.truncated) process.stderr.write(c.yellow("\n! output truncated\n"));
@@ -318,12 +331,12 @@ program
 
 program
   .command("push <local> [remote]")
-  .description("upload a file or directory (remote defaults to the site root)")
+  .description("upload a file or directory (remote defaults to the project's remote directory, or the site root)")
   .option("-s, --site <name>")
   .action((local: string, remote: string | undefined, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      return r.run("upload", { site: s, local: path.resolve(local), remote: remote ?? "" }, printer(g));
+      const { site: s, path: rp } = await resolveTarget(r, o.site, remote);
+      return r.run("upload", { site: s, local: path.resolve(local), remote: rp ?? "" }, printer(g));
     }),
   );
 
@@ -333,8 +346,8 @@ program
   .option("-s, --site <name>")
   .action((remote: string, local: string | undefined, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      return r.run("download", { site: s, remote, local: path.resolve(local ?? ".") }, printer(g));
+      const { site: s, path: rp } = await resolveTarget(r, o.site, remote);
+      return r.run("download", { site: s, remote: rp, local: path.resolve(local ?? ".") }, printer(g));
     }),
   );
 
@@ -344,8 +357,8 @@ program
   .option("-s, --site <name>")
   .action((p: string, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      return r.run("remove", { site: s, path: p }, printer(g));
+      const { site: s, path: rp } = await resolveTarget(r, o.site, p);
+      return r.run("remove", { site: s, path: rp }, printer(g));
     }),
   );
 
@@ -355,8 +368,8 @@ program
   .option("-s, --site <name>")
   .action((p: string, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      return r.run("mkdir", { site: s, path: p }, printer(g));
+      const { site: s, path: rp } = await resolveTarget(r, o.site, p);
+      return r.run("mkdir", { site: s, path: rp }, printer(g));
     }),
   );
 
@@ -366,8 +379,9 @@ program
   .option("-s, --site <name>")
   .action((from: string, to: string, o) =>
     withRunner(async (r, g) => {
-      const s = await resolveSite(r, o.site);
-      return r.run("rename", { site: s, from, to }, printer(g));
+      const { site: s, path: rf } = await resolveTarget(r, o.site, from);
+      const rt = projectRemotePath(process.cwd(), s, cleanRemotePath(to));
+      return r.run("rename", { site: s, from: rf, to: rt }, printer(g));
     }),
   );
 

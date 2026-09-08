@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { findProjectFile, readJson, formatBytes, type CoolEvent, type ProjectConfig } from "@coolftp/core";
+import { findProjectFile, readJson, formatBytes, projectRemotePath, type CoolEvent, type ProjectConfig } from "@coolftp/core";
 import type { Runner } from "./runner.js";
 
 /**
@@ -45,6 +45,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   const siteArg = z.string().optional().describe("Site name. Defaults to the site in the nearest .coolftp.json, or the only saved site.");
   const cwdArg = z.string().optional().describe("Project directory. Defaults to the MCP server working directory.");
+  const pathNote = "Relative paths are relative to the project's remote directory from .coolftp.json (the same place deploy writes to), or the site root when the project has none. Paths starting with / are absolute on the server.";
+  /** Site and remote path for a browsing tool, honouring the project's remoteRoot. */
+  const target = async (cwd: string | undefined, site: string | undefined, p: string | undefined) => {
+    const s = await siteFor(site, cwd);
+    return { site: s, path: projectRemotePath(cwd || process.cwd(), s, p) };
+  };
 
   server.tool(
     "coolftp_sites",
@@ -83,14 +89,16 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
       cwd: cwdArg,
       site: z.string().describe("Site name to deploy this project to"),
       remoteRoot: z.string().optional().describe("Remote directory for this project, if different from the site root"),
+      url: z.string().optional().describe("Public URL that remote directory is served at, e.g. https://example.com. Enables post-deploy verification with correct URLs."),
       localDir: z.string().optional().describe("Sub-directory to deploy, e.g. \"dist\""),
       build: z.string().optional().describe("Command to run before each deploy, e.g. \"npm run build\""),
       ignore: z.array(z.string()).optional().describe("Extra gitignore-style patterns"),
     },
-    async ({ cwd, site, remoteRoot, localDir, build, ignore }) => {
+    async ({ cwd, site, remoteRoot, url, localDir, build, ignore }) => {
       try {
         const config: ProjectConfig = { site };
         if (remoteRoot) config.remoteRoot = remoteRoot;
+        if (url) config.url = url.replace(/\/+$/, "");
         if (localDir) config.localDir = localDir;
         if (build) config.build = build;
         if (ignore?.length) config.ignore = ignore;
@@ -178,12 +186,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_ls",
-    "List a remote directory. Paths are relative to the site root unless they start with /.",
-    { site: siteArg, path: z.string().optional().describe("Remote directory; defaults to the site root") },
-    async ({ site, path }) => {
+    `List a remote directory. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, path: z.string().optional().describe("Remote directory; defaults to the project's remote directory") },
+    async ({ cwd, site, path }) => {
       try {
-        const s = await siteFor(site);
-        const { result } = await call("ls", { site: s, path });
+        const { site: s, path: rp } = await target(cwd, site, path);
+        const { result } = await call("ls", { site: s, path: rp });
         const r = result as { path: string; entries: Array<{ name: string; type: string; size: number; mtime: number }> };
         const lines = r.entries.map((e) => `${e.type === "dir" ? "d" : e.type === "link" ? "l" : "-"} ${String(e.size).padStart(10)}  ${e.mtime ? new Date(e.mtime).toISOString().slice(0, 16) : "                "}  ${e.name}${e.type === "dir" ? "/" : ""}`);
         return text(`${s}:${r.path}\n${lines.join("\n") || "(empty)"}`);
@@ -195,12 +203,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_read",
-    "Read a text file from the server (up to 512 KB).",
-    { site: siteArg, path: z.string() },
-    async ({ site, path }) => {
+    `Read a text file from the server (up to 512 KB). ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, path: z.string() },
+    async ({ cwd, site, path }) => {
       try {
-        const s = await siteFor(site);
-        const { result } = await call("read", { site: s, path });
+        const { site: s, path: rp } = await target(cwd, site, path);
+        const { result } = await call("read", { site: s, path: rp });
         const r = result as { path: string; content: string; truncated: boolean };
         return text(`${r.path}${r.truncated ? " (truncated)" : ""}\n\n${r.content}`);
       } catch (e) {
@@ -211,12 +219,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_write",
-    "Write text content to a file on the server, creating parent directories.",
-    { site: siteArg, path: z.string(), content: z.string() },
-    async ({ site, path, content }) => {
+    `Write text content to a file on the server, creating parent directories. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, path: z.string(), content: z.string() },
+    async ({ cwd, site, path, content }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("write", { site: s, path, content });
+        const { site: s, path: rp } = await target(cwd, site, path);
+        const { result, log } = await call("write", { site: s, path: rp, content });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -226,12 +234,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_upload",
-    "Upload a local file or directory to a remote path.",
-    { site: siteArg, local: z.string().describe("Absolute or cwd-relative local path"), remote: z.string().optional().describe("Remote path; defaults to the site root") },
-    async ({ site, local, remote }) => {
+    `Upload a local file or directory to a remote path. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, local: z.string().describe("Absolute or cwd-relative local path"), remote: z.string().optional().describe("Remote path; defaults to the project's remote directory") },
+    async ({ cwd, site, local, remote }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("upload", { site: s, local, remote: remote ?? "" });
+        const { site: s, path: rp } = await target(cwd, site, remote);
+        const { result, log } = await call("upload", { site: s, local, remote: rp ?? "" });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -241,12 +249,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_download",
-    "Download a remote file or directory to a local path.",
-    { site: siteArg, remote: z.string(), local: z.string().describe("Local destination; defaults to the current directory") },
-    async ({ site, remote, local }) => {
+    `Download a remote file or directory to a local path. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, remote: z.string(), local: z.string().describe("Local destination; defaults to the current directory") },
+    async ({ cwd, site, remote, local }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("download", { site: s, remote, local: local || "." });
+        const { site: s, path: rp } = await target(cwd, site, remote);
+        const { result, log } = await call("download", { site: s, remote: rp, local: local || "." });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -256,12 +264,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_mkdir",
-    "Create a remote directory (and parents).",
-    { site: siteArg, path: z.string() },
-    async ({ site, path }) => {
+    `Create a remote directory (and parents). ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, path: z.string() },
+    async ({ cwd, site, path }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("mkdir", { site: s, path });
+        const { site: s, path: rp } = await target(cwd, site, path);
+        const { result, log } = await call("mkdir", { site: s, path: rp });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -271,12 +279,12 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_delete",
-    "Delete a remote file or directory. Refuses to delete the site root.",
-    { site: siteArg, path: z.string() },
-    async ({ site, path }) => {
+    `Delete a remote file or directory. Refuses to delete the site root. The coolFTP app asks the user to approve when it is open. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, path: z.string() },
+    async ({ cwd, site, path }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("remove", { site: s, path });
+        const { site: s, path: rp } = await target(cwd, site, path);
+        const { result, log } = await call("remove", { site: s, path: rp });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -286,12 +294,13 @@ export async function startMcpServer(runner: Runner, version: string): Promise<v
 
   server.tool(
     "coolftp_rename",
-    "Rename or move a remote path.",
-    { site: siteArg, from: z.string(), to: z.string() },
-    async ({ site, from, to }) => {
+    `Rename or move a remote path. ${pathNote}`,
+    { cwd: cwdArg, site: siteArg, from: z.string(), to: z.string() },
+    async ({ cwd, site, from, to }) => {
       try {
-        const s = await siteFor(site);
-        const { result, log } = await call("rename", { site: s, from, to });
+        const { site: s, path: rf } = await target(cwd, site, from);
+        const rt = projectRemotePath(cwd || process.cwd(), s, to);
+        const { result, log } = await call("rename", { site: s, from: rf, to: rt });
         return text(result, log);
       } catch (e) {
         return fail(e);

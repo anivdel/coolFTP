@@ -457,7 +457,7 @@ export class CoolFtp {
     const total = plan.add.length + plan.change.length + (opts.delete ? plan.delete.length : 0);
     if (opts.dryRun) {
       events.log(`Dry run: ${plan.add.length} to add, ${plan.change.length} to change, ${plan.delete.length} ${opts.delete ? "to delete" : "stale (use --delete)"}.`);
-      return { dryRun: true, plan, remoteRoot, site: site.name, urls: this.publicUrls(site, remoteRoot, [...plan.add, ...plan.change]) };
+      return { dryRun: true, plan, remoteRoot, site: site.name, urls: this.publicUrls(site, project, remoteRoot, [...plan.add, ...plan.change]) };
     }
 
     const t = await this.pool.acquire(site, events);
@@ -529,17 +529,23 @@ export class CoolFtp {
       `Deployed to ${site.name} in ${(record.durationMs / 1000).toFixed(1)}s: +${record.added} ~${record.changed} -${record.deleted}${record.git ? ` (${record.git.short} on ${record.git.branch}${record.git.dirty ? ", dirty" : ""})` : ""}`,
       "success",
     );
-    const urls = this.publicUrls(site, remoteRoot, [...uploads, ...(opts.delete ? [] : [])]);
-    const verify = site.url && total > 0 ? await this.verify(site, urls, events) : undefined;
+    const urls = this.publicUrls(site, project, remoteRoot, [...uploads, ...(opts.delete ? [] : [])]);
+    const publicBase = project.config.url || site.url;
+    const verify = publicBase && total > 0 ? await this.verify(publicBase, urls, events) : undefined;
     return { dryRun: false, plan, record, remoteRoot, site: site.name, urls, verify };
   }
 
-  /** Public URLs for deployed files, when the site declares where remoteRoot is served. */
-  private publicUrls(site: Site, remoteRoot: string, rels: string[]): string[] {
-    if (!site.url) return [];
-    const base = site.url.replace(/\/+$/, "");
+  /**
+   * Public URLs for deployed files. A project url in .coolftp.json says where this project's
+   * remote directory is served; otherwise the site url covers the site root, and a project
+   * deploying into a sub-directory of it gets that sub-path appended.
+   */
+  private publicUrls(site: Site, project: ResolvedProject, remoteRoot: string, rels: string[]): string[] {
+    const configured = project.config.url || site.url;
+    if (!configured) return [];
+    const base = configured.replace(/\/+$/, "");
     let prefix = "";
-    if (remoteRoot !== site.remoteRoot && remoteRoot.startsWith(site.remoteRoot.replace(/\/+$/, "") + "/")) {
+    if (!project.config.url && remoteRoot !== site.remoteRoot && remoteRoot.startsWith(site.remoteRoot.replace(/\/+$/, "") + "/")) {
       prefix = remoteRoot.slice(site.remoteRoot.replace(/\/+$/, "").length);
     }
     return rels
@@ -548,8 +554,8 @@ export class CoolFtp {
   }
 
   /** GET the homepage and a few changed URLs so an agent can confirm the deploy is actually live. */
-  private async verify(site: Site, urls: string[], events: Events): Promise<VerifyResult> {
-    const home = site.url!.replace(/\/+$/, "") + "/";
+  private async verify(publicBase: string, urls: string[], events: Events): Promise<VerifyResult> {
+    const home = publicBase.replace(/\/+$/, "") + "/";
     // Server-side scripts and config files are not pages: a 403 or 405 there is usually the intended answer.
     const isPage = (u: string) => !/\.(php|phtml|cgi|pl|py|rb|asp|aspx|jsp|env|ini|htaccess|json)$/i.test(u) && !/\/(api|cgi-bin|includes?|config)\//i.test(u);
     const targets = [home, ...urls.filter((u) => u !== home && u + "/" !== home && isPage(u)).slice(0, 4)];

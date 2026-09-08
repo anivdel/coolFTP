@@ -1,6 +1,6 @@
 {
   "name": "coolftp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "coolFTP command line + MCP server for coding agents",
   "bin": {
     "coolftp": "dist/coolftp.js"

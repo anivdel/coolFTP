@@ -25,6 +25,8 @@ export interface ProjectConfig {
   site: string;
   /** Overrides the site remoteRoot for this project. */
   remoteRoot?: string;
+  /** Public URL this project's remote directory is served at. Overrides the site url for changed-file URLs and verification. */
+  url?: string;
   /** Sub-directory of the project to deploy (e.g. "dist"). Defaults to project root. */
   localDir?: string;
   ignore?: string[];
