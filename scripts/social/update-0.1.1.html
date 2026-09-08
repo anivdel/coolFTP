@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP 0.1.1 social</title>
+<style>
+  :root { --bg:#0b0f17; --bg2:#101623; --line:#2a3850; --text:#e6edf7; --muted:#8b98b1; --cyan:#38bdf8; --sky:#93c5fd; --blue:#2563eb; --green:#34d399;
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace; --sans:"Segoe UI Variable","Segoe UI",system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+  .board { position:relative; overflow:hidden; background:
+    radial-gradient(900px 520px at 12% -10%, rgba(37,99,235,.42), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(56,189,248,.2), transparent 55%), var(--bg); }
+  .grad { background:linear-gradient(90deg,#7dd3fc,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .logo { display:flex; align-items:center; gap:14px; font-weight:700; }
+  .ver { display:inline-flex; align-items:center; gap:8px; border:1px solid rgba(56,189,248,.45); background:rgba(56,189,248,.12); border-radius:999px; padding:6px 14px; font-family:var(--mono); color:var(--cyan); font-weight:600; }
+  .tag { font-family:var(--mono); color:var(--cyan); letter-spacing:.5px; text-transform:uppercase; }
+  ul { list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+  li { display:flex; gap:12px; align-items:flex-start; color:var(--text); line-height:1.35; }
+  li b { color:var(--sky); font-weight:600; }
+  li::before { content:"✔"; color:var(--green); font-family:var(--mono); flex:none; margin-top:1px; }
+  .term { background:#070a10; border:1px solid var(--line); border-radius:14px; font-family:var(--mono); box-shadow:0 30px 60px rgba(0,0,0,.55); overflow:hidden; }
+  .term .bar { display:flex; gap:7px; padding:12px 14px; background:var(--bg2); border-bottom:1px solid #1f2a3d; }
+  .term .bar i { width:11px; height:11px; border-radius:50%; display:block; }
+  .term .bar i:nth-child(1){background:#fb7185}.term .bar i:nth-child(2){background:#fbbf24}.term .bar i:nth-child(3){background:#34d399}
+  .term pre { margin:0; padding:16px 20px; white-space:pre-wrap; line-height:1.55; }
+  .p{color:var(--muted)} .c{color:var(--cyan)} .m{color:var(--sky)} .g{color:var(--green)} .d{color:#5b6b86}
+
+  /* 1200 x 630 */
+  #og { width:1200px; height:630px; padding:48px 64px 44px; display:grid; grid-template-columns:1.1fr 1fr; gap:40px; align-items:center; }
+  #og .logo { font-size:30px; }
+  #og .logo img { width:50px; height:50px; }
+  #og .logo .ver { margin-left:10px; font-size:17px; }
+  #og .tag { font-size:16px; margin:26px 0 8px; }
+  #og h1 { font-size:46px; line-height:1.08; margin:0 0 10px; letter-spacing:-1px; }
+  #og .what { font-size:19px; color:var(--muted); margin:0 0 20px; line-height:1.4; max-width:540px; }
+  #og ul { font-size:18px; }
+  #og .term { font-size:15px; }
+  #og .url { position:absolute; right:64px; bottom:36px; font-family:var(--mono); font-size:21px; color:var(--cyan); }
+  #og .url span { color:var(--muted); font-size:15px; font-family:var(--sans); margin-right:14px; }
+
+  /* 1080 x 1080 */
+  #sq { width:1080px; height:1080px; padding:60px 72px 56px; display:flex; flex-direction:column; }
+  #sq .logo { font-size:38px; }
+  #sq .logo img { width:66px; height:66px; }
+  #sq .logo .ver { margin-left:14px; font-size:21px; }
+  #sq .tag { font-size:18px; margin:26px 0 8px; }
+  #sq h1 { font-size:54px; line-height:1.06; margin:0 0 12px; letter-spacing:-1.2px; }
+  #sq .what { font-size:23px; color:var(--muted); margin:0 0 20px; line-height:1.38; }
+  #sq ul { font-size:22px; gap:11px; margin-bottom:26px; }
+  #sq .term { font-size:18px; }
+  #sq .url { margin-top:auto; padding-top:22px; display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:28px; color:var(--cyan); }
+  #sq .url span { color:var(--muted); font-size:20px; font-family:var(--sans); }
+</style>
+</head>
+<body>
+<div class="board" id="og" data-file="social-0.1.1-1200x630.png">
+  <div>
+    <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span><span class="ver">v0.1.1</span></div>
+    <div class="tag">Update</div>
+    <h1>The FTP client your <span class="grad">coding agent</span> can drive, now steadier on big sites.</h1>
+    <p class="what">Say "deploy this" in Claude Code, Codex or Cursor. Only changed files go up, the commit is recorded, the site is verified, and you watch it live in a desktop app.</p>
+    <ul>
+      <li><span><b>Single-file pushes</b> land in your project's web root, not next to it</span></li>
+      <li><span><b>Post-deploy checks</b> hit the real public URLs</span></li>
+      <li><span><b>Dropped connections</b> reconnect instead of re-uploading the whole site</span></li>
+      <li><span><b>Git Bash</b> paths stop turning into C:\Program Files</span></li>
+    </ul>
+  </div>
+  <div class="term"><div class="bar"><i></i><i></i><i></i></div><pre><span class="p">›</span> push the fixed card art
+
+<span class="d">⏺</span> <span class="m">coolftp_upload</span>(local: "cards/063.webp")
+  <span class="c">↑</span> /public_html/cards/063.webp <span class="d">34 KB</span>
+
+<span class="p">›</span> deploy this
+
+<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "card fixes")
+  <span class="d">·</span> Scanning 15,319 files
+  <span class="c">↑</span> js/binder.js <span class="d">28 KB</span>
+  <span class="d">·</span> 15,170 unchanged, skipped
+  <span class="g">✔</span> Deployed in 4.5s <span class="d">(ab98a15)</span>
+  <span class="g">✔</span> 200 https://playreelcollectibles.com/
+  <span class="g">✔</span> live: site answered on every check</pre></div>
+  <div class="url"><span>free · open source · Windows</span>coolftp.com</div>
+</div>
+
+<div class="board" id="sq" data-file="social-0.1.1-1080x1080.png">
+  <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span><span class="ver">v0.1.1</span></div>
+  <div class="tag">Update</div>
+  <h1>The FTP client your <span class="grad">coding agent</span> can drive, now steadier on big sites.</h1>
+  <p class="what">Say "deploy this" in Claude Code, Codex or Cursor. Only changed files go up, the commit is recorded, the site is verified, and you watch it live in a desktop app.</p>
+  <ul>
+    <li><span><b>Single-file pushes</b> land in your project's web root, not next to it</span></li>
+    <li><span><b>Post-deploy checks</b> hit the real public URLs</span></li>
+    <li><span><b>Dropped connections</b> reconnect instead of re-uploading the whole site</span></li>
+    <li><span><b>Git Bash</b> paths stop turning into C:\Program Files</span></li>
+  </ul>
+  <div class="term"><div class="bar"><i></i><i></i><i></i></div><pre><span class="p">›</span> deploy this
+
+<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "card fixes")
+  <span class="d">·</span> Scanning 15,319 files
+  <span class="c">↑</span> js/binder.js <span class="d">28 KB</span>
+  <span class="d">·</span> 15,170 unchanged, skipped
+  <span class="g">✔</span> Deployed in 4.5s <span class="d">(ab98a15)</span>
+  <span class="g">✔</span> live: site answered on every check</pre></div>
+  <div class="url">coolftp.com <span>free · open source · Windows</span></div>
+</div>
+</body>
+</html>
