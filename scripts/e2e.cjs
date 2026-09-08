@@ -238,6 +238,54 @@ async function suite(label, { protocol, port, serverRoot, tmp, afterDeploys }) {
     });
     await sftp.close();
   }
+  // A shared host drops an idle FTP control connection. The transport must reconnect on the
+  // next command rather than fail it, or a deploy plan quietly degrades to "upload everything".
+  {
+    const esbuild = require("esbuild");
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-drop-"));
+    const coreFile = path.join(tmp, "core.cjs");
+    esbuild.buildSync({
+      entryPoints: [path.join(REPO, "packages", "core", "src", "index.ts")],
+      outfile: coreFile,
+      bundle: true,
+      platform: "node",
+      format: "cjs",
+      target: "node18",
+      external: ["electron", "cpu-features", "*.node"],
+      logLevel: "silent",
+    });
+    const core = require(coreFile);
+    const serverRoot = path.join(tmp, "server");
+    fs.mkdirSync(path.join(serverRoot, "public_html"), { recursive: true });
+    fs.writeFileSync(path.join(serverRoot, "public_html", "a.txt"), "a");
+    const noop = () => undefined;
+    const log = { trace: noop, debug: noop, info: noop, warn: noop, error: noop, fatal: noop, child: () => log };
+    const ftp = new FtpSrv({ url: "ftp://127.0.0.1:2132", pasv_url: "127.0.0.1", pasv_min: 50260, pasv_max: 50290, anonymous: false, timeout: 800, log });
+    ftp.on("login", ({ username, password }, resolve, reject) => (username === "demo" && password === "secret" ? resolve({ root: serverRoot }) : reject(new Error("bad credentials"))));
+    await ftp.listen();
+    console.log("\nFTP reconnect (server idle timeout 0.8s)");
+    const t = new core.FtpTransport({ name: "drop", host: "127.0.0.1", port: 2132, username: "demo", password: "secret", protocol: "ftp", remoteRoot: "/public_html" });
+    try {
+      await t.connect();
+      const first = await t.list("/public_html");
+      check("list before the drop", first.some((e) => e.name === "a.txt"));
+      await new Promise((r) => setTimeout(r, 1800));
+      check("server dropped the idle connection", !t.isConnected());
+      let again = null;
+      let err = null;
+      try {
+        again = await t.list("/public_html");
+      } catch (e) {
+        err = e;
+      }
+      check("list after the drop reconnects", again !== null && again.some((e) => e.name === "a.txt"), err && err.message);
+    } catch (e) {
+      failures++;
+      console.log("  FAIL  exception:", e.message);
+    }
+    await t.close();
+    await ftp.close();
+  }
   console.log(failures ? `\n${failures} FAILURE(S)` : "\nALL PASSED");
   process.exit(failures ? 1 : 0);
 })();

@@ -23,7 +23,16 @@ export class FtpTransport implements Transport {
   }
 
   private run<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.chain.then(fn, fn);
+    // Shared hosts drop an idle control connection after a minute or so. Reconnect on the next
+    // command instead of failing it, so a pause between commands is not a dead session.
+    const op = async () => {
+      if (this.connected && this.client.closed) {
+        this.connected = false;
+        await this.connect();
+      }
+      return fn();
+    };
+    const next = this.chain.then(op, op);
     this.chain = next.catch(() => undefined);
     return next;
   }

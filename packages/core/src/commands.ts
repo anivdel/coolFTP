@@ -339,14 +339,24 @@ export class CoolFtp {
   }
 
   private async readManifest(t: Transport, remoteRoot: string): Promise<Manifest | null> {
+    const file = rjoin(remoteRoot, MANIFEST_DIR, MANIFEST_FILE);
+    let buf: Buffer;
     try {
-      const buf = await t.readFile(rjoin(remoteRoot, MANIFEST_DIR, MANIFEST_FILE));
+      buf = await t.readFile(file);
+    } catch (err) {
+      // Only a missing file means "no manifest yet". Anything else (the server dropped the
+      // connection, a permission problem) must surface, or the plan silently degrades to
+      // "upload everything" and a --delete could act on a partial picture of the server.
+      if (isNotFound(err)) return null;
+      throw new Error(`Could not read the deploy manifest at ${file}: ${(err as Error)?.message || String(err)}`);
+    }
+    try {
       const m = JSON.parse(buf.toString("utf8")) as Manifest;
       if (m && m.version === 1 && m.files) return m;
-      return null;
     } catch {
-      return null;
+      /* unreadable JSON: treat as absent and rebuild it from a listing */
     }
+    return null;
   }
 
   private async writeManifest(t: Transport, remoteRoot: string, manifest: Manifest): Promise<void> {
@@ -365,8 +375,10 @@ export class CoolFtp {
       let entries: RemoteEntry[];
       try {
         entries = await t.list(dir);
-      } catch {
-        return;
+      } catch (err) {
+        // A directory that is not there yet is an empty listing; a failed connection is not.
+        if (isNotFound(err)) return;
+        throw new Error(`Could not list ${dir}: ${(err as Error)?.message || String(err)}`);
       }
       for (const e of entries) {
         const rel = e.path.slice(remoteRoot.length).replace(/^\//, "");
@@ -385,9 +397,9 @@ export class CoolFtp {
 
   private async diffProject(project: ResolvedProject, opts: { force?: boolean }, events: Events): Promise<DiffResult> {
     const site = getSite(project.config.site);
-    const t = await this.pool.acquire(site, events);
-    const remoteRoot = await this.resolveRemote(site, t, this.remoteRootFor(project, site));
 
+    // Scan before touching the server. Hashing a large project can outlast the server's idle
+    // limit, and a control connection that sat idle through the scan came back dead.
     events.log(`Scanning ${project.localDir}`);
     let count = 0;
     const local = await scanLocal(project.localDir, [...(site.ignore || []), ...(project.config.ignore || [])], (rel) => {
@@ -395,6 +407,9 @@ export class CoolFtp {
       if (count % 50 === 0) events.emit({ type: "scan", count, current: rel });
     });
     events.emit({ type: "scan", count, current: "" });
+
+    const t = await this.pool.acquire(site, events);
+    const remoteRoot = await this.resolveRemote(site, t, this.remoteRootFor(project, site));
 
     const plan: DiffPlan = { add: [], change: [], delete: [], unchanged: 0, bytes: 0, basis: "manifest" };
     const manifest = opts.force ? null : await this.readManifest(t, remoteRoot);
@@ -663,6 +678,14 @@ export class CoolFtp {
   async close(): Promise<void> {
     await this.pool.closeAll();
   }
+}
+
+/** FTP 550, SFTP status 2, or an ENOENT-style message: the path does not exist. */
+function isNotFound(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: string } | undefined;
+  if (!e) return false;
+  if (e.code === 550 || e.code === 2 || e.code === "ENOENT") return true;
+  return /no such file|not found|does not exist|550/i.test(String(e.message || ""));
 }
 
 function runShell(cmd: string, cwd: string, onLine: (line: string) => void): Promise<void> {
