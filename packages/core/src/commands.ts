@@ -268,6 +268,91 @@ export class CoolFtp {
     return p;
   }
 
+  /** Stat many remote paths with one listing per parent directory rather than a round trip each (an FTP stat is a listing). */
+  private async statMany(t: Transport, paths: string[]): Promise<Map<string, RemoteEntry | null>> {
+    const out = new Map<string, RemoteEntry | null>();
+    const byParent = new Map<string, string[]>();
+    for (const p of paths) {
+      const parent = rdirname(p);
+      if (!byParent.has(parent)) byParent.set(parent, []);
+      byParent.get(parent)!.push(p);
+    }
+    for (const [parent, ps] of byParent) {
+      let listed: RemoteEntry[] | null = null;
+      try {
+        listed = await t.list(parent);
+      } catch {
+        listed = null;
+      }
+      const byPath = new Map((listed ?? []).map((e) => [e.path, e] as const));
+      for (const p of ps) out.set(p, byPath.get(p) ?? (listed ? null : await t.stat(p)));
+    }
+    return out;
+  }
+
+  /**
+   * Delete several remote files and folders as one operation with a progress card: the files first,
+   * in parallel where the site allows, then the emptied folders deepest first. Pause and cancel apply
+   * between files; whatever was deleted before a cancel stays deleted.
+   */
+  async removeMany(siteName: string, remotePaths: string[], events: Events = silentEvents()): Promise<{ files: number; dirs: number }> {
+    const site = getSite(siteName);
+    const t = await this.pool.acquire(site, events);
+    const roots: string[] = [];
+    for (const p of remotePaths) {
+      const r = await this.resolveRemote(site, t, p);
+      if (r === "/" || r === site.remoteRoot) throw new Error("Refusing to delete the site root.");
+      roots.push(r);
+    }
+    const files: string[] = [];
+    const dirs: string[] = [];
+    const known = await this.statMany(t, roots);
+    for (const r of roots) {
+      const st = known.get(r);
+      if (!st) throw new Error(`Not found: ${r}`);
+      if (st.type !== "dir") {
+        files.push(r);
+        continue;
+      }
+      dirs.push(r);
+      const walk = async (dir: string) => {
+        for (const e of await t.list(dir)) {
+          if (e.type === "dir") {
+            dirs.push(e.path);
+            await walk(e.path);
+          } else files.push(e.path);
+        }
+      };
+      await walk(r);
+    }
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    events.log(`Deleting ${plural(files.length, "file")} and ${plural(dirs.length, "folder")} from ${site.name}`);
+    const progress = new Progress(events, "delete", site.name, files.length + dirs.length, 0);
+    try {
+      await this.withWorkers(site, t, files, events, progress, async (w, f) => {
+        const id = shortId();
+        progress.update(id, 0);
+        await w.remove(f);
+        this.pool.touchTransport(w);
+        progress.complete(id, 0);
+      });
+      for (const d of [...dirs].sort((a, b) => b.length - a.length)) {
+        await this.gate(events, t);
+        const id = shortId();
+        progress.update(id, 0);
+        await t.rmdir(d);
+        progress.complete(id, 0);
+      }
+    } catch (err) {
+      progress.fail((err as Error)?.message || String(err));
+      throw err;
+    }
+    progress.finish();
+    this.pool.touch(site.name);
+    events.log(`Deleted ${plural(files.length, "file")} and ${plural(dirs.length, "folder")} from ${site.name}`, "success");
+    return { files: files.length, dirs: dirs.length };
+  }
+
   async rename(siteName: string, from: string, to: string, events: Events = silentEvents()): Promise<{ from: string; to: string }> {
     const site = getSite(siteName);
     const t = await this.pool.acquire(site, events);
@@ -353,12 +438,14 @@ export class CoolFtp {
     primary: Transport,
     items: T[],
     events: Events,
+    progress: Progress | undefined,
     fn: (t: Transport, item: T) => Promise<void>,
   ): Promise<number> {
     const wanted = Math.max(1, Math.min(site.connections ?? DEFAULT_CONNECTIONS, items.length));
     const sftp = primary.protocol === "sftp";
     const extras = !sftp && wanted > 1 && items.length >= PARALLEL_MIN_FILES ? await this.pool.acquireExtras(site, wanted - 1, events) : [];
     const workers = sftp ? Array.from({ length: Math.min(4, Math.max(1, items.length)) }, () => primary) : [primary, ...extras];
+    progress?.start(workers.length);
     try {
       let i = 0;
       let firstError: unknown;
@@ -458,13 +545,8 @@ export class CoolFtp {
       for (const d of [...dirs].sort((a, b) => a.length - b.length)) createdDirs.push(...(await t.mkdirp(d)));
       const progress = new Progress(events, "upload", site.name, list.length, list.reduce((n, f) => n + f.size, 0));
       const verifySize = list.length <= VERIFY_SIZE_MAX_FILES;
-      let started = false;
       try {
-        await this.withWorkers(site, t, list, events, async (w, f) => {
-          if (!started) {
-            started = true;
-            progress.start(1);
-          }
+        await this.withWorkers(site, t, list, events, progress, async (w, f) => {
           const target = rjoin(remote, f.rel);
           const r = await this.transfer(w, "upload", f.abs, target, f.size, events, { progress, verifySize });
           if (r.verified) verified++;
@@ -487,6 +569,101 @@ export class CoolFtp {
       "success",
     );
     return { files, bytes, remote, createdDirs, verified, recorded };
+  }
+
+  /**
+   * Upload several local files and folders into one remote directory as a single operation: one
+   * progress card, parallel connections, pause and cancel. What the app's Upload button and a drag
+   * between the panes run. Files land in remoteDir; a folder keeps its name and its tree.
+   */
+  async uploadMany(siteName: string, localPaths: string[], remoteDir: string, events: Events = silentEvents(), opts: { cwd?: string } = {}): Promise<UploadResult> {
+    const site = getSite(siteName);
+    const t = await this.pool.acquire(site, events);
+    const remote = await this.resolveRemote(site, t, remoteDir);
+    const projectRoot = await this.projectRootFor(opts.cwd, site, t);
+    const base = projectRoot ?? (await this.resolveRemote(site, t, site.remoteRoot));
+    const list: Array<{ abs: string; target: string; size: number }> = [];
+    for (const p of localPaths) {
+      const abs = path.resolve(p);
+      if (!fs.existsSync(abs)) throw new Error(`Local path not found: ${abs}`);
+      const st = fs.statSync(abs);
+      const name = path.basename(abs);
+      if (st.isFile()) list.push({ abs, target: rjoin(remote, name), size: st.size });
+      else for (const f of walkLocalFiles(abs)) list.push({ abs: f.abs, target: rjoin(rjoin(remote, name), f.rel), size: f.size });
+    }
+    const createdDirs: string[] = [];
+    const dirs = new Set<string>();
+    for (const f of list) dirs.add(rdirname(f.target));
+    for (const d of [...dirs].sort((a, b) => a.length - b.length)) createdDirs.push(...(await t.mkdirp(d)));
+    const progress = new Progress(events, "upload", site.name, list.length, list.reduce((n, f) => n + f.size, 0));
+    const verifySize = list.length <= VERIFY_SIZE_MAX_FILES;
+    const uploaded: Array<{ abs: string; remote: string }> = [];
+    let files = 0;
+    let bytes = 0;
+    let verified = 0;
+    try {
+      await this.withWorkers(site, t, list, events, progress, async (w, f) => {
+        const r = await this.transfer(w, "upload", f.abs, f.target, f.size, events, { progress, verifySize });
+        if (r.verified) verified++;
+        uploaded.push({ abs: f.abs, remote: f.target });
+        files++;
+        bytes += f.size;
+      });
+    } catch (err) {
+      progress.fail((err as Error)?.message || String(err));
+      throw err;
+    }
+    progress.finish();
+    this.reportCreated(events, site.name, createdDirs, base, false);
+    let recorded = 0;
+    if (projectRoot) recorded = await this.recordInManifest(t, projectRoot, uploaded, events);
+    this.pool.touch(site.name);
+    events.log(`Uploaded ${files} file${files === 1 ? "" : "s"} (${formatBytes(bytes)}) to ${remote}${verified === files && files ? ", size confirmed by the server" : ""}`, "success");
+    return { files, bytes, remote, createdDirs, verified, recorded };
+  }
+
+  /** Download several remote files and folders into one local directory as a single operation, with a card of its own. */
+  async downloadMany(siteName: string, remotePaths: string[], localDir: string, events: Events = silentEvents()): Promise<{ files: number; bytes: number; local: string }> {
+    const site = getSite(siteName);
+    const t = await this.pool.acquire(site, events);
+    const local = path.resolve(localDir);
+    const all: Array<{ remote: string; local: string; size: number }> = [];
+    const roots: string[] = [];
+    for (const p of remotePaths) roots.push(await this.resolveRemote(site, t, p));
+    const known = await this.statMany(t, roots);
+    for (const remote of roots) {
+      const st = known.get(remote);
+      if (!st) throw new Error(`Remote path not found: ${remote}`);
+      if (st.type !== "dir") {
+        all.push({ remote, local: path.join(local, st.name), size: st.size });
+        continue;
+      }
+      const root = path.join(local, st.name);
+      const walk = async (dir: string) => {
+        for (const e of await t.list(dir)) {
+          if (e.type === "dir") await walk(e.path);
+          else if (e.type === "file") all.push({ remote: e.path, local: path.join(root, e.path.slice(remote.length).replace(/^\//, "")), size: e.size });
+        }
+      };
+      await walk(remote);
+    }
+    const progress = new Progress(events, "download", site.name, all.length, all.reduce((n, e) => n + e.size, 0));
+    let files = 0;
+    let bytes = 0;
+    try {
+      await this.withWorkers(site, t, all, events, progress, async (w, e) => {
+        await this.transfer(w, "download", e.local, e.remote, e.size, events, { progress });
+        files++;
+        bytes += e.size;
+      });
+    } catch (err) {
+      progress.fail((err as Error)?.message || String(err));
+      throw err;
+    }
+    progress.finish();
+    this.pool.touch(site.name);
+    events.log(`Downloaded ${files} file${files === 1 ? "" : "s"} (${formatBytes(bytes)}) to ${local}`, "success");
+    return { files, bytes, local };
   }
 
   /** Files pushed outside a deploy still belong in the manifest, or the next deploy uploads them again. */
@@ -544,13 +721,8 @@ export class CoolFtp {
       };
       await walk(remote);
       const progress = new Progress(events, "download", site.name, all.length, all.reduce((n, e) => n + e.size, 0));
-      let started = false;
       try {
-        await this.withWorkers(site, t, all, events, async (w, e) => {
-          if (!started) {
-            started = true;
-            progress.start(1);
-          }
+        await this.withWorkers(site, t, all, events, progress, async (w, e) => {
           const rel = e.path.slice(remote.length).replace(/^\//, "");
           await this.transfer(w, "download", path.join(local, rel), e.path, e.size, events, { progress });
           files++;
@@ -753,13 +925,8 @@ export class CoolFtp {
       const verifySize = uploads.length <= VERIFY_SIZE_MAX_FILES;
       const done: string[] = [];
       let backupWarned = false;
-      let started = false;
       try {
-        connections = await this.withWorkers(site, t, uploads, events, async (w, rel) => {
-          if (!started) {
-            started = true;
-            progress.start(1);
-          }
+        connections = await this.withWorkers(site, t, uploads, events, progress, async (w, rel) => {
           const live = rjoin(remoteRoot, rel);
           const localFile = path.join(project.localDir, rel);
           if (backup && changeSet.has(rel)) {

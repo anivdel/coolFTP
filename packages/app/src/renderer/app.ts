@@ -656,31 +656,21 @@ function listGestures(el: HTMLElement, selected: Set<string>, mover: Mover) {
 
 // ---------------- transfers ----------------
 
-/** Upload local paths (default: the selection) into a remote directory (default: the one shown). */
+/** Upload local paths (default: the selection) into a remote directory (default: the one shown), as one operation with a card. */
 async function uploadSelected(paths?: string[], dir = state.remotePath) {
   if (!state.site || !state.connected) return toast("Connect to a site first", "error");
   const list = paths ?? [...state.selLocal];
   if (!list.length) return toast("Select something on the left first");
-  for (const local of list) {
-    const name = local.split(/[\\/]/).pop()!;
-    const entry = state.localEntries.find((e) => e.path === local);
-    const remote = entry?.type === "dir" ? rjoin(dir, name) : dir;
-    await guard(rpc("upload", { site: state.site.name, local, remote }));
-  }
+  await guard(rpc("uploadMany", { site: state.site.name, locals: list, remote: dir }));
   loadRemote(state.remotePath);
 }
 
-/** Download remote paths (default: the selection) into a local directory (default: the one shown). */
+/** Download remote paths (default: the selection) into a local directory (default: the one shown), as one operation with a card. */
 async function downloadSelected(paths?: string[], dir = state.localPath) {
   if (!state.site || !state.connected) return toast("Connect to a site first", "error");
   const list = paths ?? [...state.selRemote];
   if (!list.length) return toast("Select something on the right first");
-  for (const remote of list) {
-    const entry = state.remoteEntries.find((e) => e.path === remote);
-    const name = remote.split("/").pop()!;
-    const local = entry?.type === "dir" ? ljoin(dir, name) : dir;
-    await guard(rpc("download", { site: state.site.name, remote, local }));
-  }
+  await guard(rpc("downloadMany", { site: state.site.name, remotes: list, local: dir }));
   loadLocal(state.localPath);
 }
 
@@ -750,17 +740,22 @@ function renderProgressCards() {
     card.querySelector(".pc-verify")!.innerHTML = verifyBadge(verify);
     card.querySelector(".pc-conn")!.textContent = p.connections > 1 ? `${p.connections} connections` : "";
     const pauseBtn = card.querySelector<HTMLButtonElement>(".pc-btn.pause")!;
-    pauseBtn.hidden = p.done || cancelling;
+    // Pause and cancel act between files, so a single file gets no buttons.
+    const noControls = p.done || cancelling || p.totalFiles <= 1;
+    pauseBtn.hidden = noControls;
     pauseBtn.textContent = paused ? "▶ Resume" : "⏸ Pause";
-    card.querySelector<HTMLButtonElement>(".pc-btn.cancel")!.hidden = p.done || cancelling;
+    card.querySelector<HTMLButtonElement>(".pc-btn.cancel")!.hidden = noControls;
     card.querySelector<HTMLElement>(".bar.big > i")!.style.width = `${pct}%`;
     const spark = sparkline(state.speed.get(op) ?? []);
     const svg = card.querySelector<SVGElement>(".spark")!;
     svg.querySelector(".line")!.setAttribute("d", spark.line);
     svg.querySelector(".area")!.setAttribute("d", spark.area);
-    svg.style.display = spark.line ? "" : "none";
+    svg.style.display = spark.line && p.op !== "delete" ? "" : "none";
     svg.setAttribute("title", spark.peak ? `speed over time, peak ${fmtBytes(spark.peak)}/s` : "");
-    card.querySelector(".pc-counts")!.textContent = `${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} (${pct}%)`;
+    card.querySelector(".pc-counts")!.textContent =
+      p.op === "delete"
+        ? `${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} deleted (${pct}%)`
+        : `${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} (${pct}%)`;
     const status = p.done
       ? failed
         ? p.error!
@@ -771,7 +766,9 @@ function renderProgressCards() {
         ? "cancelling after the files in flight…"
         : paused
           ? "paused"
-          : `${fmtBytes(p.rate)}/s${p.etaMs > 0 ? ` · ~${fmtDuration(p.etaMs)} left` : ""}`;
+          : p.op === "delete"
+            ? "deleting…"
+            : `${fmtBytes(p.rate)}/s${p.etaMs > 0 ? ` · ~${fmtDuration(p.etaMs)} left` : ""}`;
     const st = card.querySelector(".pc-status")!;
     st.textContent = status;
     st.className = `pc-status ${failed ? "bad" : "muted"}`;
@@ -1272,7 +1269,8 @@ async function remoteDelete() {
   const list = [...state.selRemote];
   if (!list.length) return toast("Select something first");
   if (!(await confirmDialog(`Delete ${list.length} remote item${list.length > 1 ? "s" : ""}?`))) return;
-  for (const p of list) await guard(rpc("remove", { site: state.site!.name, path: p }));
+  const r = await guard(rpc<{ files: number; dirs: number }>("removeMany", { site: state.site!.name, paths: list }));
+  if (r) toast(`Deleted ${r.files.toLocaleString()} file${r.files === 1 ? "" : "s"}${r.dirs ? ` and ${r.dirs.toLocaleString()} folder${r.dirs === 1 ? "" : "s"}` : ""} from ${state.site!.name}`, "success", 5000);
   loadRemote(state.remotePath);
 }
 
@@ -1526,15 +1524,7 @@ async function main() {
     if (!state.connected) return toast("Connect first", "error");
     const paths = Array.from(e.dataTransfer?.files ?? []).map((f) => window.coolftp.pathFor(f)).filter(Boolean);
     if (!paths.length) return;
-    for (const local of paths) {
-      const name = local.split(/[\\/]/).pop()!;
-      // We cannot stat from the renderer; ask main by listing the parent.
-      const parent = await window.coolftp.local.list(lparent(local));
-      const entry = parent.entries?.find((x) => x.path === local);
-      const remote = entry?.type === "dir" ? rjoin(state.remotePath, name) : state.remotePath;
-      await guard(rpc("upload", { site: state.site!.name, local, remote }));
-    }
-    loadRemote(state.remotePath);
+    await uploadSelected(paths);
   };
 
   // bottom tabs

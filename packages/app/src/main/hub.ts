@@ -32,6 +32,10 @@ function destructiveDetail(method: string, args: Record<string, any> = {}): stri
   switch (method) {
     case "remove":
       return `Delete ${args.site}:${args.path}`;
+    case "removeMany": {
+      const paths = (args.paths ?? []) as string[];
+      return `Delete ${paths.length} item${paths.length === 1 ? "" : "s"} on ${args.site}: ${paths.slice(0, 3).join(", ")}${paths.length > 3 ? ", …" : ""}`;
+    }
     case "rollback":
       return `Roll back ${args.site ?? "the project site"}${args.to ? ` to ${args.to}` : " to the previous deploy"}. Files not in that commit will be deleted from the server.`;
     case "undo":
@@ -174,6 +178,8 @@ function summarise(method: string, args: Record<string, unknown> = {}): string {
       return `write ${a.site}:${a.path}`;
     case "remove":
       return `delete ${a.site}:${a.path}`;
+    case "removeMany":
+      return `delete ${((a.paths ?? []) as string[]).length} items on ${a.site}`;
     case "mkdir":
       return `mkdir ${a.site}:${a.path}`;
     case "rename":

@@ -177,7 +177,7 @@ export interface TransferProgress {
 
 /** Whole-operation progress for deploys and folder transfers. */
 export interface ProgressInfo {
-  op: "deploy" | "upload" | "download";
+  op: "deploy" | "upload" | "download" | "delete";
   site: string;
   files: number;
   totalFiles: number;
