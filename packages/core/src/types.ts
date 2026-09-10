@@ -188,6 +188,8 @@ export interface ProgressInfo {
   etaMs: number;
   connections: number;
   done: boolean;
+  /** Why the operation stopped early, when it did: a failure, or a cancel from the app. */
+  error?: string;
 }
 
 export type ProgressFn = (transferred: number, total: number) => void;

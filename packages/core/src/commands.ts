@@ -4,7 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { ConnectionPool } from "./connections.js";
-import { Events, silentEvents } from "./events.js";
+import { Events, silentEvents, CANCELLED_MESSAGE } from "./events.js";
 import { configDir, formatBytes, rdirname, readJson, rjoin, shortId, writeJson, toPosix } from "./paths.js";
 import { findProjectFile, resolveProject, writeProjectConfig } from "./project.js";
 import { hashFile, scanLocal, walkLocalFiles } from "./scan.js";
@@ -136,11 +136,18 @@ class Progress {
     this.inflight.delete(id);
     this.doneBytes += size;
     this.info.files++;
-    this.emit(false);
+    this.emit(this.inflight.size === 0);
   }
 
   finish(): void {
     this.info.done = true;
+    this.emit(true);
+  }
+
+  /** The operation stopped early; its card shows why. */
+  fail(message: string): void {
+    this.info.done = true;
+    this.info.error = message;
     this.emit(true);
   }
 
@@ -151,6 +158,8 @@ class Progress {
     let bytes = this.doneBytes;
     for (const v of this.inflight.values()) bytes += v;
     this.info.bytes = Math.min(bytes, Math.max(this.info.totalBytes, bytes));
+    const last = this.samples[this.samples.length - 1];
+    if (last && now - last[0] > 2000) this.samples = [];
     this.samples.push([now, bytes]);
     while (this.samples.length > 2 && now - this.samples[0][0] > 10_000) this.samples.shift();
     const [t0, b0] = this.samples[0];
@@ -286,6 +295,7 @@ export class CoolFtp {
     tr.status = "active";
     tr.startedAt = Date.now();
     events.emit({ type: "transfer", transfer: { ...tr } });
+    opts.progress?.update(tr.id, 0);
     let lastEmit = 0;
     const onProgress = (done: number, total: number) => {
       tr.transferred = done;
@@ -355,6 +365,12 @@ export class CoolFtp {
       await Promise.all(
         workers.map(async (t) => {
           while (i < items.length && !firstError) {
+            try {
+              await this.gate(events, t);
+            } catch (e) {
+              firstError = e;
+              break;
+            }
             const item = items[i++];
             try {
               await fn(t, item);
@@ -369,6 +385,30 @@ export class CoolFtp {
       await this.pool.releaseExtras(extras);
     }
     return extras.length + 1;
+  }
+
+  /**
+   * Between files: wait while the desktop app has the operation paused, stop once it is cancelled.
+   * Our idle timer is kept alive through a pause; a pause longer than the server's own idle limit
+   * still drops the connection, and the next file then fails with a clear message.
+   */
+  private async gate(events: Events, t: Transport): Promise<void> {
+    const c = events.control;
+    if (!c) return;
+    let waited = false;
+    for (;;) {
+      if (c.cancelled) throw new Error(CANCELLED_MESSAGE);
+      if (!c.paused) {
+        if (waited && c.claimNote()) events.log("Resumed", "info");
+        return;
+      }
+      if (!waited) {
+        waited = true;
+        if (c.claimNote()) events.log("Paused in the coolFTP app; the files in flight finish first", "warn");
+      }
+      this.pool.touchTransport(t);
+      await c.wait(30_000);
+    }
   }
 
   /** The project's resolved remote directory when cwd lies inside a project linked to this site. */
@@ -419,18 +459,23 @@ export class CoolFtp {
       const progress = new Progress(events, "upload", site.name, list.length, list.reduce((n, f) => n + f.size, 0));
       const verifySize = list.length <= VERIFY_SIZE_MAX_FILES;
       let started = false;
-      await this.withWorkers(site, t, list, events, async (w, f) => {
-        if (!started) {
-          started = true;
-          progress.start(1);
-        }
-        const target = rjoin(remote, f.rel);
-        const r = await this.transfer(w, "upload", f.abs, target, f.size, events, { progress, verifySize });
-        if (r.verified) verified++;
-        uploaded.push({ abs: f.abs, remote: target });
-        files++;
-        bytes += f.size;
-      });
+      try {
+        await this.withWorkers(site, t, list, events, async (w, f) => {
+          if (!started) {
+            started = true;
+            progress.start(1);
+          }
+          const target = rjoin(remote, f.rel);
+          const r = await this.transfer(w, "upload", f.abs, target, f.size, events, { progress, verifySize });
+          if (r.verified) verified++;
+          uploaded.push({ abs: f.abs, remote: target });
+          files++;
+          bytes += f.size;
+        });
+      } catch (err) {
+        progress.fail((err as Error)?.message || String(err));
+        throw err;
+      }
       progress.finish();
     }
     this.reportCreated(events, site.name, createdDirs, base, st.isFile());
@@ -500,16 +545,21 @@ export class CoolFtp {
       await walk(remote);
       const progress = new Progress(events, "download", site.name, all.length, all.reduce((n, e) => n + e.size, 0));
       let started = false;
-      await this.withWorkers(site, t, all, events, async (w, e) => {
-        if (!started) {
-          started = true;
-          progress.start(1);
-        }
-        const rel = e.path.slice(remote.length).replace(/^\//, "");
-        await this.transfer(w, "download", path.join(local, rel), e.path, e.size, events, { progress });
-        files++;
-        bytes += e.size;
-      });
+      try {
+        await this.withWorkers(site, t, all, events, async (w, e) => {
+          if (!started) {
+            started = true;
+            progress.start(1);
+          }
+          const rel = e.path.slice(remote.length).replace(/^\//, "");
+          await this.transfer(w, "download", path.join(local, rel), e.path, e.size, events, { progress });
+          files++;
+          bytes += e.size;
+        });
+      } catch (err) {
+        progress.fail((err as Error)?.message || String(err));
+        throw err;
+      }
       progress.finish();
     }
     this.pool.touch(site.name);
@@ -735,6 +785,7 @@ export class CoolFtp {
           done.push(rel);
         });
       } catch (err) {
+        progress.fail((err as Error)?.message || String(err));
         // Save what did land so the next deploy picks up where this one stopped.
         if (done.length && t.isConnected()) {
           const partial = (await this.readManifest(t, remoteRoot).catch(() => null)) ?? { version: 1 as const, updatedAt: "", files: {}, deploys: [] };

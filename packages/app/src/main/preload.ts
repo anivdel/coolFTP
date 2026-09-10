@@ -52,6 +52,7 @@ const api = {
     return () => ipcRenderer.removeListener("cf:confirm:expired", handler);
   },
   replyConfirm: (op: string, ok: boolean) => ipcRenderer.send("cf:confirm:reply", op, ok),
+  control: (op: string, action: "pause" | "resume" | "cancel") => ipcRenderer.invoke("op:control", op, action),
 };
 
 contextBridge.exposeInMainWorld("coolftp", api);

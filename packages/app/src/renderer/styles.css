@@ -242,6 +242,23 @@ label.check { flex-direction: row; align-items: center; gap: 6px; white-space: n
 .progress-card .bar.big > i { display: block; height: 100%; background: linear-gradient(90deg, #7dd3fc, #3b82f6); transition: width 0.3s; }
 .progress-card.done .bar.big > i { background: var(--green); }
 .pc-foot { display: flex; gap: 10px; margin-top: 6px; font-family: var(--mono); font-size: 11px; }
+.progress-card.paused { border-color: rgba(251, 191, 36, 0.5); }
+.progress-card.paused .bar.big > i { background: var(--yellow); }
+.progress-card.failed { opacity: 0.92; }
+.progress-card.failed .bar.big > i { background: var(--red); }
+.pc-status.bad { color: var(--red); }
+.pc-btn { background: transparent; border: 1px solid var(--line-2); border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: var(--text); white-space: nowrap; }
+.pc-btn:hover { border-color: var(--cyan); background: var(--bg-2); }
+.pc-btn.cancel { color: var(--red); }
+.pc-btn.cancel:hover { border-color: var(--red); }
+.spark { display: block; width: 100%; height: 24px; margin-top: 6px; }
+.spark .area { fill: rgba(56, 189, 248, 0.18); }
+.spark .line { fill: none; stroke: var(--cyan); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.progress-card.done .spark .line { stroke: var(--green); }
+.progress-card.done .spark .area { fill: rgba(52, 211, 153, 0.14); }
+.progress-card.failed .spark .line { stroke: var(--red); }
+.progress-card.failed .spark .area { fill: rgba(251, 113, 133, 0.12); }
+.progress-card.paused .spark .line { stroke: var(--yellow); }
 
 .vbadge { font-family: var(--mono); font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; margin-left: 6px; }
 .vbadge.live { color: var(--green); border-color: rgba(52, 211, 153, 0.5); }

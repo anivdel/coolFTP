@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme, Notifica
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
-import { CoolFtp, Events, configDir, dispatch, listLocal, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, OpControl, configDir, dispatch, listLocal, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 import { startHub, type AgentCall } from "./hub.js";
 
 declare const __VERSION__: string;
@@ -14,6 +14,8 @@ let win: BrowserWindow | null = null;
 let hub: { port: number; token: string; close: () => void } | null = null;
 const agentCalls: AgentCall[] = [];
 const pendingConfirms = new Map<string, (ok: boolean) => void>();
+/** Running operations by op id, so the progress cards can pause or cancel them. */
+const controls = new Map<string, OpControl>();
 
 function send(channel: string, payload: unknown) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -102,6 +104,7 @@ app.whenReady().then(async () => {
       cf,
       events,
       {
+        controls,
         onCall(call) {
           const i = agentCalls.findIndex((c) => c.op === call.op);
           if (i >= 0) agentCalls[i] = call;
@@ -151,14 +154,26 @@ app.on("before-quit", () => {
 // ---------------- IPC ----------------
 
 ipcMain.handle("rpc", async (_e, method: string, args: Record<string, unknown>) => {
-  const child = events.child({ agent: "user", op: shortId() });
+  const op = shortId();
+  const child = events.child({ agent: "user", op });
+  child.control = new OpControl();
+  controls.set(op, child.control);
   try {
     return { ok: true, result: await dispatch(cf, method, args, child) };
   } catch (err) {
     const message = (err as Error)?.message || String(err);
     child.log(message, "error");
     return { ok: false, error: message };
+  } finally {
+    controls.delete(op);
   }
+});
+
+ipcMain.handle("op:control", (_e, op: string, action: "pause" | "resume" | "cancel") => {
+  const c = controls.get(op);
+  if (!c) return false;
+  c[action]();
+  return true;
 });
 
 ipcMain.handle("local:list", (_e, dir: string) => {

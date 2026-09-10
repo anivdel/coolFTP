@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { CoolFtp, Events, configDir, dispatch, formatBytes, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, OpControl, configDir, dispatch, formatBytes, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 
 export interface AgentCall {
   op: string;
@@ -23,6 +23,8 @@ export interface HubHandlers {
   onCall(call: AgentCall): void;
   /** Ask the user to approve a destructive agent action. Resolves false on deny or timeout. */
   confirm(call: AgentCall, detail: string): Promise<boolean>;
+  /** Running operations by op id, so the app can pause or cancel an agent's transfer from its card. */
+  controls: Map<string, OpControl>;
 }
 
 /** Which agent calls need a human click before they run. */
@@ -92,6 +94,8 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
     res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
     const write = (obj: unknown) => res.write(JSON.stringify(obj) + "\n");
     const child = events.child({ agent, op });
+    child.control = new OpControl();
+    handlers.controls.set(op, child.control);
     const off = child.on((event: CoolEvent, meta: EventMeta) => {
       if (meta.op === op) write({ event, meta });
     });
@@ -114,6 +118,7 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
       child.log(message, "error");
       handlers.onCall({ ...call, endedAt: Date.now(), ok: false, error: message });
     } finally {
+      handlers.controls.delete(op);
       off();
       res.end();
     }

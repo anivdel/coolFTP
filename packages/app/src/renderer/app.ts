@@ -8,7 +8,7 @@ interface Site {
 }
 interface ConfirmRequest { op: string; agent: string; summary: string; detail: string }
 interface VerifyResult { ok: boolean; stale?: number; at?: string; checks: Array<{ url: string; status: number; ok: boolean; ms: number; error?: string; content?: string }> }
-interface ProgressInfo { op: string; site: string; files: number; totalFiles: number; bytes: number; totalBytes: number; rate: number; etaMs: number; connections: number; done: boolean }
+interface ProgressInfo { op: string; site: string; files: number; totalFiles: number; bytes: number; totalBytes: number; rate: number; etaMs: number; connections: number; done: boolean; error?: string }
 /** What one operation (an agent call, or a user action) did, gathered from its events. */
 interface OpDetail { files: Array<{ remote: string; size: number; direction: string }>; created: string[]; topLevel: string[]; warnings: string[]; verify?: VerifyResult; record?: DeployRecord }
 interface Transfer { id: string; direction: "upload" | "download"; local: string; remote: string; size: number; transferred: number; status: string; error?: string }
@@ -42,6 +42,7 @@ declare global {
       onConfirm: (cb: (p: ConfirmRequest) => void) => () => void;
       onConfirmExpired: (cb: (p: { op: string }) => void) => () => void;
       replyConfirm: (op: string, ok: boolean) => void;
+      control: (op: string, action: "pause" | "resume" | "cancel") => Promise<boolean>;
     };
   }
 }
@@ -112,6 +113,10 @@ const state = {
   /** Per-op detail behind the Agents tab rows. */
   opDetail: new Map<string, OpDetail>(),
   openCalls: new Set<string>(),
+  /** Speed samples per op, one per progress event, for the graph on its card. */
+  speed: new Map<string, number[]>(),
+  paused: new Set<string>(),
+  cancelling: new Set<string>(),
 };
 
 function opDetail(op: string): OpDetail {
@@ -679,40 +684,111 @@ async function downloadSelected(paths?: string[], dir = state.localPath) {
   loadLocal(state.localPath);
 }
 
-/** One card per deploy or folder transfer: how far along, how fast, and how it ended. */
-function renderProgressCards(): string {
+/** The speed graph on a card: one point per progress event (about one a second), drawn as a filled line. */
+function sparkline(samples: number[]): { line: string; area: string; peak: number } {
+  const n = samples.length;
+  if (n < 2) return { line: "", area: "", peak: 0 };
+  const peak = Math.max(1, ...samples);
+  const W = 100;
+  const H = 24;
+  const pts = samples.map((v, i) => `${((i / (n - 1)) * W).toFixed(2)},${(H - 1 - (v / peak) * (H - 3)).toFixed(2)}`);
+  return { line: `M${pts.join(" L")}`, area: `M0,${H} L${pts.join(" L")} L${W},${H} Z`, peak };
+}
+
+/** Pause, resume or cancel a running operation from its card. */
+async function controlOp(op: string, action: "pause" | "resume" | "cancel") {
+  const ok = await window.coolftp.control(op, action);
+  if (!ok) {
+    toast("That transfer has already finished");
+    state.paused.delete(op);
+    state.cancelling.delete(op);
+  } else if (action === "cancel") {
+    state.cancelling.add(op);
+    state.paused.delete(op);
+  } else if (action === "pause") state.paused.add(op);
+  else state.paused.delete(op);
+  renderTransfers();
+}
+
+const CARD_HTML = `<div class="pc-head"><span class="pc-title"></span><span class="who"></span><span class="spacer"></span><span class="pc-verify"></span><span class="pc-conn"></span><button class="pc-btn pause" title="Let the files in flight finish, then wait">⏸ Pause</button><button class="pc-btn cancel" title="Let the files in flight finish, then stop. A cancelled deploy can be run again to continue.">✕ Cancel</button></div>
+  <div class="bar big"><i></i></div>
+  <svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path class="area"></path><path class="line"></path></svg>
+  <div class="pc-foot"><span class="pc-counts"></span><span class="spacer"></span><span class="pc-status muted"></span></div>`;
+
+/**
+ * One card per deploy or folder transfer: how far along, how fast (with a graph of it), how it ended,
+ * and Pause and Cancel while it runs. Cards are updated in place rather than rebuilt, so a button
+ * under the pointer survives the stream of progress events.
+ */
+function renderProgressCards() {
+  const host = $("progressCards");
   const cards = [...state.progress.entries()].sort((a, b) => b[1].at - a[1].at).slice(0, 5);
-  return cards
-    .map(([op, p]) => {
-      const pct = p.totalBytes ? Math.min(100, Math.round((p.bytes / p.totalBytes) * 100)) : p.totalFiles ? Math.min(100, Math.round((p.files / p.totalFiles) * 100)) : 0;
-      const d = state.opDetail.get(op);
-      const rec = d?.record;
-      const verify = d?.verify ?? rec?.verify;
-      const status = p.done
-        ? rec
-          ? `+${rec.added} ~${rec.changed} -${rec.deleted} in ${(rec.durationMs / 1000).toFixed(1)}s${rec.git ? ` · ${esc(rec.git.short)}${rec.git.dirty ? "*" : ""}` : ""}${rec.backup ? " · undo available" : ""}`
+  const keep = new Set(cards.map(([op]) => op));
+  for (const el of Array.from(host.children)) if (!keep.has((el as HTMLElement).dataset.op!)) el.remove();
+  cards.forEach(([op, p], index) => {
+    let card = host.querySelector<HTMLElement>(`.progress-card[data-op="${op}"]`);
+    if (!card) {
+      card = document.createElement("div");
+      card.dataset.op = op;
+      card.innerHTML = CARD_HTML;
+      card.querySelector<HTMLButtonElement>(".pc-btn.pause")!.onclick = () => controlOp(op, state.paused.has(op) ? "resume" : "pause");
+      card.querySelector<HTMLButtonElement>(".pc-btn.cancel")!.onclick = () => controlOp(op, "cancel");
+    }
+    if (host.children[index] !== card) host.insertBefore(card, host.children[index] ?? null);
+    const pct = p.totalBytes ? Math.min(100, Math.round((p.bytes / p.totalBytes) * 100)) : p.totalFiles ? Math.min(100, Math.round((p.files / p.totalFiles) * 100)) : 0;
+    const d = state.opDetail.get(op);
+    const rec = d?.record;
+    const verify = d?.verify ?? rec?.verify;
+    const paused = state.paused.has(op);
+    const cancelling = state.cancelling.has(op);
+    const failed = p.done && Boolean(p.error);
+    card.className = `progress-card ${p.done ? (failed ? "failed" : "done") : paused ? "paused" : "active"}`;
+    card.querySelector(".pc-title")!.textContent = `${p.op} → ${p.site}`;
+    const who = card.querySelector(".who")!;
+    who.textContent = p.agent !== "user" ? p.agent : "";
+    who.classList.toggle("agent", p.agent !== "user");
+    card.querySelector(".pc-verify")!.innerHTML = verifyBadge(verify);
+    card.querySelector(".pc-conn")!.textContent = p.connections > 1 ? `${p.connections} connections` : "";
+    const pauseBtn = card.querySelector<HTMLButtonElement>(".pc-btn.pause")!;
+    pauseBtn.hidden = p.done || cancelling;
+    pauseBtn.textContent = paused ? "▶ Resume" : "⏸ Pause";
+    card.querySelector<HTMLButtonElement>(".pc-btn.cancel")!.hidden = p.done || cancelling;
+    card.querySelector<HTMLElement>(".bar.big > i")!.style.width = `${pct}%`;
+    const spark = sparkline(state.speed.get(op) ?? []);
+    const svg = card.querySelector<SVGElement>(".spark")!;
+    svg.querySelector(".line")!.setAttribute("d", spark.line);
+    svg.querySelector(".area")!.setAttribute("d", spark.area);
+    svg.style.display = spark.line ? "" : "none";
+    svg.setAttribute("title", spark.peak ? `speed over time, peak ${fmtBytes(spark.peak)}/s` : "");
+    card.querySelector(".pc-counts")!.textContent = `${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} (${pct}%)`;
+    const status = p.done
+      ? failed
+        ? p.error!
+        : rec
+          ? `+${rec.added} ~${rec.changed} -${rec.deleted} in ${(rec.durationMs / 1000).toFixed(1)}s${rec.git ? ` · ${rec.git.short}${rec.git.dirty ? "*" : ""}` : ""}${rec.backup ? " · undo available" : ""}`
           : "done"
-        : `${fmtBytes(p.rate)}/s${p.etaMs > 0 ? ` · ~${fmtDuration(p.etaMs)} left` : ""}`;
-      return `<div class="progress-card ${p.done ? "done" : "active"}">
-        <div class="pc-head"><span class="pc-title">${esc(p.op)} → ${esc(p.site)}</span><span class="who ${p.agent !== "user" ? "agent" : ""}">${p.agent !== "user" ? esc(p.agent) : ""}</span><span class="spacer"></span>${verifyBadge(verify)}<span class="pc-conn">${p.connections > 1 ? `${p.connections} connections` : ""}</span></div>
-        <div class="bar big"><i style="width:${pct}%"></i></div>
-        <div class="pc-foot"><span>${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} (${pct}%)</span><span class="spacer"></span><span class="muted">${status}</span></div>
-      </div>`;
-    })
-    .join("");
+      : cancelling
+        ? "cancelling after the files in flight…"
+        : paused
+          ? "paused"
+          : `${fmtBytes(p.rate)}/s${p.etaMs > 0 ? ` · ~${fmtDuration(p.etaMs)} left` : ""}`;
+    const st = card.querySelector(".pc-status")!;
+    st.textContent = status;
+    st.className = `pc-status ${failed ? "bad" : "muted"}`;
+  });
 }
 
 function renderTransfers() {
-  const el = $("tab-transfers");
+  const rows = $("transferRows");
   const list = [...state.transfers.values()].reverse();
   const active = list.filter((t) => t.status === "active" || t.status === "queued").length;
   $("transferBadge").textContent = active ? String(active) : "";
-  const cards = renderProgressCards();
+  renderProgressCards();
   if (!list.length) {
-    el.innerHTML = cards || `<div class="empty muted">No transfers yet. Upload, download, or deploy.</div>`;
+    rows.innerHTML = state.progress.size ? "" : `<div class="empty muted">No transfers yet. Upload, download, or deploy.</div>`;
     return;
   }
-  el.innerHTML = cards + list
+  rows.innerHTML = list
     .slice(0, 300)
     .map((t) => {
       const pct = t.size ? Math.min(100, Math.round((t.transferred / t.size) * 100)) : t.status === "done" ? 100 : 0;
@@ -1098,10 +1174,20 @@ function handleEvent({ event, meta }: { event: CoolEvent; meta: EventMeta }) {
         if (d.files.length < 300) d.files.push({ remote: event.transfer.remote, size: event.transfer.size, direction: event.transfer.direction });
       }
       break;
-    case "progress":
-      state.progress.set(meta.op, { ...(event.progress as ProgressInfo), agent: meta.agent, at: state.progress.get(meta.op)?.at ?? Date.now() });
+    case "progress": {
+      const p = event.progress as ProgressInfo;
+      state.progress.set(meta.op, { ...p, agent: meta.agent, at: state.progress.get(meta.op)?.at ?? Date.now() });
       if (state.progress.size > 20) state.progress.delete(state.progress.keys().next().value as string);
+      const samples = state.speed.get(meta.op) ?? [];
+      if (!p.done) samples.push(p.rate);
+      if (samples.length > 120) samples.splice(0, samples.length - 120);
+      state.speed.set(meta.op, samples);
+      if (p.done) {
+        state.paused.delete(meta.op);
+        state.cancelling.delete(meta.op);
+      }
       break;
+    }
     case "created": {
       const d = opDetail(meta.op);
       d.created.push(...(event.dirs as string[]));
@@ -1461,7 +1547,11 @@ async function main() {
   $("clearBtn").onclick = () => {
     if (state.tab === "transfers") {
       for (const [k, t] of state.transfers) if (t.status === "done" || t.status === "error") state.transfers.delete(k);
-      for (const [k, p] of state.progress) if (p.done) state.progress.delete(k);
+      for (const [k, p] of state.progress) {
+        if (!p.done) continue;
+        state.progress.delete(k);
+        state.speed.delete(k);
+      }
     }
     if (state.tab === "activity") state.log = [];
     if (state.tab === "agents") state.calls = state.calls.filter((c) => !c.endedAt);
