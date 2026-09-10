@@ -18,20 +18,24 @@ const ffmpeg = process.env.FFMPEG || require("ffmpeg-static");
 
 // Cue (ms into the video) and text. Keep each line inside its scene; timings mirror demo.html.
 const LINES = [
-  [300, "This is coolFTP. The FTP client your coding agent can drive."],
-  [5600, "You wrote the code with your agent. Then you drag files by hand."],
-  [10000, "Did pricing dot html go up? Which version is live?"],
-  [13700, "Nobody knows."],
-  [15400, "Now, say the word."],
-  [18200, "Your agent calls coolFTP, and you watch it happen live in the app."],
-  [22700, "Only the files that changed go up. Hashes, not timestamps."],
-  [26900, "Then it checks that the site actually answers."],
-  [30700, "And every deploy records the git commit that went live."],
-  [36500, "Only what changed goes up. Timestamps lie. Hashes do not."],
-  [41300, "Roll back to the previous version in one command."],
-  [46100, "Agents ask before they delete. No answer means no."],
-  [50900, "And deploys verify themselves, page by page."],
-  [55700, "coolFTP. Free and open source, at coolftp dot com."],
+  [300, "This is coolFTP. An FTP client for you, and for your coding agent."],
+  [5800, "Connect. Your files on the left, the server on the right."],
+  [9450, "Drag a box to select."],
+  [12300, "Grab them by a name, drop them across, and up they go."],
+  [16200, "Every transfer gets a card: the speed, a graph of it, and pause and cancel."],
+  [25600, "Deleting shows its progress too, and says when it is done."],
+  [31300, "Now the part your agent does. Say the word."],
+  [34000, "It calls coolFTP, and you watch it live in the app."],
+  [37600, "Only the files that changed go up. Hashes, not timestamps."],
+  [41800, "Then it checks that the site actually answers."],
+  [46500, "Broke something? Say undo. The previous versions stayed on the server. No git needed."],
+  [55300, "Hashes on the server mean only changes go up."],
+  [59500, "Every upload is confirmed by the server."],
+  [63700, "Agents ask before they delete. No answer means no."],
+  [68000, "Big jobs open four connections."],
+  [72200, "Every deploy verifies itself and spots a stale cache."],
+  [76400, "Undo the last deploy, or roll back to any commit."],
+  [80600, "coolFTP. Free and open source, at coolftp dot com."],
 ];
 
 function duration(file) {

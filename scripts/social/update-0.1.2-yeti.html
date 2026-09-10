@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP 0.1.2 update, yeti hero</title>
+<style>
+  :root { --bg:#0b0f17; --bg2:#101623; --line:#2a3850; --text:#e6edf7; --muted:#8b98b1; --cyan:#38bdf8; --sky:#93c5fd; --blue:#2563eb; --green:#34d399;
+    --mono:"Cascadia Code","JetBrains Mono",Consolas,monospace; --sans:"Segoe UI Variable","Segoe UI",system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+  .board { position:relative; overflow:hidden; background:
+    radial-gradient(900px 560px at 18% 0%, rgba(37,99,235,.45), transparent 62%),
+    radial-gradient(760px 520px at 100% 100%, rgba(56,189,248,.18), transparent 58%), var(--bg); }
+  .grad { background:linear-gradient(90deg,#7dd3fc,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .logo { display:flex; align-items:center; gap:12px; font-weight:700; }
+  .ver { display:inline-flex; align-items:center; border:1px solid rgba(56,189,248,.5); background:rgba(56,189,248,.12); border-radius:999px; padding:6px 16px; font-family:var(--mono); color:var(--cyan); font-weight:600; }
+  .tag { font-family:var(--mono); color:var(--cyan); letter-spacing:1px; text-transform:uppercase; }
+  h1 { margin:0; letter-spacing:-1.2px; line-height:1.02; }
+  .what { color:var(--muted); line-height:1.35; margin:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:10px; }
+  .chip { border:1px solid var(--line); background:rgba(16,22,35,.85); border-radius:999px; padding:9px 16px; font-family:var(--mono); color:var(--sky); white-space:nowrap; }
+  .chip::before { content:"✔ "; color:var(--green); }
+  .url { font-family:var(--mono); color:var(--cyan); }
+  .url span { color:var(--muted); font-family:var(--sans); }
+
+  /* the hero */
+  .hero { position:relative; display:flex; align-items:center; justify-content:center; }
+  .hero .halo { position:absolute; border-radius:50%; background:radial-gradient(circle, rgba(56,189,248,.38) 0%, rgba(37,99,235,.18) 45%, transparent 70%); }
+  .hero img { position:relative; filter:drop-shadow(0 0 34px rgba(56,189,248,.55)) drop-shadow(0 24px 30px rgba(0,0,0,.55)); }
+  .flake { position:absolute; border-radius:50%; background:#fff; }
+
+  /* 1200 x 630 */
+  #og { width:1200px; height:630px; padding:44px 64px 40px; display:grid; grid-template-columns:470px 1fr; gap:36px; align-items:center; }
+  #og .hero { height:100%; }
+  #og .hero .halo { width:560px; height:560px; }
+  #og .hero img { width:430px; }
+  #og .logo { font-size:30px; }
+  #og .logo img { width:46px; height:46px; }
+  #og .logo .ver { margin-left:8px; font-size:17px; }
+  #og .tag { font-size:15px; margin:30px 0 10px; }
+  #og h1 { font-size:66px; }
+  #og .what { font-size:22px; margin:16px 0 26px; max-width:560px; }
+  #og .chip { font-size:17px; }
+  #og .url { position:absolute; right:64px; bottom:34px; font-size:21px; }
+  #og .url span { font-size:15px; margin-right:14px; }
+
+  /* 1080 x 1080 */
+  #sq { width:1080px; height:1080px; padding:56px 72px 52px; display:flex; flex-direction:column; align-items:center; text-align:center; }
+  #sq .logo { font-size:36px; }
+  #sq .logo img { width:56px; height:56px; }
+  #sq .logo .ver { margin-left:10px; font-size:20px; }
+  #sq .hero { width:100%; height:470px; margin:8px 0 6px; }
+  #sq .hero .halo { width:600px; height:600px; }
+  #sq .hero img { width:400px; }
+  #sq .tag { font-size:17px; margin:0 0 10px; }
+  #sq h1 { font-size:70px; }
+  #sq .what { font-size:24px; margin:14px 0 24px; max-width:800px; }
+  #sq .chips { justify-content:center; max-width:900px; }
+  #sq .chip { font-size:19px; }
+  #sq .url { margin-top:auto; padding-top:20px; font-size:28px; }
+  #sq .url span { font-size:20px; margin-left:16px; }
+</style>
+</head>
+<body>
+<div class="board" id="og" data-file="social-0.1.2-yeti-1200x630.png">
+  <i class="flake" style="left:72px;top:88px;width:5px;height:5px;opacity:.35"></i>
+  <i class="flake" style="left:430px;top:60px;width:4px;height:4px;opacity:.3"></i>
+  <i class="flake" style="left:118px;top:520px;width:6px;height:6px;opacity:.28"></i>
+  <i class="flake" style="left:470px;top:470px;width:4px;height:4px;opacity:.35"></i>
+  <i class="flake" style="left:300px;top:590px;width:3px;height:3px;opacity:.3"></i>
+  <div class="hero"><div class="halo"></div><img src="../../site/logo.png" alt="the coolFTP yeti" /></div>
+  <div>
+    <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span><span class="ver">v0.1.2</span></div>
+    <div class="tag">Update</div>
+    <h1>Meet the <span class="grad">yeti.</span></h1>
+    <p class="what">The coolest way to get a site onto its server, for you and for your coding agent. Version 0.1.2 is out.</p>
+    <div class="chips">
+      <span class="chip">Drag to select</span>
+      <span class="chip">Drag between panes</span>
+      <span class="chip">Pause, resume, cancel</span>
+      <span class="chip">Undo without git</span>
+    </div>
+  </div>
+  <div class="url"><span>free · open source · Windows</span>coolftp.com</div>
+</div>
+
+<div class="board" id="sq" data-file="social-0.1.2-yeti-1080x1080.png">
+  <i class="flake" style="left:96px;top:150px;width:5px;height:5px;opacity:.35"></i>
+  <i class="flake" style="left:960px;top:120px;width:4px;height:4px;opacity:.3"></i>
+  <i class="flake" style="left:140px;top:520px;width:6px;height:6px;opacity:.28"></i>
+  <i class="flake" style="left:900px;top:560px;width:4px;height:4px;opacity:.35"></i>
+  <i class="flake" style="left:520px;top:80px;width:3px;height:3px;opacity:.3"></i>
+  <div class="logo"><img src="../../site/logo.png" alt="" /><span>cool<span class="grad">FTP</span></span><span class="ver">v0.1.2</span></div>
+  <div class="hero"><div class="halo"></div><img src="../../site/logo.png" alt="the coolFTP yeti" /></div>
+  <div class="tag">Update</div>
+  <h1>Meet the <span class="grad">yeti.</span></h1>
+  <p class="what">The coolest way to get a site onto its server, for you and for your coding agent. Version 0.1.2 is out.</p>
+  <div class="chips">
+    <span class="chip">Drag to select</span>
+    <span class="chip">Drag between panes</span>
+    <span class="chip">Pause, resume, cancel</span>
+    <span class="chip">Undo without git</span>
+  </div>
+  <div class="url">coolftp.com <span>free · open source · Windows</span></div>
+</div>
+</body>
+</html>
