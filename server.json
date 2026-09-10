@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.anivdel/coolftp",
+  "description": "Deploy a website to its SFTP or FTP server from a coding agent: only changed files go up, undo without git, live checks, approvals in the coolFTP desktop app.",
+  "version": "0.1.2",
+  "repository": {
+    "url": "https://github.com/anivdel/coolFTP",
+    "source": "github"
+  },
+  "websiteUrl": "https://coolftp.com",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://coolftp.com/releases/coolFTP-0.1.2.mcpb",
+      "fileSha256": "5ef6e981da82ae32a31e12c67b731011ac21df089b2ee2b19d77532914421a57",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

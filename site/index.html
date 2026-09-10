@@ -220,7 +220,7 @@
       <div class="flow">
         <ol class="steps">
           <li><div><b>Link a folder once</b><span>Run <code>coolftp init my-server</code> in the project. It writes a tiny <code>.coolftp.json</code> so nobody has to remember hosts or paths again, agents included.</span></div></li>
-          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI.</span></div></li>
+          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI. In the Claude Desktop app, install the <a href="#download">coolFTP extension</a> and the chat gets the same tools.</span></div></li>
           <li><div><b>Keep the app open</b><span>Agent commands route through the running desktop app. You see each call in the Agents panel, each file in the transfer queue, and each deploy in history, tagged with who did it.</span></div></li>
           <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, checks the site is live, and tells you what it skipped. "Undo that" puts the previous versions back.</span></div></li>
         </ol>
@@ -409,6 +409,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
                 <li><b>Drag and drop between the panes.</b> Grab a file or folder by its name and drop it on the other pane to upload or download it, or onto a folder there to land inside it. The blank part of a row still starts the selection box.</li>
                 <li><b>Pause, resume and cancel</b> a deploy or folder transfer from its card in the Transfers tab, agent-driven ones included, plus a speed graph on every card. A manual upload or download of several files gets a card of its own too.</li>
                 <li><b>Deleting shows its progress</b> on a card of its own, with a message when it is done.</li>
+                <li><b>Claude Desktop extension.</b> A one-click install (<code>.mcpb</code>) gives the Claude Desktop app the same deploy tools Claude Code has, with the approvals in coolFTP.</li>
               </ul></div>
             </div>
             <div class="links"><a href="#download">Download 0.1.2</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#012-2026-09-09">Full notes</a></div>
@@ -454,10 +455,12 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <div class="cta">
         <a class="btn primary" href="releases/coolFTP-0.1.2-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.2</small></a>
         <a class="btn" href="releases/coolFTP-portable.exe">Portable .exe</a>
+        <a class="btn" href="releases/coolFTP-0.1.2.mcpb">Claude Desktop extension <small>.mcpb</small></a>
         <a class="btn" href="https://github.com/anivdel/coolFTP">Source on GitHub</a>
       </div>
       <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.2-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
-      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.2-x64.exe</code> 3725555a2dff04aeadcb2bff938d0b92c9e8bd9371ce644e1304ecbfaebe144d<br /><code>coolFTP-portable.exe</code> 32cf284f8634fa173b457c7d3c2b9cac3a49374e53efa45d15de3c0366d72a46</p>
+      <p class="note" style="margin-top:8px">Using the Claude Desktop app rather than Claude Code? Open <code>coolFTP-0.1.2.mcpb</code> in Claude Desktop and hit Install. The chat gets the same coolftp tools, deploys still show up in the coolFTP app, and deletes, undos and rollbacks still wait for your click there. It is not code-signed yet, which the install dialog points out.</p>
+      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.2-x64.exe</code> 3725555a2dff04aeadcb2bff938d0b92c9e8bd9371ce644e1304ecbfaebe144d<br /><code>coolFTP-portable.exe</code> 32cf284f8634fa173b457c7d3c2b9cac3a49374e53efa45d15de3c0366d72a46<br /><code>coolFTP-0.1.2.mcpb</code> 5ef6e981da82ae32a31e12c67b731011ac21df089b2ee2b19d77532914421a57</p>
     </section>
 
     <section id="faq">

@@ -32,12 +32,15 @@ function describeUndo(b: NonNullable<DeployRecord["backup"]>): string {
  * Exposes coolFTP as MCP tools. Every call asks the factory for a runner, so the desktop app
  * can be opened or closed while a session runs: calls route through it whenever it is up.
  */
+/** The Claude Desktop app has no working directory of its own; its extension settings can name a project folder instead. */
+const defaultCwd = () => process.env.COOLFTP_PROJECT || process.cwd();
+
 export async function startMcpServer(factory: { get(): Promise<Runner> }, version: string): Promise<void> {
   const server = new McpServer({ name: "coolftp", version });
 
   const siteFor = async (runner: Runner, explicit?: string, cwd?: string): Promise<string> => {
     if (explicit) return explicit;
-    const file = findProjectFile(cwd || process.cwd());
+    const file = findProjectFile(cwd || defaultCwd());
     if (file) {
       const cfg = readJson<ProjectConfig>(file, { site: "" });
       if (cfg.site) return cfg.site;
@@ -122,12 +125,12 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
   };
 
   const siteArg = z.string().optional().describe("Site name. Defaults to the site in the nearest .coolftp.json, or the only saved site.");
-  const cwdArg = z.string().optional().describe("Project directory. Defaults to the MCP server working directory.");
+  const cwdArg = z.string().optional().describe("Project directory. Defaults to the COOLFTP_PROJECT setting, else the MCP server working directory.");
   const pathNote = "Relative paths are relative to the project's remote directory from .coolftp.json (the same place deploy writes to), or the site root when the project has none. Paths starting with / are absolute on the server.";
   /** Site and remote path for a browsing tool, honouring the project's remoteRoot. */
   const target = async (runner: Runner, cwd: string | undefined, site: string | undefined, p: string | undefined) => {
     const s = await siteFor(runner, site, cwd);
-    return { site: s, path: projectRemotePath(cwd || process.cwd(), s, p) };
+    return { site: s, path: projectRemotePath(cwd || defaultCwd(), s, p) };
   };
 
   server.tool(
@@ -150,7 +153,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     { cwd: cwdArg },
     async ({ cwd }) => {
       try {
-        const file = findProjectFile(cwd || process.cwd());
+        const file = findProjectFile(cwd || defaultCwd());
         const cfg = file ? readJson<ProjectConfig>(file, { site: "" }) : null;
         const { result: connections, runner } = await call("connections", {});
         const note = runner.mode === "direct" ? sandboxNote() : undefined;
@@ -191,7 +194,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
         if (build) config.build = build;
         if (ignore?.length) config.ignore = ignore;
         if (keepBackups !== undefined) config.keepBackups = keepBackups;
-        const { result } = await call("init", { cwd: cwd || process.cwd(), config });
+        const { result } = await call("init", { cwd: cwd || defaultCwd(), config });
         return text({ file: result, config });
       } catch (e) {
         return fail(e);
@@ -205,7 +208,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     { cwd: cwdArg, site: siteArg, force: z.boolean().optional().describe("Compare as if nothing had been deployed") },
     async ({ cwd, site, force }) => {
       try {
-        const { result, log } = await call("diff", { cwd: cwd || process.cwd(), site, force });
+        const { result, log } = await call("diff", { cwd: cwd || defaultCwd(), site, force });
         const r = result as { plan: DeployResult["plan"]; remoteRoot: string; site: { name: string } };
         return text({ site: r.site.name, remoteRoot: r.remoteRoot, plan: compactPlan(r.plan) }, log);
       } catch (e) {
@@ -230,7 +233,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     },
     async ({ cwd, site, message, dryRun, delete: del, force, commit, skipBuild, deleteUntracked }) => {
       try {
-        const { result, log } = await call("deploy", { cwd: cwd || process.cwd(), options: { site, message, dryRun, delete: del, force, commit, skipBuild, deleteUntracked } });
+        const { result, log } = await call("deploy", { cwd: cwd || defaultCwd(), options: { site, message, dryRun, delete: del, force, commit, skipBuild, deleteUntracked } });
         return text(compactDeploy(result as DeployResult), log);
       } catch (e) {
         return fail(e);
@@ -250,7 +253,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     },
     async ({ cwd, site, to, dryRun, message }) => {
       try {
-        const { result, log } = await call("undo", { cwd: cwd || process.cwd(), site, to, dryRun, message });
+        const { result, log } = await call("undo", { cwd: cwd || defaultCwd(), site, to, dryRun, message });
         return text(compactDeploy(result as DeployResult & { undoOf: string }), log);
       } catch (e) {
         return fail(e);
@@ -264,7 +267,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     { cwd: cwdArg, site: siteArg, paths: z.array(z.string()).optional().describe("Paths relative to the project's remote directory to check instead of the last deploy's files") },
     async ({ cwd, site, paths }) => {
       try {
-        const { result, log } = await call("verify", { cwd: cwd || process.cwd(), site, paths });
+        const { result, log } = await call("verify", { cwd: cwd || defaultCwd(), site, paths });
         const r = result as VerifyResult & { urls: string[] };
         return text({ live: r.ok ? (r.stale ? "live, but some files are still served from an old copy" : "live") : "NOT LIVE: a check failed", ...verifySummary(r) }, log);
       } catch (e) {
@@ -285,7 +288,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     },
     async ({ cwd, site, to, build, message }) => {
       try {
-        const { result, log } = await call("rollback", { cwd: cwd || process.cwd(), site, to, build, message });
+        const { result, log } = await call("rollback", { cwd: cwd || defaultCwd(), site, to, build, message });
         return text(compactDeploy(result as DeployResult & { commit: string }), log);
       } catch (e) {
         return fail(e);
@@ -392,7 +395,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
       try {
         const runner = await factory.get();
         const { site: s, path: rp } = await target(runner, cwd, site, remote);
-        const { result, log } = await call("upload", { site: s, local, remote: rp ?? "", cwd: cwd || process.cwd() });
+        const { result, log } = await call("upload", { site: s, local, remote: rp ?? "", cwd: cwd || defaultCwd() });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -456,7 +459,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
       try {
         const runner = await factory.get();
         const { site: s, path: rf } = await target(runner, cwd, site, from);
-        const rt = projectRemotePath(cwd || process.cwd(), s, to);
+        const rt = projectRemotePath(cwd || defaultCwd(), s, to);
         const { result, log } = await call("rename", { site: s, from: rf, to: rt });
         return text(result, log);
       } catch (e) {

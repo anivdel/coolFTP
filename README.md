@@ -116,6 +116,12 @@ Or per project in `.mcp.json`:
 
 Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
 
+## Use it from the Claude Desktop app
+
+The same MCP server ships as a Claude Desktop extension. `npm run mcpb` packs it into `release/coolFTP-<version>.mcpb` (the download page carries the built one); open that file in Claude Desktop and hit Install. Claude gets the `coolftp_*` tools, and every call still routes through the desktop app while it is open, so deploys show up there and deletes, undos and rollbacks wait for your click. A chat has no working directory, so set **Default project folder** in the extension's settings or name the folder in the chat; a project's own `.coolftp.json` is found either way. The bundle is unsigned for now, which the install dialog points out.
+
+`server.json` describes the server for the [MCP Registry](https://github.com/modelcontextprotocol/registry), and `npm run mcpb` keeps its version and bundle hash current. To publish: `mcp-publisher login github`, then `mcp-publisher publish` from the repo root, once the bundle is live on coolftp.com.
+
 ## Safety rails for agent-driven deploys
 
 - **Approval dialog.** While the desktop app is open, an agent call that deletes a path, deploys with `--delete`, rolls back, or undoes a deploy pops a dialog in the app and waits for your click. No answer within two minutes is a deny. There is a checkbox to auto-approve for the rest of the session.

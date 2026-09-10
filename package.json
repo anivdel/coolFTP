@@ -14,6 +14,7 @@
     "app": "npm run build && electron packages/app",
     "cli": "node packages/cli/dist/coolftp.js",
     "dist": "npm run build && electron-builder --config packages/app/electron-builder.yml",
+    "mcpb": "npm run build && node scripts/mcpb.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "e2e": "node scripts/e2e.cjs",
     "dev:ftp": "node scripts/dev-ftp-server.cjs",
