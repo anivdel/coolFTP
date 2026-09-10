@@ -71,7 +71,7 @@ input[type="color"] { padding: 2px; height: 32px; width: 48px; }
 .btn.primary:hover { filter: brightness(1.12); }
 .btn.accent { background: linear-gradient(135deg, #0ea5e9, #2563eb); border-color: transparent; color: white; font-weight: 600; box-shadow: 0 0 18px rgba(37, 99, 235, 0.4); }
 .btn.accent:hover { filter: brightness(1.12); }
-.btn.ghost { background: transparent; }
+.btn.drag-ghost { background: transparent; }
 .btn.danger { color: var(--red); }
 .btn.danger:hover { border-color: var(--red); }
 .btn.small { padding: 4px 9px; font-size: 12px; }
@@ -113,6 +113,15 @@ input[type="color"] { padding: 2px; height: 32px; width: 48px; }
 /* Rubber-band selection: the box drawn while dragging over a list. */
 .marquee { position: absolute; z-index: 3; pointer-events: none; border: 1px solid rgba(56, 189, 248, 0.75); background: rgba(56, 189, 248, 0.14); border-radius: 2px; }
 #remoteList .marquee { border-color: rgba(147, 197, 253, 0.75); background: rgba(147, 197, 253, 0.12); }
+/* Dragging rows to the other pane: the label under the pointer, the folder a drop would land in, the cursor. */
+.file .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.file.drop-into { background: rgba(147, 197, 253, 0.2); outline: 2px solid var(--sky); outline-offset: -2px; }
+.drag-ghost { position: fixed; z-index: 70; pointer-events: none; display: flex; flex-direction: column; gap: 2px; max-width: 380px; padding: 6px 10px; background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); font-size: 12px; }
+.drag-ghost .dg-items { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drag-ghost .dg-hint { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+.drag-ghost.ok { border-color: var(--cyan); }
+.drag-ghost.ok .dg-hint { color: var(--cyan); }
+body.drag-ok, body.drag-ok * { cursor: copy !important; }
 .file .name { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .file .ico { width: 16px; text-align: center; opacity: 0.85; }
 .file.dir .name { color: #cfe8ff; }

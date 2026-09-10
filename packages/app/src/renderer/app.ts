@@ -254,7 +254,7 @@ function renderList(el: HTMLElement, entries: Entry[], selected: Set<string>, on
   el.innerHTML = entries
     .map(
       (e) => `<div class="file ${e.type} ${selected.has(e.path) ? "selected" : ""}" data-path="${esc(e.path)}">
-        <span class="name"><span class="ico">${icon(e)}</span>${esc(e.name)}</span>
+        <span class="name"><span class="ico">${icon(e)}</span><span class="txt">${esc(e.name)}</span></span>
         <span class="size">${e.type === "dir" ? "" : fmtBytes(e.size)}</span>
         <span class="date">${fmtDate(e.mtime)}</span></div>`,
     )
@@ -357,21 +357,43 @@ async function viewRemote(e: Entry) {
   $("viewerModal").classList.remove("hidden");
 }
 
-// ---------------- rubber-band selection ----------------
+// ---------------- list gestures: rubber-band selection, and dragging rows to the other pane ----------------
+
+/** How a list hands rows to the other pane when they are dragged there. */
+interface Mover {
+  other: HTMLElement;
+  verb: "Upload" | "Download";
+  entries: () => Entry[];
+  /** Where a drop lands: a hovered folder row of the other list, else that pane's directory; null when it cannot take a drop now. */
+  dir: (row: HTMLElement | null) => string | null;
+  run: (paths: string[], dir: string) => Promise<unknown>;
+}
+
+/** The label that follows a dragged selection. One is enough: only one drag happens at a time. */
+const ghost = document.createElement("div");
+ghost.className = "drag-ghost";
+ghost.innerHTML = `<span class="dg-items"></span><span class="dg-hint"></span>`;
 
 /**
- * Press in a list and drag: a box follows the pointer and every row it touches is selected, the way
- * Explorer and FileZilla do it. A plain drag replaces the selection, Ctrl toggles the rows in the box
- * against it, Shift adds them. The list scrolls when the pointer goes past its top or bottom edge.
+ * Two gestures share a press in a list, told apart by where the press starts:
+ * - On a row's icon or name, with no modifier: the selection (or that row, selected on the spot) is dragged.
+ *   Dropped on the other pane it is uploaded or downloaded; dropped on a folder row there it lands inside
+ *   that folder. Escape cancels.
+ * - Anywhere else (the blank part of a row, the size and date columns, empty space), or anywhere with Ctrl
+ *   or Shift held: a box follows the pointer and every row it touches is selected, the way Explorer and
+ *   FileZilla do it. A plain drag replaces the selection, Ctrl toggles the rows in the box against it,
+ *   Shift adds them. The list scrolls when the pointer goes past its top or bottom edge.
  * A press that moves less than a few pixels is still a click, handled by the row itself.
  */
-function rubberBand(el: HTMLElement, selected: Set<string>) {
+function listGestures(el: HTMLElement, selected: Set<string>, mover: Mover) {
   const THRESHOLD = 4;
   interface Row { el: HTMLElement; path: string; top: number; bottom: number }
   interface Drag {
+    kind: "box" | "move";
     id: number; px: number; py: number; ax: number; ay: number; cx: number; cy: number;
-    mode: "replace" | "add" | "toggle"; onRow: boolean; active: boolean; base: Set<string>;
+    mode: "replace" | "add" | "toggle"; onRow: boolean; active: boolean; cancelled: boolean; base: Set<string>;
     rows: Row[]; left: number; right: number; lo: number; hi: number; raf: number;
+    paths: string[]; over: HTMLElement | null; target: string | null;
   }
   let drag: Drag | null = null;
   let swallowClick = false;
@@ -411,7 +433,7 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
     row.el.classList.toggle("selected", on);
   };
 
-  const update = () => {
+  const boxUpdate = () => {
     const d = drag;
     if (!d?.active) return;
     if (!d.rows[0]?.el.isConnected) {
@@ -443,10 +465,43 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
     d.hi = hi;
   };
 
+  /** Move the label with the pointer and work out where a drop would land. */
+  const moveUpdate = () => {
+    const d = drag;
+    if (!d?.active) return;
+    ghost.style.left = `${d.cx + 14}px`;
+    ghost.style.top = `${d.cy + 12}px`;
+    const other = mover.other;
+    const r = other.getBoundingClientRect();
+    const inside = d.cx >= r.left && d.cx < r.left + other.clientWidth && d.cy >= r.top && d.cy < r.top + other.clientHeight;
+    let row: HTMLElement | null = null;
+    if (inside) {
+      row = (document.elementFromPoint(d.cx, d.cy) as HTMLElement | null)?.closest<HTMLElement>(".file.dir") ?? null;
+      if (row && !other.contains(row)) row = null;
+    }
+    const dir = inside ? mover.dir(row) : null;
+    if (d.over !== row) {
+      d.over?.classList.remove("drop-into");
+      row?.classList.add("drop-into");
+      d.over = row;
+    }
+    other.classList.toggle("drop", inside && !!dir && !row);
+    d.target = dir;
+    ghost.querySelector<HTMLElement>(".dg-hint")!.textContent = !inside
+      ? `Drop on the ${mover.verb === "Upload" ? "remote" : "local"} pane to ${mover.verb.toLowerCase()}`
+      : dir
+        ? `${mover.verb} to ${dir}`
+        : "Connect to a site first";
+    ghost.classList.toggle("ok", !!dir);
+    document.body.classList.toggle("drag-ok", !!dir);
+  };
+
+  const update = () => (drag?.kind === "move" ? moveUpdate() : boxUpdate());
+
   /** Keep scrolling while the pointer is held above or below the list, faster the further out it is. */
   const tick = () => {
     const d = drag;
-    if (!d?.active) return;
+    if (!d?.active || d.kind !== "box") return;
     const rect = el.getBoundingClientRect();
     const top = rect.top + el.clientTop;
     const bottom = top + el.clientHeight;
@@ -454,7 +509,7 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
     if (dy) {
       const before = el.scrollTop;
       el.scrollTop += Math.sign(dy) * Math.min(32, 3 + Math.abs(dy) / 4);
-      if (el.scrollTop !== before) update();
+      if (el.scrollTop !== before) boxUpdate();
     }
     d.raf = requestAnimationFrame(tick);
   };
@@ -465,8 +520,9 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
     drag = null;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onUp);
-    window.removeEventListener("blur", end);
+    window.removeEventListener("pointercancel", onCancel);
+    window.removeEventListener("blur", onCancel);
+    document.removeEventListener("keydown", onKey, true);
     if (!d.active) {
       // A plain click on empty space clears the selection, as Explorer does.
       if (!d.onRow && d.mode === "replace" && selected.size) {
@@ -475,20 +531,32 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
       }
       return;
     }
-    cancelAnimationFrame(d.raf);
-    box.remove();
     try {
       el.releasePointerCapture(d.id);
     } catch {
       /* already released */
     }
+    // The click that follows a drag lands on a row or the list; it must not reset the selection to one row.
+    swallowClick = true;
+    setTimeout(() => (swallowClick = false), 0);
+    if (d.kind === "move") {
+      ghost.remove();
+      ghost.classList.remove("ok");
+      d.over?.classList.remove("drop-into");
+      mover.other.classList.remove("drop");
+      document.body.classList.remove("drag-ok");
+      if (!d.cancelled && d.target) {
+        if (d.over) toast(`${mover.verb}ing ${d.paths.length} item${d.paths.length === 1 ? "" : "s"} to ${d.target}`);
+        void mover.run(d.paths, d.target);
+      }
+      return;
+    }
+    cancelAnimationFrame(d.raf);
+    box.remove();
     // Nothing that vanished in a re-render mid-drag may linger in the selection.
     const present = new Set(Array.from(el.querySelectorAll<HTMLElement>(".file")).map((r) => r.dataset.path!));
     for (const p of [...selected]) if (!present.has(p)) selected.delete(p);
     noteSelection(el);
-    // The click that follows a drag lands on a row or the list; it must not reset the selection to one row.
-    swallowClick = true;
-    setTimeout(() => (swallowClick = false), 0);
   };
 
   const onMove = (e: PointerEvent) => {
@@ -505,12 +573,22 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
       } catch {
         /* the button is already up */
       }
-      Object.assign(d, measure());
-      if (d.mode === "replace") {
-        selected.clear();
-        for (const r of d.rows) r.el.classList.remove("selected");
-      } else d.base = new Set(selected);
-      d.raf = requestAnimationFrame(tick);
+      if (d.kind === "move") {
+        d.paths = [...selected];
+        const entries = mover.entries();
+        const first = entries.find((x) => x.path === d.paths[0]);
+        const names = d.paths.slice(0, 3).map((p) => entries.find((x) => x.path === p)?.name ?? p);
+        ghost.querySelector<HTMLElement>(".dg-items")!.textContent =
+          d.paths.length === 1 && first ? `${icon(first)} ${first.name}` : `${d.paths.length} items · ${names.join(", ")}${d.paths.length > 3 ? ", …" : ""}`;
+        document.body.appendChild(ghost);
+      } else {
+        Object.assign(d, measure());
+        if (d.mode === "replace") {
+          selected.clear();
+          for (const r of d.rows) r.el.classList.remove("selected");
+        } else d.base = new Set(selected);
+        d.raf = requestAnimationFrame(tick);
+      }
     }
     update();
   };
@@ -518,25 +596,45 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
   const onUp = (e: PointerEvent) => {
     if (drag && e.pointerId === drag.id) end();
   };
+  const onCancel = () => {
+    if (!drag) return;
+    drag.cancelled = true;
+    end();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape" || !drag?.active) return;
+    e.stopPropagation();
+    onCancel();
+  };
 
   el.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.pointerType === "touch") return;
-    if (drag) end(); // a release we never saw (focus left the window mid-press)
+    if (drag) onCancel(); // a release we never saw (focus left the window mid-press)
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left - el.clientLeft;
     const y = e.clientY - rect.top - el.clientTop;
     if (x >= el.clientWidth || y >= el.clientHeight) return; // on a scrollbar
     if (!el.querySelector(".file")) return;
+    const target = e.target as HTMLElement;
+    const row = target.closest<HTMLElement>(".file");
+    const mode = e.ctrlKey || e.metaKey ? "toggle" : e.shiftKey ? "add" : "replace";
+    const kind = row && mode === "replace" && target.closest(".ico, .txt") ? "move" : "box";
+    if (kind === "move" && !selected.has(row!.dataset.path!)) {
+      // Grabbing a row that was not selected drags just that row, as in Explorer.
+      selected.clear();
+      selected.add(row!.dataset.path!);
+      syncSelection(el, selected);
+    }
     drag = {
-      id: e.pointerId, px: e.clientX, py: e.clientY, ax: x + el.scrollLeft, ay: y + el.scrollTop, cx: e.clientX, cy: e.clientY,
-      mode: e.ctrlKey || e.metaKey ? "toggle" : e.shiftKey ? "add" : "replace",
-      onRow: Boolean((e.target as HTMLElement).closest(".file")),
-      active: false, base: new Set(), rows: [], left: 0, right: 0, lo: 0, hi: -1, raf: 0,
+      kind, id: e.pointerId, px: e.clientX, py: e.clientY, ax: x + el.scrollLeft, ay: y + el.scrollTop, cx: e.clientX, cy: e.clientY,
+      mode, onRow: Boolean(row), active: false, cancelled: false, base: new Set(), rows: [], left: 0, right: 0, lo: 0, hi: -1, raf: 0,
+      paths: [], over: null, target: null,
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    window.addEventListener("blur", end);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("blur", onCancel);
+    document.addEventListener("keydown", onKey, true);
   });
   el.addEventListener("scroll", () => update());
   el.addEventListener(
@@ -553,26 +651,29 @@ function rubberBand(el: HTMLElement, selected: Set<string>) {
 
 // ---------------- transfers ----------------
 
-async function uploadSelected(paths?: string[]) {
+/** Upload local paths (default: the selection) into a remote directory (default: the one shown). */
+async function uploadSelected(paths?: string[], dir = state.remotePath) {
   if (!state.site || !state.connected) return toast("Connect to a site first", "error");
   const list = paths ?? [...state.selLocal];
   if (!list.length) return toast("Select something on the left first");
   for (const local of list) {
     const name = local.split(/[\\/]/).pop()!;
     const entry = state.localEntries.find((e) => e.path === local);
-    const remote = entry?.type === "dir" ? rjoin(state.remotePath, name) : state.remotePath;
+    const remote = entry?.type === "dir" ? rjoin(dir, name) : dir;
     await guard(rpc("upload", { site: state.site.name, local, remote }));
   }
   loadRemote(state.remotePath);
 }
 
-async function downloadSelected() {
+/** Download remote paths (default: the selection) into a local directory (default: the one shown). */
+async function downloadSelected(paths?: string[], dir = state.localPath) {
   if (!state.site || !state.connected) return toast("Connect to a site first", "error");
-  const list = [...state.selRemote];
+  const list = paths ?? [...state.selRemote];
   if (!list.length) return toast("Select something on the right first");
   for (const remote of list) {
-    const entry = state.remoteEntries.find((e) => e.path === remote)!;
-    const local = entry.type === "dir" ? ljoin(state.localPath, entry.name) : state.localPath;
+    const entry = state.remoteEntries.find((e) => e.path === remote);
+    const name = remote.split("/").pop()!;
+    const local = entry?.type === "dir" ? ljoin(dir, name) : dir;
     await guard(rpc("download", { site: state.site.name, remote, local }));
   }
   loadLocal(state.localPath);
@@ -1271,7 +1372,7 @@ async function main() {
   $<HTMLInputElement>("remotePath").onkeydown = (e) => {
     if (e.key === "Enter" && state.connected) loadRemote($<HTMLInputElement>("remotePath").value);
   };
-  $("downloadBtn").onclick = downloadSelected;
+  $("downloadBtn").onclick = () => downloadSelected();
   $("remoteNewFolder").onclick = remoteNewFolder;
   $("remoteRename").onclick = remoteRename;
   $("remoteDelete").onclick = remoteDelete;
@@ -1286,7 +1387,7 @@ async function main() {
     }
     const entry = row ? state.remoteEntries.find((x) => x.path === row.dataset.path) : undefined;
     showMenu(e.clientX, e.clientY, [
-      { label: "Download to local folder", fn: downloadSelected },
+      { label: "Download to local folder", fn: () => downloadSelected() },
       { label: "View", fn: () => entry && entry.type === "file" && viewRemote(entry) },
       { label: "Copy path", fn: () => entry && navigator.clipboard.writeText(entry.path) },
       { sep: true, label: "" },
@@ -1310,9 +1411,21 @@ async function main() {
     }
   };
 
-  // Drag a box over either list to select many rows at once.
-  rubberBand($("localList"), state.selLocal);
-  rubberBand($("remoteList"), state.selRemote);
+  // Drag a box over either list to select rows; grab a row by its name to drag the selection to the other pane.
+  listGestures($("localList"), state.selLocal, {
+    other: $("remoteList"),
+    verb: "Upload",
+    entries: () => state.localEntries,
+    dir: (row) => (row ? row.dataset.path! : state.connected ? state.remotePath : null),
+    run: (paths, dir) => uploadSelected(paths, dir),
+  });
+  listGestures($("remoteList"), state.selRemote, {
+    other: $("localList"),
+    verb: "Download",
+    entries: () => state.remoteEntries,
+    dir: (row) => (row ? row.dataset.path! : state.localPath),
+    run: (paths, dir) => downloadSelected(paths, dir),
+  });
 
   // drag & drop from the OS onto the remote pane
   const remoteList = $("remoteList");
