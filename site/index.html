@@ -112,6 +112,9 @@
     .two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; max-width: 860px; }
     .two > div { min-width: 0; }
     .two h4 { margin: 0 0 8px; font-size: 15px; color: var(--text); font-weight: 600; }
+    /* Free and Pro side by side on a desktop, stacked on a phone. */
+    .two.plans { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: none; }
+    @media (max-width: 720px) { .two.plans { grid-template-columns: 1fr; } }
 
     details { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; background: var(--bg-2); }
     summary { cursor: pointer; font-weight: 600; }
@@ -334,7 +337,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
     <section id="pro">
       <h2>Free for your projects. Pro when it pays the bills.</h2>
       <p class="sub">The whole app is open source and every feature is in the free download. Pro is how you pay for it once coolFTP is part of how you make money.</p>
-      <div class="two" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:none">
+      <div class="two plans">
         <div class="card" style="padding:26px">
           <h3 style="margin:0 0 4px;font-size:22px">Free</h3>
           <p class="muted" style="margin:0 0 18px">For personal projects. Open source, MIT, no account, no nag.</p>
