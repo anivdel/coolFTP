@@ -266,17 +266,51 @@ function renderList(el: HTMLElement, entries: Entry[], selected: Set<string>, on
         selected.has(entry.path) ? selected.delete(entry.path) : selected.add(entry.path);
       } else if (ev.shiftKey && selected.size) {
         const last = [...selected].pop()!;
-        const a = entries.findIndex((x) => x.path === last);
+        const a = Math.max(0, entries.findIndex((x) => x.path === last));
         const b = entries.indexOf(entry);
         for (let i = Math.min(a, b); i <= Math.max(a, b); i++) selected.add(entries[i].path);
       } else {
         selected.clear();
         selected.add(entry.path);
       }
-      el.querySelectorAll(".file").forEach((r) => r.classList.toggle("selected", selected.has((r as HTMLElement).dataset.path!)));
+      syncSelection(el, selected);
     };
     row.ondblclick = () => onOpen(entry);
   });
+}
+
+/** Reflect the selection set in the rows, then say how much is selected in the pane's status line. */
+function syncSelection(el: HTMLElement, selected: Set<string>) {
+  el.querySelectorAll<HTMLElement>(".file").forEach((r) => r.classList.toggle("selected", selected.has(r.dataset.path!)));
+  noteSelection(el);
+}
+
+/** "3 files (1.2 MB) + 1 folder selected · 128 items", so a big selection can be checked before Upload. */
+function noteSelection(el: HTMLElement) {
+  const local = el.id === "localList";
+  const selected = local ? state.selLocal : state.selRemote;
+  const entries = local ? state.localEntries : state.remoteEntries;
+  const status = $(local ? "localStatus" : "remoteStatus");
+  let files = 0;
+  let dirs = 0;
+  let bytes = 0;
+  for (const e of entries) {
+    if (!selected.has(e.path)) continue;
+    if (e.type === "dir") dirs++;
+    else {
+      files++;
+      bytes += e.size;
+    }
+  }
+  const parts: string[] = [];
+  if (files) parts.push(`${files} file${files === 1 ? "" : "s"} (${fmtBytes(bytes)})`);
+  if (dirs) parts.push(`${dirs} folder${dirs === 1 ? "" : "s"}`);
+  status.textContent = parts.length ? `${parts.join(" + ")} selected · ${entries.length} items` : `${entries.length} items`;
+}
+
+function selectAll(el: HTMLElement, selected: Set<string>, entries: Entry[]) {
+  for (const e of entries) selected.add(e.path);
+  syncSelection(el, selected);
 }
 
 function renderLocal() {
@@ -321,6 +355,200 @@ async function viewRemote(e: Entry) {
   $("viewerTitle").textContent = e.path + (r.truncated ? " (truncated)" : "");
   $("viewerBody").textContent = r.content;
   $("viewerModal").classList.remove("hidden");
+}
+
+// ---------------- rubber-band selection ----------------
+
+/**
+ * Press in a list and drag: a box follows the pointer and every row it touches is selected, the way
+ * Explorer and FileZilla do it. A plain drag replaces the selection, Ctrl toggles the rows in the box
+ * against it, Shift adds them. The list scrolls when the pointer goes past its top or bottom edge.
+ * A press that moves less than a few pixels is still a click, handled by the row itself.
+ */
+function rubberBand(el: HTMLElement, selected: Set<string>) {
+  const THRESHOLD = 4;
+  interface Row { el: HTMLElement; path: string; top: number; bottom: number }
+  interface Drag {
+    id: number; px: number; py: number; ax: number; ay: number; cx: number; cy: number;
+    mode: "replace" | "add" | "toggle"; onRow: boolean; active: boolean; base: Set<string>;
+    rows: Row[]; left: number; right: number; lo: number; hi: number; raf: number;
+  }
+  let drag: Drag | null = null;
+  let swallowClick = false;
+  const box = document.createElement("div");
+  box.className = "marquee";
+
+  /** Row geometry in the list's content coordinates, which do not move when the list scrolls. */
+  const measure = () => {
+    const rows: Row[] = Array.from(el.querySelectorAll<HTMLElement>(".file")).map((r) => ({ el: r, path: r.dataset.path!, top: r.offsetTop, bottom: r.offsetTop + r.offsetHeight }));
+    const first = rows[0]?.el;
+    return { rows, left: first?.offsetLeft ?? 0, right: first ? first.offsetLeft + first.offsetWidth : 0 };
+  };
+
+  /** Rows are stacked, so the ones overlapping a y range are always one run [lo, hi]; hi < lo means none. */
+  const hitRange = (rows: Row[], y1: number, y2: number): [number, number] => {
+    let a = 0;
+    let b = rows.length;
+    while (a < b) {
+      const m = (a + b) >> 1;
+      if (rows[m].bottom > y1) b = m;
+      else a = m + 1;
+    }
+    const lo = a;
+    b = rows.length;
+    while (a < b) {
+      const m = (a + b) >> 1;
+      if (rows[m].top < y2) a = m + 1;
+      else b = m;
+    }
+    return [lo, a - 1];
+  };
+
+  const apply = (d: Drag, row: Row, hit: boolean) => {
+    const on = d.mode === "toggle" ? d.base.has(row.path) !== hit : d.base.has(row.path) || hit;
+    if (on) selected.add(row.path);
+    else selected.delete(row.path);
+    row.el.classList.toggle("selected", on);
+  };
+
+  const update = () => {
+    const d = drag;
+    if (!d?.active) return;
+    if (!d.rows[0]?.el.isConnected) {
+      // The list was re-rendered under the drag (a refresh, a finished deploy): start over from the base.
+      Object.assign(d, measure());
+      for (const r of d.rows) apply(d, r, false);
+      d.lo = 0;
+      d.hi = -1;
+    }
+    const rect = el.getBoundingClientRect();
+    // Clamp to the content so the box never grows the scroll area (its border alone is 2px tall).
+    const x = Math.max(0, Math.min(el.scrollWidth - 2, d.cx - rect.left - el.clientLeft + el.scrollLeft));
+    const y = Math.max(0, Math.min(el.scrollHeight - 2, d.cy - rect.top - el.clientTop + el.scrollTop));
+    const x1 = Math.min(d.ax, x);
+    const x2 = Math.max(d.ax, x);
+    const y1 = Math.min(d.ay, y);
+    const y2 = Math.max(d.ay, y);
+    if (!box.isConnected) el.appendChild(box);
+    box.style.left = `${x1}px`;
+    box.style.top = `${y1}px`;
+    box.style.width = `${x2 - x1}px`;
+    box.style.height = `${y2 - y1}px`;
+    let [lo, hi]: [number, number] = x2 > d.left && x1 < d.right ? hitRange(d.rows, y1, y2) : [0, -1];
+    if (hi < lo) [lo, hi] = [0, -1];
+    // Only rows that entered or left the box change.
+    for (let i = d.lo; i <= d.hi; i++) if (i < lo || i > hi) apply(d, d.rows[i], false);
+    for (let i = lo; i <= hi; i++) if (i < d.lo || i > d.hi) apply(d, d.rows[i], true);
+    d.lo = lo;
+    d.hi = hi;
+  };
+
+  /** Keep scrolling while the pointer is held above or below the list, faster the further out it is. */
+  const tick = () => {
+    const d = drag;
+    if (!d?.active) return;
+    const rect = el.getBoundingClientRect();
+    const top = rect.top + el.clientTop;
+    const bottom = top + el.clientHeight;
+    const dy = d.cy < top ? d.cy - top : d.cy > bottom ? d.cy - bottom : 0;
+    if (dy) {
+      const before = el.scrollTop;
+      el.scrollTop += Math.sign(dy) * Math.min(32, 3 + Math.abs(dy) / 4);
+      if (el.scrollTop !== before) update();
+    }
+    d.raf = requestAnimationFrame(tick);
+  };
+
+  const end = () => {
+    const d = drag;
+    if (!d) return;
+    drag = null;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    window.removeEventListener("blur", end);
+    if (!d.active) {
+      // A plain click on empty space clears the selection, as Explorer does.
+      if (!d.onRow && d.mode === "replace" && selected.size) {
+        selected.clear();
+        syncSelection(el, selected);
+      }
+      return;
+    }
+    cancelAnimationFrame(d.raf);
+    box.remove();
+    try {
+      el.releasePointerCapture(d.id);
+    } catch {
+      /* already released */
+    }
+    // Nothing that vanished in a re-render mid-drag may linger in the selection.
+    const present = new Set(Array.from(el.querySelectorAll<HTMLElement>(".file")).map((r) => r.dataset.path!));
+    for (const p of [...selected]) if (!present.has(p)) selected.delete(p);
+    noteSelection(el);
+    // The click that follows a drag lands on a row or the list; it must not reset the selection to one row.
+    swallowClick = true;
+    setTimeout(() => (swallowClick = false), 0);
+  };
+
+  const onMove = (e: PointerEvent) => {
+    const d = drag;
+    if (!d || e.pointerId !== d.id) return;
+    d.cx = e.clientX;
+    d.cy = e.clientY;
+    if (!d.active) {
+      if (Math.hypot(e.clientX - d.px, e.clientY - d.py) < THRESHOLD) return;
+      d.active = true;
+      $("ctxMenu").classList.add("hidden");
+      try {
+        el.setPointerCapture(d.id); // keep getting moves, and the release, when the pointer leaves the window
+      } catch {
+        /* the button is already up */
+      }
+      Object.assign(d, measure());
+      if (d.mode === "replace") {
+        selected.clear();
+        for (const r of d.rows) r.el.classList.remove("selected");
+      } else d.base = new Set(selected);
+      d.raf = requestAnimationFrame(tick);
+    }
+    update();
+  };
+
+  const onUp = (e: PointerEvent) => {
+    if (drag && e.pointerId === drag.id) end();
+  };
+
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType === "touch") return;
+    if (drag) end(); // a release we never saw (focus left the window mid-press)
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left - el.clientLeft;
+    const y = e.clientY - rect.top - el.clientTop;
+    if (x >= el.clientWidth || y >= el.clientHeight) return; // on a scrollbar
+    if (!el.querySelector(".file")) return;
+    drag = {
+      id: e.pointerId, px: e.clientX, py: e.clientY, ax: x + el.scrollLeft, ay: y + el.scrollTop, cx: e.clientX, cy: e.clientY,
+      mode: e.ctrlKey || e.metaKey ? "toggle" : e.shiftKey ? "add" : "replace",
+      onRow: Boolean((e.target as HTMLElement).closest(".file")),
+      active: false, base: new Set(), rows: [], left: 0, right: 0, lo: 0, hi: -1, raf: 0,
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", end);
+  });
+  el.addEventListener("scroll", () => update());
+  el.addEventListener(
+    "click",
+    (e) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    },
+    true,
+  );
 }
 
 // ---------------- transfers ----------------
@@ -1030,6 +1258,10 @@ async function main() {
       if (en) en.type === "dir" ? loadLocal(en.path) : window.coolftp.shell.open(en.path);
     }
     if (e.key === "Backspace") loadLocal(lparent(state.localPath));
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      selectAll($("localList"), state.selLocal, state.localEntries);
+    }
   };
 
   // remote pane
@@ -1072,7 +1304,15 @@ async function main() {
       if (en) en.type === "dir" ? loadRemote(en.path) : viewRemote(en);
     }
     if (e.key === "Backspace") loadRemote(rparent(state.remotePath));
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+      e.preventDefault();
+      selectAll($("remoteList"), state.selRemote, state.remoteEntries);
+    }
   };
+
+  // Drag a box over either list to select many rows at once.
+  rubberBand($("localList"), state.selLocal);
+  rubberBand($("remoteList"), state.selRemote);
 
   // drag & drop from the OS onto the remote pane
   const remoteList = $("remoteList");

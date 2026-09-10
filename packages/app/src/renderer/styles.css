@@ -110,6 +110,9 @@ input[type="color"] { padding: 2px; height: 32px; width: 48px; }
 .file:hover { background: var(--bg-2); }
 .file.selected { background: rgba(56, 189, 248, 0.16); outline: 1px solid rgba(56, 189, 248, 0.35); }
 #remoteList .file.selected { background: rgba(147, 197, 253, 0.14); outline-color: rgba(147, 197, 253, 0.35); }
+/* Rubber-band selection: the box drawn while dragging over a list. */
+.marquee { position: absolute; z-index: 3; pointer-events: none; border: 1px solid rgba(56, 189, 248, 0.75); background: rgba(56, 189, 248, 0.14); border-radius: 2px; }
+#remoteList .marquee { border-color: rgba(147, 197, 253, 0.75); background: rgba(147, 197, 253, 0.12); }
 .file .name { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .file .ico { width: 16px; text-align: center; opacity: 0.85; }
 .file.dir .name { color: #cfe8ff; }

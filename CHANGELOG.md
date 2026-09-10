@@ -28,6 +28,12 @@ Four days of deploying with 0.1.1 from Claude Code, then fixing what got in the 
 
 - e2e now also covers undo and redo, the older-deploy conflict check, backup pruning, push recording into the manifest, the created-folder warning, size confirmation, `stat`, four FTP connections against the local server, verification against a local web server including a stale copy and an unreachable site with exit code 3, quiet mode output, `.gitkeep`, mkdirp reporting, and the MCP server driven over stdio.
 
+### Added on 2026-09-10
+
+The 0.1.2 installer was rebuilt with this in it, so the SHA-256 on the download page changed with it.
+
+- **Drag to select.** Press in either file list and drag: a box follows the pointer and every row it touches is highlighted, the way Explorer and FileZilla select files, so uploading a handful of files is a drag and a click on Upload. A plain drag replaces the selection, Ctrl+drag toggles the rows in the box, Shift+drag adds them, a click on empty space clears it, and the list scrolls when the pointer goes past its edge. Ctrl+A selects everything in the focused list. The pane's status line now says what is selected, for example "12 files (3.4 MB) + 1 folder selected · 128 items".
+
 ## 0.1.1 (2026-09-08)
 
 Fixes from the first days of deploying a real 15,000-file site with coolFTP.
