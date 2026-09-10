@@ -53,6 +53,33 @@ export class ConnectionPool {
     return slot.transport;
   }
 
+  /**
+   * Extra connections to a site for parallel transfers, on top of the pooled one. Servers cap
+   * concurrent logins, so a connection that cannot be opened is skipped with a warning instead
+   * of failing the operation. Hand them back with releaseExtras when the transfers are done.
+   */
+  async acquireExtras(site: Site, count: number, events?: Events): Promise<Transport[]> {
+    const extras: Transport[] = [];
+    for (let i = 0; i < count; i++) {
+      const t = createTransport(site, events);
+      try {
+        await t.connect();
+        extras.push(t);
+      } catch (err) {
+        events?.log(
+          `Could not open connection ${extras.length + 2} to ${site.host}: ${String((err as Error)?.message || err)}. Continuing with ${extras.length + 1}.`,
+          "warn",
+        );
+        break;
+      }
+    }
+    return extras;
+  }
+
+  async releaseExtras(extras: Transport[]): Promise<void> {
+    for (const t of extras) await t.close().catch(() => undefined);
+  }
+
   /** Reset the idle timer; call after each operation. */
   touch(name: string): void {
     const slot = this.slots.get(name.toLowerCase());

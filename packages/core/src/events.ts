@@ -1,4 +1,4 @@
-import type { DeployRecord, DiffPlan, TransferProgress } from "./types.js";
+import type { DeployRecord, DiffPlan, ProgressInfo, TransferProgress, VerifyResult } from "./types.js";
 
 export type CoolEvent =
   | { type: "log"; level: "info" | "warn" | "error" | "success"; message: string }
@@ -6,7 +6,13 @@ export type CoolEvent =
   | { type: "plan"; site: string; plan: DiffPlan }
   | { type: "deploy"; record: DeployRecord }
   | { type: "scan"; count: number; current: string }
-  | { type: "connect"; site: string; status: "connecting" | "connected" | "closed" | "error"; error?: string };
+  | { type: "connect"; site: string; status: "connecting" | "connected" | "closed" | "error"; error?: string }
+  /** Whole-operation progress, at most about once a second. */
+  | { type: "progress"; progress: ProgressInfo }
+  /** Live checks finished. */
+  | { type: "verify"; site: string; verify: VerifyResult }
+  /** Directories an operation had to create on the server. topLevel: those directly under the base it worked in. */
+  | { type: "created"; site: string; dirs: string[]; topLevel: string[] };
 
 export type Listener = (event: CoolEvent, meta: EventMeta) => void;
 

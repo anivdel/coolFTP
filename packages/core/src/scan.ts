@@ -19,6 +19,7 @@ export const ALWAYS_IGNORE = [
   ".env",
   ".env.*",
   "*.log",
+  ".gitkeep",
 ];
 
 export function buildIgnore(root: string, extra: string[] = []): Ignore {

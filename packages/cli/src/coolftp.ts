@@ -14,14 +14,21 @@ import {
   type DiffResult,
   type DiffPlan,
   type DeployRecord,
+  type ProgressInfo,
   type RemoteEntry,
   type Site,
   type ProjectConfig,
+  type VerifyResult,
 } from "@coolftp/core";
-import { createRunner, detectAgent, readHubInfo, type Runner } from "./runner.js";
+import { createRunner, detectAgent, readHubInfo, runnerFactory, sandboxNote, type Runner } from "./runner.js";
 import { startMcpServer } from "./mcp.js";
+import { formatDuration, groupByDir } from "./format.js";
 
 declare const __VERSION__: string;
+const VERSION = typeof __VERSION__ === "string" ? __VERSION__ : "0.0.0";
+
+/** Exit code when the files landed but the live checks afterwards failed. */
+const EXIT_VERIFY_FAILED = 3;
 
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const c = {
@@ -45,64 +52,115 @@ const program = new Command();
 program
   .name("coolftp")
   .description("coolFTP: deploy files to your web server from the terminal, or let a coding agent do it.")
-  .version(typeof __VERSION__ === "string" ? __VERSION__ : "0.0.0")
+  .version(VERSION)
   .option("--agent <name>", "name of the agent driving this command (shown in the desktop app)")
   .option("--json", "print machine-readable JSON to stdout", false)
   .option("--direct", "do not route through the running desktop app", false)
-  .option("-q, --quiet", "suppress progress output", false);
+  .option("-q, --quiet", "no progress or per-file output; results, warnings and errors still print", false);
 
 function globals(): Globals {
   const o = program.opts();
   return { agent: detectAgent(o.agent), json: Boolean(o.json), direct: Boolean(o.direct), quiet: Boolean(o.quiet) };
 }
 
-const activeTransfers = new Map<string, { remote: string; size: number; transferred: number }>();
+function progressLine(p: ProgressInfo): string {
+  const pct = p.totalBytes ? Math.round((p.bytes / p.totalBytes) * 100) : p.totalFiles ? Math.round((p.files / p.totalFiles) * 100) : 0;
+  const rate = p.rate > 0 && !p.done ? ` · ${formatBytes(p.rate)}/s` : "";
+  const eta = !p.done && p.etaMs > 0 ? ` · ~${formatDuration(p.etaMs)} left` : "";
+  const conn = p.connections > 1 ? ` · ${p.connections} connections` : "";
+  return `${p.done ? "done: " : ""}${p.files.toLocaleString()}/${p.totalFiles.toLocaleString()} files · ${formatBytes(p.bytes)} of ${formatBytes(p.totalBytes)} (${pct}%)${rate}${eta}${conn}`;
+}
 
+/**
+ * Prints events as they stream in. On a terminal, big operations show one updating progress
+ * line; when the output is captured (an agent's shell), a progress line every few seconds
+ * replaces the per-file lines, so a 15,000-file deploy is a screen, not a book.
+ */
 function printer(g: Globals) {
+  const tty = Boolean(process.stderr.isTTY);
   const out = (s: string) => process.stderr.write(s + "\n");
+  let bigOp = false;
+  let lastProgressAt = 0;
+  let progressOpen = false;
+  const closeProgress = () => {
+    if (progressOpen) {
+      process.stderr.write("\n");
+      progressOpen = false;
+    }
+  };
   return (event: CoolEvent, _meta: EventMeta) => {
-    if (g.quiet) return;
     switch (event.type) {
       case "log": {
+        if (g.quiet && event.level === "info") return;
+        closeProgress();
         const tag =
           event.level === "error" ? c.red("✖") : event.level === "warn" ? c.yellow("!") : event.level === "success" ? c.green("✔") : c.dim("·");
         out(`${tag} ${event.message}`);
         break;
       }
       case "connect":
+        if (g.quiet) return;
         if (event.status === "connecting") out(c.dim(`… connecting to ${event.site}`));
         if (event.status === "error") out(c.red(`✖ ${event.site}: ${event.error}`));
         break;
       case "transfer": {
         const t = event.transfer;
-        if (t.status === "done") {
-          activeTransfers.delete(t.id);
-          out(`${t.direction === "upload" ? c.cyan("↑") : c.magenta("↓")} ${t.remote} ${c.dim(formatBytes(t.size))}`);
-        } else if (t.status === "error") {
-          activeTransfers.delete(t.id);
+        if (t.status === "error") {
+          closeProgress();
           out(c.red(`✖ ${t.remote}: ${t.error}`));
-        } else if (t.status === "active") {
-          activeTransfers.set(t.id, { remote: t.remote, size: t.size, transferred: t.transferred });
+        } else if (t.status === "done" && !g.quiet && !bigOp) {
+          out(`${t.direction === "upload" ? c.cyan("↑") : c.magenta("↓")} ${t.remote} ${c.dim(formatBytes(t.size))}`);
         }
         break;
       }
       case "scan":
-        if (event.current) process.stderr.write(`\r${c.dim(`scanned ${event.count} files…`)}`);
-        else if (event.count) out(`\r${c.dim(`scanned ${event.count} files`)}      `);
+        if (g.quiet) return;
+        if (event.current) {
+          if (tty) process.stderr.write(`\r${c.dim(`scanned ${event.count} files…`)}`);
+        } else if (event.count) out(`${tty ? "\r" : ""}${c.dim(`scanned ${event.count} files`)}      `);
         break;
+      case "progress": {
+        const p = event.progress;
+        if (p.totalFiles > 20) bigOp = true;
+        if (g.quiet || !bigOp) return;
+        const line = c.dim(`· ${progressLine(p)}`);
+        if (tty) {
+          process.stderr.write(`\r${line}${" ".repeat(12)}`);
+          progressOpen = true;
+          if (p.done) closeProgress();
+        } else if (p.done || Date.now() - lastProgressAt >= 5000) {
+          lastProgressAt = Date.now();
+          out(line);
+        }
+        break;
+      }
+      case "created": {
+        if (g.quiet) return;
+        const shown = event.dirs.slice(0, 6);
+        out(c.dim(`· created ${event.dirs.length} folder${event.dirs.length === 1 ? "" : "s"}: ${shown.join(", ")}${event.dirs.length > shown.length ? `, … ${event.dirs.length - shown.length} more` : ""}`));
+        break;
+      }
       default:
         break;
     }
   };
 }
 
+let versionWarned = false;
+
 async function withRunner<T>(fn: (r: Runner, g: Globals) => Promise<T>): Promise<void> {
   const g = globals();
   const runner = await createRunner({ agent: g.agent, direct: g.direct });
   if (!g.quiet && !g.json && runner.mode === "hub") process.stderr.write(c.dim(`via coolFTP app (port ${runner.hubPort})\n`));
+  if (!g.json && !versionWarned && runner.mode === "hub" && runner.appVersion && runner.appVersion !== VERSION) {
+    versionWarned = true;
+    process.stderr.write(c.yellow(`! the coolFTP app is ${runner.appVersion} and this CLI is ${VERSION}. Commands run inside the app with its version; install the matching app to get the new behaviour there.\n`));
+  }
   try {
     const result = await fn(runner, g);
     if (g.json && result !== undefined) process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    const r = result as { verify?: VerifyResult; ok?: boolean; checks?: unknown } | undefined;
+    if (r && typeof r === "object" && ((r.verify && r.verify.ok === false) || (Array.isArray(r.checks) && r.ok === false))) process.exitCode = EXIT_VERIFY_FAILED;
   } catch (err) {
     const msg = (err as Error)?.message || String(err);
     if (g.json) process.stdout.write(JSON.stringify({ error: msg }) + "\n");
@@ -154,6 +212,7 @@ site
   .option("-l, --local <localRoot>", "default local project directory")
   .option("--color <hex>", "accent colour in the app")
   .option("--url <url>", "public URL the remote root is served at (enables post-deploy checks)")
+  .option("--connections <n>", "parallel connections for large FTP transfers (default 4)")
   .action((name: string, o) =>
     withRunner(async (r, g) => {
       const s: Site = {
@@ -169,6 +228,7 @@ site
         localRoot: o.local,
         color: o.color,
         url: o.url,
+        connections: o.connections ? Math.max(1, Number(o.connections) || 1) : undefined,
       };
       const saved = await r.run("addSite", { site: s });
       if (!g.json) {
@@ -256,6 +316,7 @@ program
   .option("-d, --local-dir <dir>", "sub-directory to deploy, e.g. dist")
   .option("-b, --build <command>", "command to run before each deploy, e.g. \"npm run build\"")
   .option("-i, --ignore <patterns...>", "extra gitignore-style patterns")
+  .option("--keep-backups <n>", "deploys whose previous versions stay on the server for undo (default 5, 0 disables)")
   .action((siteName: string, o) =>
     withRunner(async (r, g) => {
       const config: ProjectConfig = { site: siteName };
@@ -264,6 +325,7 @@ program
       if (o.localDir) config.localDir = o.localDir;
       if (o.build) config.build = o.build;
       if (o.ignore?.length) config.ignore = o.ignore;
+      if (o.keepBackups !== undefined) config.keepBackups = Math.max(0, Number(o.keepBackups) || 0);
       const file = await r.run<string>("init", { cwd: process.cwd(), config });
       if (!g.json) process.stderr.write(c.green(`✔ wrote ${file}\n`) + c.dim("  run `coolftp deploy` to push this project\n"));
       return { file, config };
@@ -278,13 +340,23 @@ program
       const file = findProjectFile(process.cwd());
       const cfg = file ? readJson<ProjectConfig>(file, { site: "" }) : null;
       const hub = readHubInfo();
-      const info = { project: file, config: cfg, app: r.mode === "hub" ? { running: true, port: r.hubPort, pid: hub?.pid } : { running: false }, agent: g.agent };
+      const note = r.mode === "direct" ? sandboxNote() : undefined;
+      const info = {
+        project: file,
+        config: cfg,
+        app: r.mode === "hub" ? { running: true, port: r.hubPort, pid: hub?.pid, version: r.appVersion } : { running: false },
+        cli: VERSION,
+        agent: g.agent,
+        note,
+      };
       if (!g.json) {
         process.stdout.write(`${c.bold("project")}  ${file ?? c.dim("no .coolftp.json (run coolftp init <site>)")}\n`);
         if (cfg) process.stdout.write(`${c.bold("site")}     ${cfg.site}${cfg.remoteRoot ? ` → ${cfg.remoteRoot}` : ""}${cfg.url ? c.dim(`  ${cfg.url}`) : ""}${cfg.localDir ? c.dim(`  (deploys ${cfg.localDir}/)`) : ""}\n`);
-        process.stdout.write(`${c.bold("app")}      ${r.mode === "hub" ? c.green(`running on port ${r.hubPort}`) : c.dim("not running (commands run directly)")}\n`);
+        process.stdout.write(`${c.bold("app")}      ${r.mode === "hub" ? c.green(`running on port ${r.hubPort}`) + (r.appVersion ? c.dim(` (${r.appVersion})`) : "") : c.dim("not running (commands run directly)")}\n`);
+        process.stdout.write(`${c.bold("cli")}      ${VERSION}\n`);
         process.stdout.write(`${c.bold("agent")}    ${g.agent}\n`);
         process.stdout.write(`${c.bold("config")}   ${configDir()}${r.mode === "hub" ? c.dim("  (sites come from the app while it is open)") : ""}\n`);
+        if (note) process.stdout.write(c.yellow(`! ${note}\n`));
       }
       return { ...info, configDir: configDir() };
     }),
@@ -314,6 +386,24 @@ program
   );
 
 program
+  .command("stat <path>")
+  .description("show whether a remote path exists, with its size and date")
+  .option("-s, --site <name>")
+  .action((p: string, o) =>
+    withRunner(async (r, g) => {
+      const { site: s, path: rp } = await resolveTarget(r, o.site, p);
+      const res = await r.run<RemoteEntry | null>("stat", { site: s, path: rp });
+      if (!res) {
+        if (!g.json) process.stderr.write(c.red(`✖ not found: ${s}:${rp}\n`));
+        process.exitCode = 1;
+        return { exists: false, site: s, path: rp };
+      }
+      if (!g.json) process.stdout.write(`${res.type === "dir" ? "dir " : res.type === "link" ? "link" : "file"}  ${formatBytes(res.size).padStart(9)}  ${res.mtime ? new Date(res.mtime).toISOString().slice(0, 16).replace("T", " ") : "                "}  ${s}:${res.path}\n`);
+      return { exists: true, site: s, ...res };
+    }),
+  );
+
+program
   .command("cat <path>")
   .description("print a remote file")
   .option("-s, --site <name>")
@@ -336,7 +426,7 @@ program
   .action((local: string, remote: string | undefined, o) =>
     withRunner(async (r, g) => {
       const { site: s, path: rp } = await resolveTarget(r, o.site, remote);
-      return r.run("upload", { site: s, local: path.resolve(local), remote: rp ?? "" }, printer(g));
+      return r.run("upload", { site: s, local: path.resolve(local), remote: rp ?? "", cwd: process.cwd() }, printer(g));
     }),
   );
 
@@ -390,9 +480,18 @@ program
 function printPlan(plan: DiffPlan, remoteRoot: string, siteName: string, showDelete: boolean) {
   const w = (s: string) => process.stdout.write(s + "\n");
   w(c.dim(`${siteName}:${remoteRoot}  (basis: ${plan.basis})`));
-  for (const f of plan.add) w(`${c.green("+")} ${f}`);
-  for (const f of plan.change) w(`${c.yellow("~")} ${f}`);
-  for (const f of plan.delete) w(`${c.red("-")} ${f}${showDelete ? "" : c.dim("  (stale, kept unless --delete)")}`);
+  const section = (sym: string, paint: (s: string) => string, files: string[], label: string) => {
+    if (!files.length) return;
+    if (files.length <= 20) {
+      for (const f of files) w(`${paint(sym)} ${f}${label.startsWith("stale") ? c.dim("  (stale, kept unless --delete)") : ""}`);
+      return;
+    }
+    w(`${paint(sym)} ${paint(files.length.toLocaleString())} ${label}`);
+    for (const [dir, n] of groupByDir(files)) w(`   ${paint(sym)} ${dir}  ${c.dim(n.toLocaleString())}`);
+  };
+  section("+", c.green, plan.add, "new");
+  section("~", c.yellow, plan.change, "changed");
+  section("-", c.red, plan.delete, showDelete ? "to delete" : "stale, kept unless --delete");
   w(
     c.bold(`${plan.add.length} new, ${plan.change.length} changed, ${plan.delete.length} stale, ${plan.unchanged} unchanged`) +
       c.dim(`  ${formatBytes(plan.bytes)} to upload`),
@@ -448,20 +547,81 @@ program
     }),
   );
 
+function printVerify(v: VerifyResult) {
+  if (v.ok) {
+    process.stdout.write(v.stale ? c.yellow(`! live, but ${v.stale} file${v.stale === 1 ? " is" : "s are"} still served from an old copy (a cache or CDN in front of the server)\n`) : c.green("✔ live: site answered on every check\n"));
+  } else {
+    const bad = v.checks.filter((x) => !x.ok);
+    const answers = new Set(bad.map((b) => String(b.status || b.error || "nothing")));
+    const detail =
+      answers.size === 1 && bad.length > 1
+        ? `all ${bad.length} checks answered ${[...answers][0]} (e.g. ${bad[0].url})`
+        : bad
+            .slice(0, 3)
+            .map((b) => `${b.url} answered ${b.status || b.error || "nothing"}`)
+            .join("; ") + (bad.length > 3 ? `; and ${bad.length - 3} more` : "");
+    process.stdout.write(c.red(`✖ verification failed: ${detail}\n`));
+  }
+}
+
 function printDeployExtras(res: DeployResult) {
   if (res.urls?.length && !res.dryRun) {
     const shown = res.urls.slice(0, 8);
     for (const u of shown) process.stdout.write(`${c.cyan("→")} ${u}\n`);
     if (res.urls.length > shown.length) process.stdout.write(c.dim(`  … and ${res.urls.length - shown.length} more\n`));
   }
-  if (res.verify) {
-    process.stdout.write(res.verify.ok ? c.green("✔ live: site answered on every check\n") : c.red("✖ verification failed, see checks above\n"));
-  }
+  if (res.verify) printVerify(res.verify);
+  if (res.record?.backup && !res.dryRun) process.stdout.write(c.dim(`↶ coolftp undo ${describeUndo(res.record.backup)}\n`));
+}
+
+/** "restores 3 previous versions kept on the server and removes 2 added files" */
+function describeUndo(b: NonNullable<DeployRecord["backup"]>): string {
+  const kept = Object.keys(b.changed).length + Object.keys(b.deleted).length;
+  const parts: string[] = [];
+  if (kept) parts.push(`restores ${kept} previous version${kept === 1 ? "" : "s"} kept on the server`);
+  if (b.added.length) parts.push(`removes ${b.added.length} added file${b.added.length === 1 ? "" : "s"}`);
+  return parts.join(" and ") || "is available";
 }
 
 program
+  .command("undo")
+  .description("put back the previous versions the last deploy set aside on the server (no git needed)")
+  .option("-s, --site <name>")
+  .option("-t, --to <deployId>", "undo a specific deploy from history instead of the latest")
+  .option("-n, --dry-run", "show what would be restored and removed, without touching the server")
+  .option("-m, --message <text>", "note stored with the undo record")
+  .action((o) =>
+    withRunner(async (r, g) => {
+      const res = await r.run<DeployResult & { undoOf: string }>("undo", { cwd: process.cwd(), site: o.site, to: o.to, dryRun: o.dryRun, message: o.message }, printer(g));
+      if (!g.json) {
+        if (res.dryRun) {
+          const w = (s: string) => process.stdout.write(s + "\n");
+          w(c.dim(`${res.site}:${res.remoteRoot}  undo of ${res.undoOf}`));
+          for (const f of res.plan.change) w(`${c.yellow("↶")} ${f}  ${c.dim("restore previous version")}`);
+          for (const f of res.plan.add) w(`${c.green("↶")} ${f}  ${c.dim("put back deleted file")}`);
+          for (const f of res.plan.delete) w(`${c.red("-")} ${f}  ${c.dim("remove added file")}`);
+        }
+        printDeployExtras(res);
+      }
+      return res;
+    }),
+  );
+
+program
+  .command("verify [paths...]")
+  .description("fetch the site's public URL and the last deploy's files (or the given paths) and report what answers")
+  .option("-s, --site <name>")
+  .action((paths: string[], o) =>
+    withRunner(async (r, g) => {
+      const res = await r.run<VerifyResult & { urls: string[] }>("verify", { cwd: process.cwd(), site: o.site, paths }, printer(g));
+      if (!g.json) printVerify(res);
+      return res;
+    }),
+  );
+
+program
   .command("rollback")
-  .description("put the server back to an earlier deploy (defaults to the previous commit that was live)")
+  .description("put the server back to an earlier deploy's commit (defaults to the previous commit that was live)")
   .option("-s, --site <name>")
   .option("-t, --to <commit|deployId>", "commit hash, branch, tag, or a deploy id from history")
   .option("-b, --build", "run the project build command inside the checkout first")
@@ -489,7 +649,10 @@ program
           const when = d.at.slice(0, 16).replace("T", " ");
           const who = d.agent && d.agent !== "cli" ? c.magenta(` [${d.agent}]`) : "";
           const git = d.git ? c.dim(` ${d.git.short}${d.git.dirty ? "*" : ""}`) : "";
-          process.stdout.write(`${c.dim(when)}  ${c.green(`+${d.added}`)} ${c.yellow(`~${d.changed}`)} ${c.red(`-${d.deleted}`)}${git}${who}  ${d.message ?? d.git?.subject ?? ""}\n`);
+          const live = d.verify ? (d.verify.ok ? (d.verify.stale ? c.yellow(" !stale") : c.green(" ✔live")) : c.red(" ✖failed")) : "";
+          const kind = d.undoOf ? c.yellow("↶undo ") : d.rollbackOf ? c.yellow("↺rollback ") : "";
+          const undoable = d.backup ? c.dim(" ↶") : "";
+          process.stdout.write(`${c.dim(when)}  ${c.dim(d.id)}  ${c.green(`+${d.added}`)} ${c.yellow(`~${d.changed}`)} ${c.red(`-${d.deleted}`)}${git}${who}${live}${undoable}  ${kind}${d.message ?? d.git?.subject ?? ""}\n`);
         }
       }
       return list;
@@ -560,8 +723,8 @@ program
   .description("run as an MCP server over stdio (for Claude Code and other agents)")
   .action(async () => {
     const g = globals();
-    const runner = await createRunner({ agent: g.agent === "cli" ? "mcp-agent" : g.agent, direct: g.direct });
-    await startMcpServer(runner, typeof __VERSION__ === "string" ? __VERSION__ : "0.0.0");
+    const factory = runnerFactory({ agent: g.agent === "cli" ? "mcp-agent" : g.agent, direct: g.direct });
+    await startMcpServer(factory, VERSION);
   });
 
 program
@@ -575,9 +738,11 @@ program
   { "mcpServers": { "coolftp": { "command": "node", "args": ["${bin.replace(/\\/g, "\\\\")}", "mcp"] } } }
 
 ${c.bold("Any agent with a shell")}
-  coolftp deploy -m "what changed"        # upload what changed
+  coolftp deploy -m "what changed"        # upload what changed; exit code 3 means uploaded but the live checks failed
   coolftp deploy --dry-run                 # preview only
   coolftp deploy --commit -m "msg"         # git commit, then deploy
+  coolftp undo                             # put the previous versions back, no git needed
+  coolftp verify                           # re-run the live checks without deploying
   coolftp diff --json                      # machine-readable plan
 
 ${c.bold("Tips")}

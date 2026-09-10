@@ -19,6 +19,8 @@ export interface Site {
   color?: string;
   /** Public URL that remoteRoot is served at, e.g. https://coolftp.com. Enables post-deploy verification. */
   url?: string;
+  /** Parallel connections opened for large transfers (FTP/FTPS only; SFTP multiplexes one). Default 4. */
+  connections?: number;
 }
 
 export interface ProjectConfig {
@@ -32,6 +34,8 @@ export interface ProjectConfig {
   ignore?: string[];
   /** Command to run before deploy (e.g. "npm run build"). */
   build?: string;
+  /** How many deploys keep their previous versions on the server for `coolftp undo`. Default 5, 0 disables. */
+  keepBackups?: number;
 }
 
 export interface ResolvedProject {
@@ -69,6 +73,41 @@ export interface ManifestFile {
   hash: string;
 }
 
+export interface VerifyCheck {
+  url: string;
+  status: number;
+  ok: boolean;
+  ms: number;
+  error?: string;
+  /** For static files: whether the bytes the public URL serves match the local file. */
+  content?: "match" | "stale";
+}
+
+export interface VerifyResult {
+  /** Every checked URL answered with a success status. */
+  ok: boolean;
+  checks: VerifyCheck[];
+  /** Files whose live copy differs from the local one. Usually a cache in front of the server. */
+  stale: number;
+  at: string;
+}
+
+/** Previous versions a deploy set aside on the server so it can be undone. */
+export interface BackupInfo {
+  /** Folder name under <remoteRoot>/.coolftp/backup. */
+  id: string;
+  /** Files the deploy overwrote, with their previous manifest entries. */
+  changed: Record<string, ManifestFile>;
+  /** Files the deploy removed, with their previous manifest entries. */
+  deleted: Record<string, ManifestFile>;
+  /** Files the deploy added; undo removes them. */
+  added: string[];
+  /** Set when the deploy added more files than are listed in `added`. */
+  addedTruncated?: boolean;
+  /** Size of the previous versions, from the manifest. */
+  bytes: number;
+}
+
 export interface DeployRecord {
   id: string;
   at: string;
@@ -78,12 +117,24 @@ export interface DeployRecord {
   git?: GitInfo;
   /** Set when this deploy restored the tree of an earlier commit. */
   rollbackOf?: string;
+  /** Set when this deploy reverted an earlier deploy from its backup. */
+  undoOf?: string;
   added: number;
   changed: number;
   deleted: number;
   bytes: number;
   durationMs: number;
   files: string[];
+  /** Remote directory the deploy wrote to. */
+  remoteRoot?: string;
+  /** Live checks run after the deploy (kept in the local history). */
+  verify?: VerifyResult;
+  /** Previous versions kept on the server for `coolftp undo`. */
+  backup?: BackupInfo;
+  /** Directories the deploy created on the server. */
+  createdDirs?: string[];
+  /** Connections used for the transfers. */
+  connections?: number;
 }
 
 export interface Manifest {
@@ -124,6 +175,21 @@ export interface TransferProgress {
   endedAt?: number;
 }
 
+/** Whole-operation progress for deploys and folder transfers. */
+export interface ProgressInfo {
+  op: "deploy" | "upload" | "download";
+  site: string;
+  files: number;
+  totalFiles: number;
+  bytes: number;
+  totalBytes: number;
+  /** Bytes per second over the last few seconds. */
+  rate: number;
+  etaMs: number;
+  connections: number;
+  done: boolean;
+}
+
 export type ProgressFn = (transferred: number, total: number) => void;
 
 export interface Transport {
@@ -133,7 +199,10 @@ export interface Transport {
   isConnected(): boolean;
   list(dir: string): Promise<RemoteEntry[]>;
   stat(p: string): Promise<RemoteEntry | null>;
-  mkdirp(dir: string): Promise<void>;
+  /** Size of a remote file in bytes, or null when the server cannot say. */
+  size(p: string): Promise<number | null>;
+  /** Create a directory and any missing parents. Returns the directories it had to create. */
+  mkdirp(dir: string): Promise<string[]>;
   upload(local: string, remote: string, onProgress?: ProgressFn): Promise<void>;
   download(remote: string, local: string, onProgress?: ProgressFn): Promise<void>;
   readFile(remote: string): Promise<Buffer>;

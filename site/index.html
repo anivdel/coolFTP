@@ -120,7 +120,29 @@
     footer { padding: 34px 0 50px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line); }
     .note { font-size: 12px; color: var(--muted); }
 
+    .newpill { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; padding: 8px 14px 8px 8px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--muted); font-size: 13px; }
+    .newpill:hover { border-color: var(--cyan); color: var(--text); text-decoration: none; }
+    .newpill .arrow { color: var(--cyan); }
+    .ver { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(56, 189, 248, 0.45); background: rgba(56, 189, 248, 0.12); border-radius: 999px; padding: 2px 10px; font-family: var(--mono); font-size: 12px; color: var(--cyan); font-weight: 600; }
+    .releases { display: grid; gap: 14px; max-width: 920px; }
+    .release { display: grid; grid-template-columns: 150px 1fr; gap: 22px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; }
+    .release.latest { border-color: rgba(56, 189, 248, 0.4); box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.08), 0 20px 50px rgba(0, 0, 0, 0.35); }
+    .release .when { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .release .when .latest-tag { color: var(--green); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+    .release h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -0.2px; }
+    .release .what { color: var(--muted); margin: 0 0 14px; font-size: 14px; max-width: 640px; }
+    .release .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 22px; }
+    .release .group > b { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--sky); margin-bottom: 6px; }
+    .release .group.fix > b { color: var(--yellow); }
+    .release .group.new > b { color: var(--green); }
+    .release ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+    .release li { margin: 3px 0; }
+    .release li b { color: var(--text); font-weight: 600; }
+    .release .links { margin-top: 14px; font-size: 13px; display: flex; gap: 16px; flex-wrap: wrap; }
+
     @media (max-width: 860px) {
+      .release { grid-template-columns: 1fr; gap: 10px; }
+      .release .when { flex-direction: row; align-items: center; }
       .hero, .flow, .two { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr 1fr; }
       nav { display: none; }
@@ -140,6 +162,7 @@
         <a href="#features">Features</a>
         <a href="#compare">vs FileZilla</a>
         <a href="#quickstart">Quickstart</a>
+        <a href="#news">News</a>
         <a href="#pro">Pricing</a>
         <a href="#faq">FAQ</a>
       </nav>
@@ -158,6 +181,7 @@
           <a class="btn" href="#quickstart">Read the quickstart</a>
         </div>
         <p class="cta alt" style="margin-top:14px">Or install the CLI: <code>npm i -g coolftp</code></p>
+        <a class="newpill" href="#news"><span class="ver">0.1.2</span> Undo without git, confirmed uploads, parallel FTP, a yeti <span class="arrow">→</span></a>
       </div>
       <div class="term" aria-label="Example session">
         <div class="bar"><i></i><i></i><i></i><span>claude code · my-site</span></div>
@@ -193,9 +217,9 @@
       <div class="flow">
         <ol class="steps">
           <li><div><b>Link a folder once</b><span>Run <code>coolftp init my-server</code> in the project. It writes a tiny <code>.coolftp.json</code> so nobody has to remember hosts or paths again, agents included.</span></div></li>
-          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_ls</code>, <code>coolftp_read</code> and friends. Any other agent just calls the CLI.</span></div></li>
+          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI.</span></div></li>
           <li><div><b>Keep the app open</b><span>Agent commands route through the running desktop app. You see each call in the Agents panel, each file in the transfer queue, and each deploy in history, tagged with who did it.</span></div></li>
-          <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, and tells you what it skipped.</span></div></li>
+          <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, checks the site is live, and tells you what it skipped. "Undo that" puts the previous versions back.</span></div></li>
         </ol>
         <div class="term">
           <div class="bar"><i></i><i></i><i></i><span>coolFTP · Agents</span></div>
@@ -217,17 +241,17 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
         <div class="card"><h3><span class="ic">⇅</span>SFTP first, FTP still there</h3><p>Key auth with your existing ssh-agent, or a password if you must. FTPS and plain FTP for the shared hosts that never upgraded.</p></div>
         <div class="card m"><h3><span class="ic">#</span>Hash-based deploys</h3><p>A manifest on the server records the SHA-256 of every file it has. Deploys upload only what changed, even if timestamps lie.</p></div>
         <div class="card g"><h3><span class="ic">⎇</span>Deploy history with git</h3><p>Each deploy stores the commit, branch, dirty flag, message, byte count and which agent ran it. "What is live right now?" has an answer.</p></div>
-        <div class="card"><h3><span class="ic">◆</span>Live agent feed</h3><p>Every call an agent makes shows up as it happens, with the arguments in plain words. Failures flash the window.</p></div>
-        <div class="card m"><h3><span class="ic">⌘</span>MCP server built in</h3><p>Fifteen typed tools for Claude Code and any MCP client. Sites, diff, deploy, rollback, ls, read, write, upload, download, rename, delete, history.</p></div>
+        <div class="card"><h3><span class="ic">◆</span>Live agent feed</h3><p>Every call an agent makes shows up as it happens, with a progress card for the deploy, and expands to show where every file went. A Windows notification tells you how it ended while you are in another window.</p></div>
+        <div class="card m"><h3><span class="ic">⌘</span>MCP server built in</h3><p>Eighteen typed tools for Claude Code and any MCP client. Sites, diff, deploy, undo, verify, rollback, ls, stat, read, write, upload, download, rename, delete, history.</p></div>
         <div class="card g"><h3><span class="ic">∅</span>Ignore rules that make sense</h3><p><code>.git</code>, <code>node_modules</code>, <code>.env</code> and logs never go up. Add a <code>.coolftpignore</code> for the rest, gitignore syntax.</p></div>
-        <div class="card"><h3><span class="ic">↺</span>One-command rollback</h3><p><code>coolftp rollback</code> puts the server back to the commit that was live before. Any deploy in history can be restored by id. Your working tree is never touched.</p></div>
-        <div class="card m"><h3><span class="ic">✓</span>Deploys that verify themselves</h3><p>Give a site its public URL and every deploy fetches the homepage and the changed pages afterwards, then reports the status codes. Agents stop guessing.</p></div>
+        <div class="card"><h3><span class="ic">↶</span>Undo without git, rollback with it</h3><p>Every deploy moves the files it overwrites into a backup on the server first, so <code>coolftp undo</code> puts them back even from a dirty tree. <code>coolftp rollback</code> restores any commit in history. Your working tree is never touched.</p></div>
+        <div class="card m"><h3><span class="ic">✓</span>Deploys that verify themselves</h3><p>Give a site its public URL and every deploy fetches the homepage and the changed pages, compares static files byte for byte with what you uploaded, and exits non-zero when the site does not answer. Agents stop guessing.</p></div>
         <div class="card g"><h3><span class="ic">!</span>A human click for destructive changes</h3><p>When an agent asks to delete, deploy with <code>--delete</code>, or roll back, the app pops a yes/no on your screen. Two minutes with no answer means no.</p></div>
         <div class="card"><h3><span class="ic">▶</span>Build before deploy</h3><p>Set <code>"build": "npm run build"</code> in the project file and every deploy runs it first, agent-triggered or not.</p></div>
         <div class="card m"><h3><span class="ic">⌫</span>Stale file cleanup, opt-in and guarded</h3><p>Files you deleted locally are listed as stale and left alone until you pass <code>--delete</code>. A first deploy into a folder with other files refuses to delete them at all.</p></div>
         <div class="card g"><h3><span class="ic">⚿</span>Pinned host keys, encrypted passwords</h3><p>SFTP host keys are remembered on first use and a changed key is refused. Passwords are encrypted with the Windows user account, never plain text.</p></div>
         <div class="card"><h3><span class="ic">▤</span>Two panes, no clutter</h3><p>Local on the left, remote on the right, drag and drop from Explorer, preview text files in place, keyboard driven.</p></div>
-        <div class="card m"><h3><span class="ic">⇄</span>Resumable deploys</h3><p>Transfers retry on their own. If a deploy still dies halfway, what landed is recorded, and the next run finishes the rest instead of starting over.</p></div>
+        <div class="card m"><h3><span class="ic">⇄</span>Confirmed, parallel, resumable</h3><p>Big FTP deploys use four connections. Every upload's size is read back from the server, changed files are swapped into place rather than overwritten, and if a deploy dies halfway the next run finishes the rest.</p></div>
         <div class="card g"><h3><span class="ic">⌂</span>Runs without the app too</h3><p>Close the desktop app and the CLI and MCP server keep working in-process. Same commands, same config, on a headless box or in CI.</p></div>
       </div>
     </section>
@@ -245,8 +269,10 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
             <tr><td>Driveable by Claude Code / MCP</td><td class="yes">built in</td><td class="no">no</td><td class="no">no</td><td class="part">shell only</td></tr>
             <tr><td>Shows agent actions live in a GUI</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
             <tr><td>Asks you before an agent deletes anything</td><td class="yes">yes</td><td class="no">n/a</td><td class="no">n/a</td><td class="no">no</td></tr>
+            <tr><td>Undo the last deploy, no git needed</td><td class="yes">one command</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
             <tr><td>Roll back to the previous live version</td><td class="yes">one command</td><td class="no">no</td><td class="no">no</td><td class="part">by hand</td></tr>
-            <tr><td>Checks the site answers after deploying</td><td class="yes">yes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Checks the site answers after deploying</td><td class="yes">yes, and the bytes</td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+            <tr><td>Confirms each upload with the server</td><td class="yes">size, every file</td><td class="no">no</td><td class="no">no</td><td class="yes">checksums</td></tr>
             <tr><td>Refuses a changed SSH host key</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">yes</td></tr>
             <tr><td>Per-project config committed with the code</td><td class="yes">.coolftp.json</td><td class="no">global XML</td><td class="no">global</td><td class="part">scripts</td></tr>
             <tr><td>Runs a build step before deploy</td><td class="yes">yes</td><td class="no">no</td><td class="part">macros</td><td class="part">scripts</td></tr>
@@ -284,9 +310,13 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
 <span class="cmd">coolftp deploy <span class="c">--delete</span></span>
 <span class="d"># git commit, then deploy</span>
 <span class="cmd">coolftp deploy <span class="c">--commit</span> <span class="c">-m</span> "fix nav"</span>
-<span class="d"># put the previous live version back</span>
+<span class="d"># put the previous versions back, no git needed</span>
+<span class="cmd">coolftp undo</span>
+<span class="d"># or restore the commit that was live before</span>
 <span class="cmd">coolftp rollback</span>
-<span class="d"># what went live, when, from which commit, by whom</span>
+<span class="d"># fetch the site and the last deploy's files again</span>
+<span class="cmd">coolftp verify</span>
+<span class="d"># what went live, when, from which commit, by whom, verified or not</span>
 <span class="cmd">coolftp history</span></pre>
         </div>
         <div>
@@ -346,16 +376,79 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       </details>
     </section>
 
+    <section id="news">
+      <h2>News</h2>
+      <p class="sub">Every release, dated, with what changed and why. The full notes live in the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>; releases are built from tagged commits on GitHub.</p>
+      <div class="releases">
+        <article class="release latest">
+          <div class="when"><span class="ver">0.1.2</span><span>2026-09-09</span><span class="latest-tag">latest</span></div>
+          <div>
+            <h3>Undo without git, confirmed uploads, parallel FTP, and output an agent can read</h3>
+            <p class="what">Four days of deploying a 15,000-file site from Claude Code, then fixing what got in the agent's way. Most of this release is for the agent; the app gets a few things to watch it with, and a yeti.</p>
+            <div class="groups">
+              <div class="group new"><b>New</b><ul>
+                <li><b>Undo.</b> Deploys move the files they overwrite into a backup on the server first; <code>coolftp undo</code> puts them back, and is itself undoable. Five backups are kept per project.</li>
+                <li><b>Confirmed uploads.</b> Every file's size is read back from the server; <code>coolftp stat</code> answers "is it there" without downloading.</li>
+                <li><b>Parallel FTP.</b> Up to four connections for big jobs, falling back gracefully on hosts that allow fewer.</li>
+                <li><b><code>coolftp verify</code></b> re-runs the live checks and compares static files byte for byte; stale copies behind a CDN are reported, not mistaken for failures.</li>
+                <li><b>App.</b> A progress card per deploy, Windows notifications, agent calls that expand to show where every file went, live / failed / stale badges, Undo and Re-check buttons.</li>
+              </ul></div>
+              <div class="group fix"><b>Fixed</b><ul>
+                <li>A failed verification now exits with code 3 and names the URL; it used to exit 0.</li>
+                <li>Big deploys print a progress line every few seconds instead of a line per file; long plans are grouped by folder; MCP results are summarised.</li>
+                <li>The MCP server checks for the desktop app on every call instead of once at startup.</li>
+                <li>A pushed file is recorded in the manifest, so the next deploy does not upload it again.</li>
+                <li>Commands report the folders they created and warn when a single file opens a new top-level one.</li>
+                <li>Changed files and the manifest are swapped into place, never half-written.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="#download">Download 0.1.2</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#012-2026-09-09">Full notes</a></div>
+          </div>
+        </article>
+        <article class="release">
+          <div class="when"><span class="ver">0.1.1</span><span>2026-09-08</span></div>
+          <div>
+            <h3>Steadier on big sites</h3>
+            <p class="what">Fixes from the first days of deploying a real 15,000-file site with coolFTP.</p>
+            <div class="groups">
+              <div class="group fix"><b>Fixed</b><ul>
+                <li>Single-file pushes and browsing commands follow the project's remote directory, the same place deploy writes to.</li>
+                <li>Projects in a sub-directory get a <code>url</code> in <code>.coolftp.json</code>, so verification hits the real public address instead of the FTP path.</li>
+                <li>A dropped connection during a long scan no longer looks like a missing manifest; the FTP transport reconnects.</li>
+                <li>Git Bash path mangling of arguments starting with <code>/</code> is undone.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#011-2026-09-08">Full notes</a></div>
+          </div>
+        </article>
+        <article class="release">
+          <div class="when"><span class="ver">0.1.0</span><span>2026-09-05</span></div>
+          <div>
+            <h3>First public build</h3>
+            <p class="what">Desktop SFTP/FTPS/FTP client, the <code>coolftp</code> CLI, and the MCP server for Claude Code.</p>
+            <div class="groups">
+              <div class="group new"><b>New</b><ul>
+                <li>Hash-based deploys with a server-side manifest, deploy history with git commits, one-command rollback.</li>
+                <li>Post-deploy verification, approval dialogs for destructive agent actions, a live agent feed in the app.</li>
+                <li>SSH host key pinning, passwords encrypted with the Windows account, resumable deploys.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#010-2026-09-05">Full notes</a></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section id="download">
       <h2>Download</h2>
       <p class="sub">Windows installer and portable build. macOS and Linux builds come from the same Electron source; run <code>npm run dist</code> to build them yourself until signed builds are published.</p>
       <div class="cta">
-        <a class="btn primary" href="releases/coolFTP-0.1.1-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.1</small></a>
+        <a class="btn primary" href="releases/coolFTP-0.1.2-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.2</small></a>
         <a class="btn" href="releases/coolFTP-portable.exe">Portable .exe</a>
         <a class="btn" href="https://github.com/anivdel/coolFTP">Source on GitHub</a>
       </div>
-      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.1-x64.exe SHA256</code>. What's new is in the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>.</p>
-      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.1-x64.exe</code> 995577ae63d70b0d1fe5a536a7fbcd6517f3a4fa70aa24961c72b72dd4124439<br /><code>coolFTP-portable.exe</code> beea1487fd9fca9c985274207000c8531ecccf3c914bce28d9a8b8d440e75e01</p>
+      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.2-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
+      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.2-x64.exe</code> 7f0a356bf51f306db4b25d162ac73012cd7c70bb5c99414a41c147dea15a35e3<br /><code>coolFTP-portable.exe</code> da1b4216ad2cc91f856b160c7d8dc24aa5fd42ebb2b910e038b775085ff37b4a</p>
     </section>
 
     <section id="faq">
@@ -363,7 +456,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <details open><summary>Where does the manifest live and is it public?</summary><p>At <code>&lt;remote root&gt;/.coolftp/manifest.json</code>, alongside a <code>.htaccess</code> with <code>Require all denied</code>. Apache and LiteSpeed honour it. On nginx add a <code>location ~ /\.coolftp</code> deny rule, or point <code>remoteRoot</code> one level above the web root. The manifest contains file paths and hashes, never contents or credentials.</p></details>
       <details><summary>What if the server already has files coolFTP did not upload?</summary><p>The first deploy has no manifest, so coolFTP walks the remote tree and compares sizes. Files it has never seen are treated as stale and never deleted unless you pass <code>--delete</code>. After that first deploy, hashes take over.</p></details>
       <details><summary>How are passwords stored?</summary><p>Encrypted with the Windows Data Protection API under your user account, in <code>sites.json</code> in your profile. Another user on the same PC, or a copy of the file taken elsewhere, cannot decrypt them. SSH keys with the ssh-agent are still the better option, because then nothing secret is stored at all. The app never sends passwords to the interface or to agents. Agents only ever see <code>hasPassword: true</code>.</p></details>
-      <details><summary>Can an agent delete my whole site?</summary><p>Not without you. When an agent asks to delete a path, deploy with <code>--delete</code>, or roll back, the desktop app shows a dialog and waits for your click; no answer in two minutes counts as no. Deleting the site root is refused outright. A first deploy into a folder that already has files refuses to remove them. Every call is logged with the agent name. And if the worst happens anyway, <code>coolftp rollback</code> restores the previous commit.</p></details>
+      <details><summary>Can an agent delete my whole site?</summary><p>Not without you. When an agent asks to delete a path, deploy with <code>--delete</code>, roll back, or undo a deploy, the desktop app shows a dialog and waits for your click; no answer in two minutes counts as no. Deleting the site root is refused outright. A first deploy into a folder that already has files refuses to remove them. Every call is logged with the agent name. And if the worst happens anyway, <code>coolftp rollback</code> restores the previous commit.</p></details>
       <details><summary>Does it need the desktop app running?</summary><p>No. The CLI and the MCP server run everything in-process when the app is closed. When the app is open they route through it, so you get the live view and share its open connection.</p></details>
       <details><summary>Why Electron?</summary><p>Because the same TypeScript core runs the CLI, the MCP server and the app, and because ssh2 and basic-ftp are the most battle-tested SFTP and FTP libraries in any language that also ships a GUI toolkit. The bundle is bigger than a native app. The code is smaller.</p></details>
     </section>

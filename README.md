@@ -15,11 +15,12 @@ Agents ask before they delete anything:
 Every FTP client assumes a human is clicking. coolFTP assumes a human is watching and an agent is doing.
 
 - **Hash-based deploys.** A manifest on the server records the SHA-256 of every deployed file. Timestamps lie; hashes do not.
-- **Deploy history with git.** Each deploy stores the commit, branch, dirty flag, message, byte count, and which agent ran it.
+- **Undo, no git needed.** Every deploy moves the files it overwrites or deletes into a backup folder on the server first. `coolftp undo` puts them back, even from a dirty tree.
+- **Deploy history with git.** Each deploy stores the commit, branch, dirty flag, message, byte count, which agent ran it, and whether the site verified live.
 - **One-command rollback.** `coolftp rollback` restores the previous live commit through a temporary git worktree.
-- **Verification.** Give a site its public URL and every deploy fetches the changed pages and reports the status codes.
-- **Live agent feed and approval dialog.** Deletes, `--delete` deploys, and rollbacks wait for your click while the app is open.
-- **Safety by default.** Pinned SSH host keys, passwords encrypted with your Windows account, a first-deploy guard that refuses to delete files it never uploaded, resumable deploys.
+- **Verification.** Give a site its public URL and every deploy fetches the changed pages, compares static files byte for byte with what you uploaded, and exits non-zero when the site does not answer. `coolftp verify` does the same on demand.
+- **Live agent feed and approval dialog.** Deletes, `--delete` deploys, rollbacks and undos wait for your click while the app is open. Deploys show as a progress card, and a Windows notification tells you how they ended.
+- **Safety by default.** Pinned SSH host keys, passwords encrypted with your Windows account, a first-deploy guard that refuses to delete files it never uploaded, changed files swapped into place rather than overwritten, sizes confirmed by the server, resumable deploys.
 
 ```
 packages/core   shared TypeScript library: transports, sites, hash manifest, sync, deploy
@@ -72,8 +73,12 @@ coolftp diff                       # preview
 coolftp deploy -m "first deploy"
 coolftp deploy --delete            # also remove remote files deleted locally
 coolftp deploy --commit -m "msg"   # git add -A, git commit, then deploy
+coolftp undo                       # put the previous versions back
+coolftp verify                     # re-run the live checks
 coolftp history
 ```
+
+Exit codes: 0 deployed (and verified, when the site has a URL), 1 something failed before or during the upload, 3 the files landed but the live checks did not pass. `-q` drops progress and per-file output and keeps the result line, warnings, errors and the checks. Deploys of more than 20 files print one progress line every few seconds instead of a line per file, and long plans are summarised by folder.
 
 `coolftp init` writes `.coolftp.json`:
 
@@ -89,7 +94,9 @@ When a site's FTP root is not the web root (shared hosts often log you in one le
 coolftp init myhost --remote-root /public_html --url https://example.com
 ```
 
-Every command then works relative to that folder: `coolftp push js/app.js js/app.js`, `coolftp ls`, `coolftp cat`, `coolftp rm` all resolve against `/public_html`, the same place `deploy` writes to. Paths starting with `/` are still absolute on the server. The `url` makes the changed-file URLs and the post-deploy check point at `https://example.com/js/app.js` rather than at the FTP path.
+Every command then works relative to that folder: `coolftp push js/app.js js/app.js`, `coolftp ls`, `coolftp stat`, `coolftp cat`, `coolftp rm` all resolve against `/public_html`, the same place `deploy` writes to. Paths starting with `/` are still absolute on the server. The `url` makes the changed-file URLs and the post-deploy check point at `https://example.com/js/app.js` rather than at the FTP path.
+
+A push confirms the uploaded size with the server, reports any folder it had to create (with a warning when a single file opens a new top-level folder, which is what a stale `public_html/` prefix looks like), and records a file pushed inside the project's remote directory in the deploy manifest, so the next deploy does not send it again.
 
 Git Bash rewrites arguments that start with `/` into Windows paths before any program sees them. coolFTP undoes that when it recognises the Git install prefix and refuses anything else that looks like a drive path, so `coolftp ls /public_html` works from Git Bash too. If you hit the refusal, use a relative path or set `MSYS_NO_PATHCONV=1`.
 
@@ -107,14 +114,16 @@ Or per project in `.mcp.json`:
 { "mcpServers": { "coolftp": { "command": "node", "args": ["C:\\path\\to\\cool FTP\\packages\\cli\\dist\\coolftp.js", "mcp"] } } }
 ```
 
-Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`.
+Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
 
 ## Safety rails for agent-driven deploys
 
-- **Approval dialog.** While the desktop app is open, an agent call that deletes a path, deploys with `--delete`, or rolls back pops a dialog in the app and waits for your click. No answer within two minutes is a deny. There is a checkbox to auto-approve for the rest of the session.
+- **Approval dialog.** While the desktop app is open, an agent call that deletes a path, deploys with `--delete`, rolls back, or undoes a deploy pops a dialog in the app and waits for your click. No answer within two minutes is a deny. There is a checkbox to auto-approve for the rest of the session.
 - **First-deploy delete guard.** Before a manifest exists on the server, `--delete` is refused if the target folder contains files coolFTP never uploaded. Pass `--delete-untracked` to override.
+- **Undo.** Before a deploy overwrites or deletes a file, the live copy is renamed into `.coolftp/backup/<deployId>/` on the server, so nothing extra is transferred. `coolftp undo` restores those versions, removes the files that deploy added, and is itself undoable; `--dry-run` shows the work first, `--to <deployId>` reverts an older deploy when nothing later touched its files. The last five deploys keep their backups (`coolftp init --keep-backups <n>`, 0 to turn it off). The Deploys tab has an Undo button.
 - **Rollback.** `coolftp rollback` restores the previous commit that was live for the project, using a temporary git worktree so your working tree is untouched. `--to <commit|deployId>` targets any point in history. The Deploys tab in the app has the same buttons.
-- **Verification.** Give a site a public `--url` (or a project one with `coolftp init --url`) and every deploy prints the URLs of changed files, then fetches the homepage and up to four of them and reports the status codes. MCP results carry the same data so an agent can confirm the site is live.
+- **Verification.** Give a site a public `--url` (or a project one with `coolftp init --url`) and every deploy prints the URLs of changed files, fetches the homepage and up to four pages and reports the status codes, and compares up to four static files byte for byte with the local copy. A status failure exits with code 3; a byte mismatch is reported as stale (something between the server and the world, a cache or a CDN, is still serving the old version) without failing. `coolftp verify` re-runs the checks any time; `history` shows live, failed or stale per deploy. MCP results carry the same verdict so an agent never calls an unverified deploy live.
+- **Confirmed uploads.** In jobs of up to 50 files, every upload's size is read back from the server and a mismatch is retried. Changed files upload beside the live copy and are swapped in with a rename, and the manifest is written the same way, so a dropped connection never leaves a half-written file or manifest behind.
 - **Host key pinning.** SFTP host keys are recorded on first use in `known_hosts.json` and a changed key is refused with a loud error. `coolftp site trust <name>` forgets the recorded key after a legitimate server rebuild; `coolftp site keys` lists them.
 - **Encrypted passwords.** On Windows, passwords and key passphrases in `sites.json` are encrypted with DPAPI under your user account. The CLI and the app share the store.
 - **Resumable deploys.** Transfers retry up to three times. If a deploy still fails partway, files that landed are written to the manifest so the next run does not repeat them.
@@ -131,8 +140,8 @@ When the desktop app is running it listens on a random `127.0.0.1` port and writ
 
 1. Scan the local folder, hashing files (SHA-256, cached by size and mtime).
 2. Read `<remoteRoot>/.coolftp/manifest.json` from the server. It maps every deployed path to its hash.
-3. Upload files whose hash differs or which are missing from the manifest. Files in the manifest but not local are reported as stale and only removed with `--delete`.
-4. Write the new manifest, plus a deploy record (git commit, branch, dirty flag, message, agent, counts, duration).
+3. Upload files whose hash differs or which are missing from the manifest, over up to four FTP connections for jobs of eight files or more (`coolftp site add --connections <n>` changes the count; SFTP multiplexes one). A changed file is uploaded beside the live one, the live one is moved into the backup folder, and the new one is renamed into place. Files in the manifest but not local are reported as stale and only removed with `--delete`, which also moves them into the backup.
+4. Write the new manifest (to a temporary name, then swapped in), plus a deploy record (git commit, branch, dirty flag, message, agent, counts, duration, backup, connections), prune backups beyond the kept count, then run the live checks and store the verdict with the record.
 
 On a server with no manifest yet, the remote tree is walked and compared by size; that first deploy establishes the manifest. `--force` re-uploads everything.
 
@@ -144,7 +153,7 @@ The manifest directory gets a `.htaccess` with `Require all denied`. On nginx, d
 npm run e2e
 ```
 
-Starts a local FTP server (ftp-srv) and a local SFTP server (ssh2, in `scripts/lib/sftp-server.cjs`) in temp directories and drives the CLI through site setup, init, the first-deploy delete guard, deploy, manifest diff, delete sync, `--commit`, rollback by previous commit and by deploy id, push, pull, rename, mkdir, remove, history, encrypted passwords, and SSH host key pinning (a swapped server key is refused, then trusted). 88 checks in total.
+Starts a local FTP server (ftp-srv) and a local SFTP server (ssh2, in `scripts/lib/sftp-server.cjs`) in temp directories and drives the CLI through site setup, init, the first-deploy delete guard, deploy, manifest diff, delete sync, `--commit`, undo and redo from the server-side backup, backup pruning, rollback by previous commit and by deploy id, push (size confirmation, created-folder warning, manifest recording), pull, stat, rename, mkdir, remove, a 30-file deploy over four FTP connections, verification against a local web server (a passing deploy, a stale copy, an unreachable site with exit code 3, quiet mode), history, encrypted passwords, SSH host key pinning (a swapped server key is refused, then trusted), and the MCP server driven over stdio. 190 checks in total.
 
 ## Try it without a real host
 

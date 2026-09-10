@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { CoolFtp, Events, configDir, dispatch, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, configDir, dispatch, formatBytes, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 
 export interface AgentCall {
   op: string;
@@ -13,6 +13,10 @@ export interface AgentCall {
   endedAt?: number;
   ok?: boolean;
   error?: string;
+  /** One line describing what came back, for the Agents panel and notifications. */
+  result?: string;
+  /** A preview that changed nothing on the server. */
+  dryRun?: boolean;
 }
 
 export interface HubHandlers {
@@ -28,6 +32,9 @@ function destructiveDetail(method: string, args: Record<string, any> = {}): stri
       return `Delete ${args.site}:${args.path}`;
     case "rollback":
       return `Roll back ${args.site ?? "the project site"}${args.to ? ` to ${args.to}` : " to the previous deploy"}. Files not in that commit will be deleted from the server.`;
+    case "undo":
+      if (args.dryRun) return null;
+      return `Undo ${args.to ? `deploy ${args.to}` : "the last deploy"} on ${args.site ?? "the project site"}: the previous versions replace the current files, and files that deploy added are removed.`;
     case "deploy": {
       const o = args.options ?? {};
       if (o.delete) return `Deploy with --delete${o.deleteUntracked ? " --delete-untracked" : ""}: stale files will be removed from the server.`;
@@ -71,7 +78,15 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
     }
     const op = shortId();
     const agent = payload.agent || "agent";
-    const call: AgentCall = { op, agent, method: payload.method, summary: summarise(payload.method, payload.args), startedAt: Date.now() };
+    const a = (payload.args ?? {}) as Record<string, any>;
+    const call: AgentCall = {
+      op,
+      agent,
+      method: payload.method,
+      summary: summarise(payload.method, a),
+      startedAt: Date.now(),
+      dryRun: Boolean(a.dryRun || a.options?.dryRun),
+    };
     handlers.onCall(call);
 
     res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
@@ -81,16 +96,16 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
       if (meta.op === op) write({ event, meta });
     });
     try {
-      const detail = destructiveDetail(payload.method, payload.args);
+      const detail = destructiveDetail(payload.method, a);
       if (detail) {
         child.log(`Waiting for approval in the coolFTP app: ${detail}`, "warn");
         const approved = await handlers.confirm(call, detail);
         if (!approved) throw new Error(`Denied in the coolFTP app: ${detail}`);
         child.log("Approved by the user", "success");
       }
-      const result = await dispatch(cf, payload.method, payload.args ?? {}, child);
+      const result = await dispatch(cf, payload.method, a, child);
       write({ result: result ?? null });
-      handlers.onCall({ ...call, endedAt: Date.now(), ok: true });
+      handlers.onCall({ ...call, endedAt: Date.now(), ok: true, result: describeResult(payload.method, result) });
     } catch (err) {
       const message = (err as Error)?.message || String(err);
       write({ error: message });
@@ -134,12 +149,20 @@ function summarise(method: string, args: Record<string, unknown> = {}): string {
     }
     case "diff":
       return `diff ${shortPath(a.cwd)}${a.site ? ` → ${a.site}` : ""}`;
+    case "undo":
+      return `undo ${a.to ? `deploy ${a.to}` : "last deploy"} ${shortPath(a.cwd)}${a.dryRun ? " (dry-run)" : ""}`;
+    case "verify":
+      return `verify ${shortPath(a.cwd)}${Array.isArray(a.paths) && a.paths.length ? ` (${a.paths.length} path${a.paths.length === 1 ? "" : "s"})` : ""}`;
+    case "rollback":
+      return `rollback ${shortPath(a.cwd)}${a.to ? ` to ${a.to}` : ""}`;
     case "upload":
       return `upload ${shortPath(a.local)} → ${a.site}:${a.remote || "/"}`;
     case "download":
       return `download ${a.site}:${a.remote} → ${shortPath(a.local)}`;
     case "ls":
       return `ls ${a.site}:${a.path || "/"}`;
+    case "stat":
+      return `stat ${a.site}:${a.path}`;
     case "read":
       return `read ${a.site}:${a.path}`;
     case "write":
@@ -160,6 +183,40 @@ function summarise(method: string, args: Record<string, unknown> = {}): string {
       return `save site ${a.site?.name}`;
     default:
       return method;
+  }
+}
+
+/** One line about what an operation produced, so the Agents panel and a notification can say more than "ok". */
+function describeResult(method: string, result: unknown): string | undefined {
+  const r = result as Record<string, any> | null;
+  if (!r || typeof r !== "object") return undefined;
+  const live = (v: { ok: boolean; stale: number } | undefined) => (v ? (v.ok ? (v.stale ? ` · live, ${v.stale} stale` : " · verified live") : " · verification FAILED") : "");
+  switch (method) {
+    case "deploy":
+    case "rollback":
+    case "undo": {
+      if (r.dryRun) {
+        const p = r.plan ?? {};
+        return `would ${method === "undo" ? "restore" : "upload"} +${p.add?.length ?? 0} ~${p.change?.length ?? 0} -${p.delete?.length ?? 0}`;
+      }
+      const rec = r.record;
+      if (!rec) return undefined;
+      return `+${rec.added} ~${rec.changed} -${rec.deleted} in ${(rec.durationMs / 1000).toFixed(1)}s${rec.git ? ` (${rec.git.short}${rec.git.dirty ? "*" : ""})` : ""}${live(r.verify)}${rec.backup ? " · undo available" : ""}`;
+    }
+    case "verify":
+      return r.ok ? (r.stale ? `live, ${r.stale} stale` : "verified live") : "verification FAILED";
+    case "upload":
+      return `${r.files} file${r.files === 1 ? "" : "s"}, ${formatBytes(r.bytes ?? 0)}${r.createdDirs?.length ? ` · created ${r.createdDirs.length} folder${r.createdDirs.length === 1 ? "" : "s"}` : ""}${r.recorded ? " · in manifest" : ""}`;
+    case "download":
+      return `${r.files} file${r.files === 1 ? "" : "s"}, ${formatBytes(r.bytes ?? 0)}`;
+    case "diff": {
+      const p = r.plan ?? {};
+      return `+${p.add?.length ?? 0} ~${p.change?.length ?? 0} -${p.delete?.length ?? 0}, ${p.unchanged ?? 0} unchanged`;
+    }
+    case "ls":
+      return `${r.entries?.length ?? 0} entries`;
+    default:
+      return undefined;
   }
 }
 

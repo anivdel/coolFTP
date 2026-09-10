@@ -216,3 +216,36 @@ label.check { flex-direction: row; align-items: center; gap: 6px; white-space: n
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- 0.1.2: progress cards, agent call detail, verify badges ---- */
+.progress-card { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; margin: 2px 0 8px; background: var(--bg-3); font-family: var(--sans); }
+.progress-card.active { border-color: rgba(56, 189, 248, 0.5); box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.12); }
+.progress-card.done { opacity: 0.92; }
+.pc-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.pc-title { font-weight: 600; font-family: var(--mono); font-size: 12px; }
+.pc-head .who { color: var(--muted); font-size: 11px; }
+.pc-head .who.agent { color: var(--sky); }
+.pc-conn { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+.progress-card .bar.big { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.progress-card .bar.big > i { display: block; height: 100%; background: linear-gradient(90deg, #7dd3fc, #3b82f6); transition: width 0.3s; }
+.progress-card.done .bar.big > i { background: var(--green); }
+.pc-foot { display: flex; gap: 10px; margin-top: 6px; font-family: var(--mono); font-size: 11px; }
+
+.vbadge { font-family: var(--mono); font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; margin-left: 6px; }
+.vbadge.live { color: var(--green); border-color: rgba(52, 211, 153, 0.5); }
+.vbadge.stale { color: var(--yellow); border-color: rgba(251, 191, 36, 0.5); }
+.vbadge.failed { color: var(--red); border-color: rgba(251, 113, 133, 0.5); }
+
+.call { cursor: pointer; }
+.call:hover { background: rgba(31, 42, 61, 0.35); }
+.call.open { background: rgba(31, 42, 61, 0.45); }
+.call .res { color: var(--muted); margin-left: 8px; font-size: 11px; }
+.call-detail { grid-column: 1 / -1; padding: 6px 8px 8px 20px; font-size: 11px; color: var(--text); cursor: default; user-select: text; display: flex; flex-direction: column; gap: 4px; }
+.call-detail b { color: var(--muted); font-weight: 500; margin-right: 8px; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+.call-detail .warn { color: var(--yellow); }
+.call-detail .ok { color: var(--green); }
+.call-detail .bad { color: var(--red); }
+.call-detail .stale { color: var(--yellow); }
+.call-detail .checks { display: inline-flex; flex-direction: column; gap: 2px; vertical-align: top; }
+.call-detail .files { display: flex; flex-direction: column; max-height: 160px; overflow: auto; margin-top: 3px; }
+.call-detail .files i { color: var(--muted); font-style: normal; margin-left: 6px; }

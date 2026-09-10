@@ -7,11 +7,18 @@ interface Site {
   hasPassword: boolean; privateKeyPath?: string; remoteRoot: string; localRoot?: string; ignore?: string[]; color?: string; url?: string;
 }
 interface ConfirmRequest { op: string; agent: string; summary: string; detail: string }
-interface VerifyResult { ok: boolean; checks: Array<{ url: string; status: number; ok: boolean; ms: number; error?: string }> }
+interface VerifyResult { ok: boolean; stale?: number; at?: string; checks: Array<{ url: string; status: number; ok: boolean; ms: number; error?: string; content?: string }> }
+interface ProgressInfo { op: string; site: string; files: number; totalFiles: number; bytes: number; totalBytes: number; rate: number; etaMs: number; connections: number; done: boolean }
+/** What one operation (an agent call, or a user action) did, gathered from its events. */
+interface OpDetail { files: Array<{ remote: string; size: number; direction: string }>; created: string[]; topLevel: string[]; warnings: string[]; verify?: VerifyResult; record?: DeployRecord }
 interface Transfer { id: string; direction: "upload" | "download"; local: string; remote: string; size: number; transferred: number; status: string; error?: string }
 interface Plan { add: string[]; change: string[]; delete: string[]; unchanged: number; bytes: number; basis: string }
-interface DeployRecord { id: string; at: string; site: string; agent?: string; message?: string; git?: { commit: string; short: string; branch: string; subject: string; dirty: boolean }; rollbackOf?: string; added: number; changed: number; deleted: number; bytes: number; durationMs: number; project?: string }
-interface AgentCall { op: string; agent: string; method: string; summary: string; startedAt: number; endedAt?: number; ok?: boolean; error?: string }
+interface DeployRecord {
+  id: string; at: string; site: string; agent?: string; message?: string; git?: { commit: string; short: string; branch: string; subject: string; dirty: boolean };
+  rollbackOf?: string; undoOf?: string; added: number; changed: number; deleted: number; bytes: number; durationMs: number; project?: string; remoteRoot?: string; files?: string[];
+  verify?: VerifyResult; backup?: { id: string; changed: Record<string, unknown>; deleted: Record<string, unknown>; added: string[]; bytes: number }; createdDirs?: string[]; connections?: number;
+}
+interface AgentCall { op: string; agent: string; method: string; summary: string; startedAt: number; endedAt?: number; ok?: boolean; error?: string; result?: string; dryRun?: boolean }
 interface CoolEvent { type: string; [k: string]: any }
 interface EventMeta { agent: string; op: string }
 
@@ -44,6 +51,28 @@ const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (ch) => ({ "&": 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(2)} GB`);
 const fmtDate = (ms: number) => (ms ? new Date(ms).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "");
 const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour12: false });
+const fmtDuration = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
+};
+const backupCount = (b: DeployRecord["backup"]) => (b ? Object.keys(b.changed).length + Object.keys(b.deleted).length + b.added.length : 0);
+/** "restores 3 previous versions kept on the server and removes 2 added files" */
+const describeUndo = (b: NonNullable<DeployRecord["backup"]>) => {
+  const kept = Object.keys(b.changed).length + Object.keys(b.deleted).length;
+  const parts: string[] = [];
+  if (kept) parts.push(`restores ${kept} previous version${kept === 1 ? "" : "s"} kept on the server`);
+  if (b.added.length) parts.push(`removes ${b.added.length} added file${b.added.length === 1 ? "" : "s"}`);
+  return parts.join(" and ") || "available";
+};
+const verifyBadge = (v?: VerifyResult) => {
+  if (!v) return "";
+  const title = v.checks.map((k) => `${k.status || "ERR"} ${k.url}${k.content === "stale" ? " (stale)" : ""}${k.error ? ` ${k.error}` : ""}`).join("\n");
+  const cls = v.ok ? (v.stale ? "stale" : "live") : "failed";
+  const label = v.ok ? (v.stale ? `stale ×${v.stale}` : "live") : "failed";
+  return `<span class="vbadge ${cls}" title="${esc(title)}">${label}</span>`;
+};
 const isWin = navigator.platform.startsWith("Win");
 const sep = isWin ? "\\" : "/";
 const rjoin = (a: string, b: string) => (a.endsWith("/") ? a + b : a + "/" + b);
@@ -78,7 +107,22 @@ const state = {
   configDir: "",
   tab: "transfers",
   editingSite: null as string | null,
+  /** Whole-operation progress per op id: the cards at the top of the Transfers tab. */
+  progress: new Map<string, ProgressInfo & { agent: string; at: number }>(),
+  /** Per-op detail behind the Agents tab rows. */
+  opDetail: new Map<string, OpDetail>(),
+  openCalls: new Set<string>(),
 };
+
+function opDetail(op: string): OpDetail {
+  let d = state.opDetail.get(op);
+  if (!d) {
+    d = { files: [], created: [], topLevel: [], warnings: [] };
+    state.opDetail.set(op, d);
+    if (state.opDetail.size > 200) state.opDetail.delete(state.opDetail.keys().next().value as string);
+  }
+  return d;
+}
 
 // ---------------- helpers ----------------
 
@@ -306,16 +350,40 @@ async function downloadSelected() {
   loadLocal(state.localPath);
 }
 
+/** One card per deploy or folder transfer: how far along, how fast, and how it ended. */
+function renderProgressCards(): string {
+  const cards = [...state.progress.entries()].sort((a, b) => b[1].at - a[1].at).slice(0, 5);
+  return cards
+    .map(([op, p]) => {
+      const pct = p.totalBytes ? Math.min(100, Math.round((p.bytes / p.totalBytes) * 100)) : p.totalFiles ? Math.min(100, Math.round((p.files / p.totalFiles) * 100)) : 0;
+      const d = state.opDetail.get(op);
+      const rec = d?.record;
+      const verify = d?.verify ?? rec?.verify;
+      const status = p.done
+        ? rec
+          ? `+${rec.added} ~${rec.changed} -${rec.deleted} in ${(rec.durationMs / 1000).toFixed(1)}s${rec.git ? ` · ${esc(rec.git.short)}${rec.git.dirty ? "*" : ""}` : ""}${rec.backup ? " · undo available" : ""}`
+          : "done"
+        : `${fmtBytes(p.rate)}/s${p.etaMs > 0 ? ` · ~${fmtDuration(p.etaMs)} left` : ""}`;
+      return `<div class="progress-card ${p.done ? "done" : "active"}">
+        <div class="pc-head"><span class="pc-title">${esc(p.op)} → ${esc(p.site)}</span><span class="who ${p.agent !== "user" ? "agent" : ""}">${p.agent !== "user" ? esc(p.agent) : ""}</span><span class="spacer"></span>${verifyBadge(verify)}<span class="pc-conn">${p.connections > 1 ? `${p.connections} connections` : ""}</span></div>
+        <div class="bar big"><i style="width:${pct}%"></i></div>
+        <div class="pc-foot"><span>${p.files.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${fmtBytes(p.bytes)} of ${fmtBytes(p.totalBytes)} (${pct}%)</span><span class="spacer"></span><span class="muted">${status}</span></div>
+      </div>`;
+    })
+    .join("");
+}
+
 function renderTransfers() {
   const el = $("tab-transfers");
   const list = [...state.transfers.values()].reverse();
   const active = list.filter((t) => t.status === "active" || t.status === "queued").length;
   $("transferBadge").textContent = active ? String(active) : "";
+  const cards = renderProgressCards();
   if (!list.length) {
-    el.innerHTML = `<div class="empty muted">No transfers yet. Upload, download, or deploy.</div>`;
+    el.innerHTML = cards || `<div class="empty muted">No transfers yet. Upload, download, or deploy.</div>`;
     return;
   }
-  el.innerHTML = list
+  el.innerHTML = cards + list
     .slice(0, 300)
     .map((t) => {
       const pct = t.size ? Math.min(100, Math.round((t.transferred / t.size) * 100)) : t.status === "done" ? 100 : 0;
@@ -357,7 +425,9 @@ function renderAgents() {
     .map((c) => {
       const cls = !c.endedAt ? "active" : c.ok ? "ok" : "fail";
       const dur = c.endedAt ? `${((c.endedAt - c.startedAt) / 1000).toFixed(1)}s` : `${((Date.now() - c.startedAt) / 1000).toFixed(0)}s`;
-      return `<div class="call ${cls}"><span class="agent">${esc(c.agent)}</span><span>${esc(c.summary)}</span><span class="dur">${fmtTime(c.startedAt)} · ${dur}</span><span class="state">${!c.endedAt ? "running" : c.ok ? "ok" : "failed"}</span>${c.error ? `<span class="err">${esc(c.error)}</span>` : ""}</div>`;
+      const open = state.openCalls.has(c.op);
+      const result = c.result ? `<span class="res">${esc(c.result)}</span>` : "";
+      return `<div class="call ${cls} ${open ? "open" : ""}" data-op="${esc(c.op)}" title="Click for where it went"><span class="agent">${esc(c.agent)}</span><span>${esc(c.summary)}${result}</span><span class="dur">${fmtTime(c.startedAt)} · ${dur}</span><span class="state">${!c.endedAt ? "running" : c.ok ? "ok" : "failed"}</span>${c.error ? `<span class="err">${esc(c.error)}</span>` : ""}${open ? renderCallDetail(c) : ""}</div>`;
     })
     .join("");
   el.innerHTML = intro + (rows || `<div class="empty muted">No agent activity yet. Run <code>coolftp deploy</code> from Claude Code and watch it appear here.</div>`);
@@ -365,6 +435,46 @@ function renderAgents() {
     navigator.clipboard.writeText(mcp);
     toast("Copied", "success", 1200);
   };
+  el.querySelectorAll<HTMLElement>(".call").forEach((row) => {
+    row.onclick = (ev) => {
+      if ((ev.target as HTMLElement).closest(".call-detail")) return;
+      const op = row.dataset.op!;
+      if (state.openCalls.has(op)) state.openCalls.delete(op);
+      else state.openCalls.add(op);
+      renderAgents();
+    };
+  });
+}
+
+/** Where an agent call went: the remote directory, every file it touched, folders it created, and the live checks. */
+function renderCallDetail(c: AgentCall): string {
+  const d = state.opDetail.get(c.op);
+  const rec = d?.record;
+  const verify = d?.verify ?? rec?.verify;
+  const parts: string[] = [];
+  if (rec?.remoteRoot) parts.push(`<div><b>remote directory</b>${esc(rec.remoteRoot)}</div>`);
+  if (d?.topLevel.length) parts.push(`<div class="warn">⚠ created new top-level folder${d.topLevel.length > 1 ? "s" : ""}: ${d.topLevel.map(esc).join(", ")}</div>`);
+  else if (d?.created.length) parts.push(`<div><b>created</b>${d.created.slice(0, 8).map(esc).join(", ")}${d.created.length > 8 ? ` … ${d.created.length - 8} more` : ""}</div>`);
+  for (const w of d?.warnings.slice(-8) ?? []) parts.push(`<div class="warn">${esc(w)}</div>`);
+  if (verify) {
+    parts.push(
+      `<div><b>live checks</b><span class="checks">${verify.checks
+        .map((k) => `<span class="${k.ok ? (k.content === "stale" ? "stale" : "ok") : "bad"}">${k.status || "ERR"} ${esc(k.url)}${k.content === "stale" ? " (stale copy served)" : k.content === "match" ? " (content matches)" : ""}${k.error ? ` ${esc(k.error)}` : ""}</span>`)
+        .join("")}</span></div>`,
+    );
+  }
+  if (rec?.backup) parts.push(`<div><b>undo</b>${esc(describeUndo(rec.backup))}</div>`);
+  const files = d?.files ?? [];
+  if (files.length) {
+    parts.push(
+      `<div><b>files</b>${files.length}${files.length >= 300 ? "+" : ""}<div class="files">${files
+        .slice(0, 200)
+        .map((f) => `<span>${f.direction === "upload" ? "↑" : "↓"} ${esc(f.remote)}<i>${fmtBytes(f.size)}</i></span>`)
+        .join("")}${files.length > 200 ? `<span>… ${files.length - 200} more</span>` : ""}</div></div>`,
+    );
+  }
+  if (!parts.length) parts.push(`<div class="muted">${c.endedAt ? "No files were transferred by this call." : "Running…"}</div>`);
+  return `<div class="call-detail">${parts.join("")}</div>`;
 }
 
 async function loadHistory() {
@@ -381,15 +491,20 @@ function renderHistory() {
   }
   const latest = state.history[0];
   const canRollback = state.history.some((d) => d.git?.commit && d.git.commit !== latest.git?.commit);
+  const canUndo = Boolean(latest.backup && latest.project);
+  const undoTitle = canUndo ? `Undo ${describeUndo(latest.backup!)}` : "The last deploy kept no previous versions to restore";
   el.innerHTML =
-    `<div class="agent-intro"><div><b>Live:</b> ${latest.git ? esc(latest.git.short) : "unknown commit"} ${esc(latest.message ?? latest.git?.subject ?? "")} <span class="muted">· ${esc(latest.at.slice(0, 16).replace("T", " "))}</span></div>
-      <span class="spacer"></span><button class="btn small ghost" id="rollbackPrev" ${canRollback ? "" : "disabled"} title="Restore the previous commit that was live">↺ Roll back to previous</button></div>` +
+    `<div class="agent-intro"><div><b>Live:</b> ${latest.git ? esc(latest.git.short) : "unknown commit"} ${esc(latest.message ?? latest.git?.subject ?? "")} <span class="muted">· ${esc(latest.at.slice(0, 16).replace("T", " "))}</span> ${verifyBadge(latest.verify)}</div>
+      <span class="spacer"></span>
+      <button class="btn small ghost" id="recheck" ${latest.project ? "" : "disabled"} title="Fetch the site and the last deploy's files again without deploying">⟳ Re-check</button>
+      <button class="btn small ghost" id="undoLast" ${canUndo ? "" : "disabled"} title="${esc(undoTitle)}">↶ Undo last deploy</button>
+      <button class="btn small ghost" id="rollbackPrev" ${canRollback ? "" : "disabled"} title="Restore the previous commit that was live">↺ Roll back to previous</button></div>` +
     state.history
       .map(
         (d) => `<div class="deploy-row"><span class="muted">${esc(d.at.slice(0, 16).replace("T", " "))}</span>
       <span class="counts"><b>+${d.added}</b> <i>~${d.changed}</i> <s>-${d.deleted}</s></span>
       <span class="git">${d.git ? esc(d.git.short + (d.git.dirty ? "*" : "")) : ""}</span>
-      <span>${d.rollbackOf ? `<span style="color:var(--yellow)">↺</span> ` : ""}${d.agent && d.agent !== "user" ? `<span class="who" style="color:var(--sky)">${esc(d.agent)}</span> ` : ""}${esc(d.message ?? d.git?.subject ?? "")} <span class="muted">${fmtBytes(d.bytes)} · ${(d.durationMs / 1000).toFixed(1)}s</span>
+      <span>${d.undoOf ? `<span style="color:var(--yellow)" title="undo of ${esc(d.undoOf)}">↶</span> ` : d.rollbackOf ? `<span style="color:var(--yellow)">↺</span> ` : ""}${d.agent && d.agent !== "user" ? `<span class="who" style="color:var(--sky)">${esc(d.agent)}</span> ` : ""}${esc(d.message ?? d.git?.subject ?? "")} <span class="muted">${fmtBytes(d.bytes)} · ${(d.durationMs / 1000).toFixed(1)}s${d.connections && d.connections > 1 ? ` · ${d.connections} conn` : ""}</span>${verifyBadge(d.verify)}${d.backup ? `<span class="vbadge" title="undo ${esc(describeUndo(d.backup))}">↶ undoable</span>` : ""}
       ${d.git?.commit && d.project && d !== latest ? `<button class="btn small ghost restore" data-id="${esc(d.id)}" data-project="${esc(d.project)}" title="Restore this deploy's commit">restore</button>` : ""}</span></div>`,
       )
       .join("");
@@ -406,6 +521,28 @@ function renderHistory() {
   const prev = $("rollbackPrev") as HTMLButtonElement | null;
   if (prev && latest.project) prev.onclick = () => run(undefined, latest.project!);
   el.querySelectorAll<HTMLButtonElement>(".restore").forEach((b) => (b.onclick = () => run(b.dataset.id, b.dataset.project!)));
+  const undoBtn = $("undoLast") as HTMLButtonElement | null;
+  if (undoBtn && canUndo) {
+    undoBtn.onclick = async () => {
+      if (!(await confirmDialog(`Undo the last deploy (${latest.message ?? latest.id})?`))) return;
+      switchTab("transfers");
+      const r = await guard(rpc<{ record?: DeployRecord; verify?: VerifyResult }>("undo", { cwd: latest.project, site: state.site!.name }));
+      if (r?.record) {
+        toast(`Undone: restored ${r.record.changed}, put back ${r.record.added}, removed ${r.record.deleted}`, "success", 5000);
+        if (state.connected) loadRemote(state.remotePath);
+        loadHistory();
+      }
+    };
+  }
+  const recheck = $("recheck") as HTMLButtonElement | null;
+  if (recheck && latest.project) {
+    recheck.onclick = async () => {
+      recheck.disabled = true;
+      const r = await guard(rpc<VerifyResult>("verify", { cwd: latest.project, site: state.site!.name }));
+      if (r) toast(r.ok ? (r.stale ? `Live, but ${r.stale} file(s) still served from an old copy` : "Verified live") : `Not live: ${r.checks.find((k) => !k.ok)?.url} answered ${r.checks.find((k) => !k.ok)?.status || "nothing"}`, r.ok ? (r.stale ? "info" : "success") : "error", 6000);
+      loadHistory();
+    };
+  }
 }
 
 // ---------------- deploy modal ----------------
@@ -615,6 +752,11 @@ function handleEvent({ event, meta }: { event: CoolEvent; meta: EventMeta }) {
       state.log.push({ t: Date.now(), level: event.level, message: event.message, agent: meta.agent });
       if (state.log.length > 2000) state.log.splice(0, 500);
       if (event.level === "error" && meta.agent !== "user") toast(`${meta.agent}: ${event.message}`, "error", 5000);
+      if (event.level === "warn" || event.level === "error") {
+        const d = opDetail(meta.op);
+        d.warnings.push(event.message);
+        if (d.warnings.length > 50) d.warnings.splice(0, 10);
+      }
       break;
     case "transfer":
       state.transfers.set(event.transfer.id, { ...event.transfer, agent: meta.agent });
@@ -622,12 +764,33 @@ function handleEvent({ event, meta }: { event: CoolEvent; meta: EventMeta }) {
         const first = state.transfers.keys().next().value as string;
         state.transfers.delete(first);
       }
+      if (event.transfer.status === "done") {
+        const d = opDetail(meta.op);
+        if (d.files.length < 300) d.files.push({ remote: event.transfer.remote, size: event.transfer.size, direction: event.transfer.direction });
+      }
       break;
-    case "deploy":
-      if (meta.agent !== "user") toast(`${meta.agent} deployed to ${event.record.site}: +${event.record.added} ~${event.record.changed} -${event.record.deleted}`, "agent", 6000);
-      if (state.connected && state.site?.name === event.record.site) loadRemote(state.remotePath);
+    case "progress":
+      state.progress.set(meta.op, { ...(event.progress as ProgressInfo), agent: meta.agent, at: state.progress.get(meta.op)?.at ?? Date.now() });
+      if (state.progress.size > 20) state.progress.delete(state.progress.keys().next().value as string);
+      break;
+    case "created": {
+      const d = opDetail(meta.op);
+      d.created.push(...(event.dirs as string[]));
+      d.topLevel.push(...(event.topLevel as string[]));
+      if (event.topLevel.length && meta.agent !== "user") toast(`${meta.agent} created a new top-level folder: ${(event.topLevel as string[]).join(", ")}`, "error", 8000);
+      break;
+    }
+    case "verify":
+      opDetail(meta.op).verify = event.verify as VerifyResult;
+      break;
+    case "deploy": {
+      const rec = event.record as DeployRecord;
+      opDetail(meta.op).record = rec;
+      if (meta.agent !== "user") toast(`${meta.agent} ${rec.undoOf ? "undid a deploy on" : rec.rollbackOf ? "rolled back" : "deployed to"} ${rec.site}: +${rec.added} ~${rec.changed} -${rec.deleted}`, "agent", 6000);
+      if (state.connected && state.site?.name === rec.site) loadRemote(state.remotePath);
       loadHistory();
       break;
+    }
     case "connect":
       if (event.status === "error") state.log.push({ t: Date.now(), level: "error", message: `${event.site}: ${event.error}`, agent: meta.agent });
       break;
@@ -943,7 +1106,10 @@ async function main() {
     if (t.dataset.tab === "history") renderHistory();
   }));
   $("clearBtn").onclick = () => {
-    if (state.tab === "transfers") for (const [k, t] of state.transfers) if (t.status === "done" || t.status === "error") state.transfers.delete(k);
+    if (state.tab === "transfers") {
+      for (const [k, t] of state.transfers) if (t.status === "done" || t.status === "error") state.transfers.delete(k);
+      for (const [k, p] of state.progress) if (p.done) state.progress.delete(k);
+    }
     if (state.tab === "activity") state.log = [];
     if (state.tab === "agents") state.calls = state.calls.filter((c) => !c.endedAt);
     renderTransfers();

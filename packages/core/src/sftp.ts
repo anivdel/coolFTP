@@ -159,7 +159,13 @@ export class SftpTransport implements Transport {
     });
   }
 
-  async mkdirp(dir: string): Promise<void> {
+  async size(p: string): Promise<number | null> {
+    const st = await this.stat(p).catch(() => null);
+    return st && st.type === "file" ? st.size : null;
+  }
+
+  async mkdirp(dir: string): Promise<string[]> {
+    const created: string[] = [];
     const parts = dir.split("/").filter(Boolean);
     let cur = dir.startsWith("/") ? "/" : "";
     for (const part of parts) {
@@ -173,7 +179,9 @@ export class SftpTransport implements Transport {
           resolve();
         }),
       );
+      created.push(cur);
     }
+    return created;
   }
 
   upload(local: string, remote: string, onProgress?: ProgressFn): Promise<void> {

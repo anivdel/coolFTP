@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme, Notification } from "electron";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -69,6 +69,32 @@ function createWindow() {
   }
 }
 
+/** Deploys, undos and rollbacks finish while the user is in another window; tell them there, with the outcome. */
+function notify(call: AgentCall) {
+  if (!call.endedAt || call.dryRun || !["deploy", "rollback", "undo"].includes(call.method)) return;
+  if (win && win.isFocused()) return;
+  if (!Notification.isSupported()) return;
+  try {
+    const n = new Notification({
+      title: call.ok ? `coolFTP: ${call.summary}` : `coolFTP: ${call.method} failed`,
+      body: call.ok ? call.result ?? "done" : call.error ?? "failed",
+      silent: true,
+    });
+    n.on("click", () => {
+      if (win) {
+        if (win.isMinimized()) win.restore();
+        win.show();
+        win.focus();
+      }
+    });
+    n.show();
+  } catch {
+    /* notifications are best effort */
+  }
+}
+
+app.setAppUserModelId("com.coolftp.app");
+
 app.whenReady().then(async () => {
   createWindow();
   try {
@@ -83,6 +109,7 @@ app.whenReady().then(async () => {
           if (agentCalls.length > 200) agentCalls.length = 200;
           send("cf:agent", call);
           if (call.endedAt && win && !win.isFocused()) win.flashFrame(true);
+          notify(call);
         },
         confirm(call, detail) {
           return new Promise<boolean>((resolve) => {

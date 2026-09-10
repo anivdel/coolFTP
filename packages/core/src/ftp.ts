@@ -6,13 +6,16 @@ import { rjoin } from "./paths.js";
 
 /**
  * Plain FTP / FTPS transport. basic-ftp is strictly one-command-at-a-time,
- * so every public call is serialised through a promise chain.
+ * so every public call is serialised through a promise chain. Parallel transfers
+ * use several FtpTransport instances (see ConnectionPool.acquireExtras).
  */
 export class FtpTransport implements Transport {
   readonly protocol: "ftp" | "ftps";
   private client = new FtpClient(30000);
   private connected = false;
   private chain: Promise<unknown> = Promise.resolve();
+  /** Directories this connection has seen exist, so mkdirp on a deep tree is not a CWD per level every time. */
+  private knownDirs = new Set<string>();
 
   constructor(private site: Site) {
     this.protocol = site.protocol === "ftps" ? "ftps" : "ftp";
@@ -100,14 +103,49 @@ export class FtpTransport implements Transport {
     });
   }
 
-  mkdirp(dir: string): Promise<void> {
+  /** SIZE is one round trip, where stat() lists the whole parent directory. */
+  size(p: string): Promise<number | null> {
     return this.run(async () => {
+      try {
+        return await this.client.size(p);
+      } catch {
+        return null;
+      }
+    });
+  }
+
+  mkdirp(dir: string): Promise<string[]> {
+    return this.run(async () => {
+      const created: string[] = [];
+      const target = dir.length > 1 ? dir.replace(/\/+$/, "") : dir;
+      if (this.knownDirs.has(target)) return created;
+      const absolute = target.startsWith("/");
+      const parts = target.split("/").filter(Boolean);
       const cwd = await this.client.pwd();
       try {
-        await this.client.ensureDir(dir);
+        let cur = "";
+        for (const part of parts) {
+          cur = cur ? `${cur}/${part}` : absolute ? `/${part}` : part;
+          if (this.knownDirs.has(cur)) continue;
+          try {
+            await this.client.cd(cur);
+          } catch {
+            try {
+              await this.client.send(`MKD ${cur}`);
+              created.push(cur);
+            } catch (err) {
+              // Another connection may have created it a moment ago.
+              await this.client.cd(cur).catch(() => {
+                throw err;
+              });
+            }
+          }
+          this.knownDirs.add(cur);
+        }
       } finally {
-        await this.client.cd(cwd);
+        await this.client.cd(cwd).catch(() => undefined);
       }
+      return created;
     });
   }
 
@@ -172,6 +210,7 @@ export class FtpTransport implements Transport {
 
   rmdir(remote: string): Promise<void> {
     return this.run(async () => {
+      this.knownDirs.clear();
       const cwd = await this.client.pwd();
       try {
         await this.client.removeDir(remote);
@@ -183,6 +222,7 @@ export class FtpTransport implements Transport {
 
   rename(from: string, to: string): Promise<void> {
     return this.run(async () => {
+      this.knownDirs.clear();
       await this.client.rename(from, to);
     });
   }
