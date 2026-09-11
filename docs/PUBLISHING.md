@@ -46,6 +46,10 @@ Copy the three files into `site/releases/`, put their SHA-256s and the download 
 
 One-time: install the publisher (see https://github.com/modelcontextprotocol/registry, "Publishing") and `mcp-publisher login github` with the GitHub account that owns `anivdel/coolFTP`. The `io.github.anivdel/*` namespace is validated through that login; the npm entry is validated through the `mcpName` field in `packages/cli/package.json`, and the `.mcpb` entry through the URL and hash `npm run mcpb` wrote into `server.json`.
 
+The registry accepts `.mcpb` bundles only when they are hosted on a GitHub or GitLab release, not on coolftp.com. Until releases are attached to GitHub, `server.json` lists the npm package only, and the `.mcpb` stays a download on coolftp.com. To list it too: create a GitHub release for the tag, attach `release/coolFTP-<version>.mcpb`, and add an `mcpb` package entry whose `identifier` is the release asset URL and whose `fileSha256` is the hash `npm run mcpb` printed.
+
+Note the registry caps `description` at 100 characters; `mcp-publisher validate` checks it before you log in.
+
 After steps 2 and 3 are live:
 
 ```bash
