@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>coolFTP</title>
-  <meta name="description" content="coolFTP is a desktop SFTP and FTP client built for developers who ship with coding agents. Your agent runs coolftp deploy, you watch it happen." />
+  <meta name="description" content="coolFTP lets Claude Code, Cursor or Codex deploy your site to any SFTP or FTP host: Hostinger, HostGator, Bluehost, GoDaddy, cPanel. Only changed files go up, the live site is checked afterward, and one command undoes a bad deploy without git. Free and open source." />
   <meta property="og:title" content="coolFTP" />
-  <meta property="og:description" content="The FTP client your coding agent can drive. SFTP, FTPS, hash-based deploys, deploy history with git commits, and an MCP server for Claude Code." />
+  <meta property="og:description" content="The FTP client your coding agent can drive. Uploads only what changed, checks the site is live, and undoes a bad deploy without git. Free, MIT, with an MCP server for Claude Code." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <meta property="og:image" content="https://coolftp.com/social-1200x630.png" />
   <meta property="og:url" content="https://coolftp.com/" />
@@ -177,13 +177,15 @@
         <h1>The FTP client your <span>coding agent</span> can drive.</h1>
         <p class="lede">
           You write code with Claude Code, Cursor, or Codex. The last step is still dragging files into a 2006-era FTP window.
-          coolFTP fixes the last step. Your agent runs <code>coolftp deploy</code>, and you watch every file land on your server, live.
+          coolFTP fixes the last step. Your agent runs <code>coolftp deploy</code>: only the changed files go up, the site is checked live afterward,
+          and <code>coolftp undo</code> puts the old version back if it went wrong, no git needed. You watch every file land.
         </p>
         <div class="cta">
           <a class="btn primary" href="#download">Download for Windows <small>free, open source</small></a>
           <a class="btn" href="#quickstart">Read the quickstart</a>
         </div>
-        <p class="cta alt" style="margin-top:14px">Or install the CLI: <code>npm i -g coolftp</code></p>
+        <p class="cta alt" style="margin-top:14px">Or install the CLI on any OS: <code>npm i -g coolftp</code></p>
+        <p class="cta alt" style="margin-top:6px">Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS.</p>
         <a class="newpill" href="#news"><span class="ver">0.1.2</span> Undo without git, confirmed uploads, parallel FTP, a yeti <span class="arrow">→</span></a>
       </div>
       <div class="term" aria-label="Example session">
@@ -220,7 +222,7 @@
       <div class="flow">
         <ol class="steps">
           <li><div><b>Link a folder once</b><span>Run <code>coolftp init my-server</code> in the project. It writes a tiny <code>.coolftp.json</code> so nobody has to remember hosts or paths again, agents included.</span></div></li>
-          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI. In the Claude Desktop app, install the <a href="#download">coolFTP extension</a> and the chat gets the same tools.</span></div></li>
+          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add --scope user coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI. In the Claude Desktop app, install the <a href="#download">coolFTP extension</a> and the chat gets the same tools.</span></div></li>
           <li><div><b>Keep the app open</b><span>Agent commands route through the running desktop app. You see each call in the Agents panel, each file in the transfer queue, and each deploy in history, tagged with who did it.</span></div></li>
           <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, checks the site is live, and tells you what it skipped. "Undo that" puts the previous versions back.</span></div></li>
         </ol>
@@ -324,7 +326,10 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
         </div>
         <div>
           <h4>Wire up Claude Code</h4>
-<pre class="code"><span class="cmd">claude mcp add coolftp -- coolftp mcp</span>
+<pre class="code"><span class="d"># macOS, Linux</span>
+<span class="cmd">claude mcp add --scope user coolftp -- coolftp mcp</span>
+<span class="d"># Windows (npm installs a .cmd shim, so go through cmd)</span>
+<span class="cmd">claude mcp add --scope user coolftp -- cmd /c coolftp mcp</span>
 <span class="d"># then, in Claude Code, just say: <span class="m">"deploy this"</span></span></pre>
         </div>
       </div>

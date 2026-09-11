@@ -1,14 +1,49 @@
 {
   "name": "coolftp",
   "version": "0.1.2",
-  "description": "coolFTP command line + MCP server for coding agents",
+  "description": "Deploy a website to its SFTP or FTP host from the terminal or from a coding agent. Only changed files go up, the live site is checked afterward, and a bad deploy is undone without git. CLI plus MCP server for Claude Code, Cursor and Codex.",
+  "keywords": [
+    "ftp",
+    "sftp",
+    "ftps",
+    "deploy",
+    "deployment",
+    "upload",
+    "shared-hosting",
+    "cpanel",
+    "hostinger",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "claude",
+    "claude-code",
+    "cursor",
+    "codex",
+    "coding-agent",
+    "undo",
+    "rollback"
+  ],
+  "homepage": "https://coolftp.com",
+  "bugs": {
+    "url": "https://github.com/anivdel/coolFTP/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anivdel/coolFTP.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT",
+  "author": "Justin Ledvina (https://coolftp.com)",
   "bin": {
     "coolftp": "dist/coolftp.js"
   },
-  "dependencies": {
-    "@coolftp/core": "*",
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "commander": "^12.1.0",
-    "zod": "^3.23.8"
-  }
+  "files": [
+    "dist/coolftp.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "mcpName": "io.github.anivdel/coolftp"
 }

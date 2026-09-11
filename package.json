@@ -25,15 +25,18 @@
     "test:license": "node scripts/license/test.cjs"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "@types/node": "^20.14.0",
     "@types/ssh2": "^1.15.0",
+    "commander": "^12.1.0",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
     "esbuild": "^0.23.0",
     "ffmpeg-static": "^5.3.0",
     "ftp-srv": "^4.6.3",
     "msedge-tts": "^2.0.7",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "zod": "^3.23.8"
   },
   "homepage": "https://coolftp.com",
   "license": "MIT",

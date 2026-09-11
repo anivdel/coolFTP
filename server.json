@@ -10,6 +10,23 @@
   "websiteUrl": "https://coolftp.com",
   "packages": [
     {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "coolftp",
+      "version": "0.1.2",
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "description": "Start the MCP server over stdio"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
       "registryType": "mcpb",
       "identifier": "https://coolftp.com/releases/coolFTP-0.1.2.mcpb",
       "fileSha256": "5ef6e981da82ae32a31e12c67b731011ac21df089b2ee2b19d77532914421a57",

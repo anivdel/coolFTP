@@ -93,6 +93,7 @@ if (fs.existsSync(registry)) {
   const s = JSON.parse(fs.readFileSync(registry, "utf8"));
   s.version = pkg.version;
   for (const p of s.packages ?? []) {
+    if (p.registryType === "npm") p.version = pkg.version;
     if (p.registryType !== "mcpb") continue;
     p.identifier = `https://coolftp.com/releases/${outName}`;
     p.fileSha256 = sha;

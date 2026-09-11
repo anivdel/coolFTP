@@ -2,7 +2,7 @@
 
 **The FTP client your coding agent can drive.** A desktop SFTP / FTPS / FTP client for Windows, plus a CLI and an MCP server, built for people who write code with Claude Code, Codex, or Cursor and still have to get files onto a web server.
 
-Say "deploy this". The agent calls coolFTP. Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and you watch every step live in the app. Free and MIT. Website: [coolftp.com](https://coolftp.com).
+Say "deploy this". The agent calls coolFTP. Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and you watch every step live in the app. If it went wrong, `coolftp undo` puts the previous version back, no git needed. Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS. Free and MIT. Website: [coolftp.com](https://coolftp.com).
 
 ![coolFTP after an agent deploy](docs/app.png)
 
@@ -30,25 +30,29 @@ site/           landing page for coolftp.com
 scripts/        build + end-to-end test
 ```
 
-## Run it
+## Install
+
+The CLI and the MCP server run anywhere Node 18 or newer does: Windows, macOS, Linux, a headless box, CI.
+
+```bash
+npm i -g coolftp
+coolftp --version
+```
+
+No install at all: `npx coolftp ...` runs the same thing.
+
+The desktop app is Windows for now: the installer, a portable `.exe` and the Claude Desktop extension (`.mcpb`) are on the [download page](https://coolftp.com/#download) with their SHA-256s.
+
+### Build from source
 
 ```bash
 npm install
 npm run build
 npm run app          # opens the desktop app
-```
-
-CLI during development:
-
-```bash
 node packages/cli/dist/coolftp.js --help
 ```
 
-To get a global `coolftp` command from this checkout:
-
-```bash
-cd packages/cli && npm link
-```
+To get a global `coolftp` command from this checkout instead of npm: `cd packages/cli && npm link`.
 
 ## Add a server
 
@@ -62,7 +66,7 @@ coolftp site add oldhost --host ftp.oldhost.net --user me --protocol ftps --pass
 coolftp site test coolftp.com
 ```
 
-Or use the **Sites** button in the app. Passwords are stored in plain text in `%APPDATA%\coolftp\sites.json`, so prefer keys for SFTP.
+Or use the **Sites** button in the app. Sites live in `%APPDATA%\coolftp\sites.json` on Windows and `~/.config/coolftp/sites.json` elsewhere. On Windows, passwords in that file are encrypted with DPAPI under your account; on macOS and Linux they are stored as-is until a keychain backend lands, so prefer keys for SFTP there.
 
 ## Link a project and deploy
 
@@ -102,16 +106,30 @@ Git Bash rewrites arguments that start with `/` into Windows paths before any pr
 
 ## Let Claude Code drive it
 
-MCP (recommended, gives Claude typed tools):
+MCP (recommended, gives Claude typed tools). With the CLI installed from npm, on macOS and Linux:
+
+```bash
+claude mcp add --scope user coolftp -- coolftp mcp
+```
+
+On Windows, npm installs `coolftp` as a `.cmd` shim, so go through `cmd`:
+
+```bash
+claude mcp add --scope user coolftp -- cmd /c coolftp mcp
+```
+
+Without a global install: `claude mcp add --scope user coolftp -- npx -y coolftp mcp` (again behind `cmd /c` on Windows). `--scope user` registers it for every project on the machine; drop it to register for the current project only.
+
+Cursor, Windsurf and other MCP clients take the same server in their `mcp.json`:
+
+```json
+{ "mcpServers": { "coolftp": { "command": "coolftp", "args": ["mcp"] } } }
+```
+
+From a source checkout instead of npm, point at the built file:
 
 ```bash
 claude mcp add coolftp -- node "C:\path\to\cool FTP\packages\cli\dist\coolftp.js" mcp
-```
-
-Or per project in `.mcp.json`:
-
-```json
-{ "mcpServers": { "coolftp": { "command": "node", "args": ["C:\\path\\to\\cool FTP\\packages\\cli\\dist\\coolftp.js", "mcp"] } } }
 ```
 
 Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
@@ -120,7 +138,7 @@ Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`
 
 The same MCP server ships as a Claude Desktop extension. `npm run mcpb` packs it into `release/coolFTP-<version>.mcpb` (the download page carries the built one); open that file in Claude Desktop and hit Install. Claude gets the `coolftp_*` tools, and every call still routes through the desktop app while it is open, so deploys show up there and deletes, undos and rollbacks wait for your click. A chat has no working directory, so set **Default project folder** in the extension's settings or name the folder in the chat; a project's own `.coolftp.json` is found either way. The bundle is unsigned for now, which the install dialog points out.
 
-`server.json` describes the server for the [MCP Registry](https://github.com/modelcontextprotocol/registry), and `npm run mcpb` keeps its version and bundle hash current. To publish: `mcp-publisher login github`, then `mcp-publisher publish` from the repo root, once the bundle is live on coolftp.com.
+`server.json` describes the server for the [MCP Registry](https://github.com/modelcontextprotocol/registry) twice over: as the `coolftp` npm package (run with `npx coolftp mcp`) and as the `.mcpb` bundle. `npm run mcpb` keeps the versions and the bundle hash current. The release steps, npm publish included, are in [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Safety rails for agent-driven deploys
 
