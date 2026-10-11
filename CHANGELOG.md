@@ -1,5 +1,16 @@
 # Changelog
 
+## Claude Code mod: coolftp-live 0.1.0 (2026-10-11)
+
+A Claude Code mod that shows coolFTP's work in a panel beside the conversation. It works with coolFTP 0.1.2 as it is; the app, CLI and MCP server are unchanged. Source in [mods/coolftp-live](mods/coolftp-live); the repository root is a Claude Code marketplace for it.
+
+- **Live panel.** Every `coolftp_*` MCP call, and every `coolftp ...` command Claude runs in the shell, appears as it starts: a timer while it runs, then ✓, ! or ✗ with the outcome in one line (files added, changed and removed, bytes, duration, and the live verdict), plus a link to the deployed page.
+- **Status line and toasts.** The status line says what coolFTP is doing; deploys, undos, rollbacks, uploads, deletes, writes, renames and new folders end with a toast.
+- **History across sessions.** The last 20 finished steps are kept, so a new session opens with recent deploys. **Clear** empties the list.
+- **`/coolftp-panel`** opens the panel again.
+- **Watch only.** The mod never blocks or rewrites a call, and if it fails itself the call goes through untouched.
+- Install with `/plugin install coolftp-live --marketplace anivdel/coolFTP`, or from `coolftp-live-mod.zip` on coolftp.com with `claude --plugin-dir`.
+
 ## 0.1.2 (2026-09-09)
 
 Four days of deploying with 0.1.1 from Claude Code, then fixing what got in the agent's way. Most of this release is for the agent; the app gets a few things to watch it with, and a yeti.

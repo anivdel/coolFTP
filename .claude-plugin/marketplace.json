@@ -1,0 +1,11 @@
+{
+  "name": "coolftp",
+  "owner": { "name": "Justin Ledvina" },
+  "plugins": [
+    {
+      "name": "coolftp-live",
+      "source": "./mods/coolftp-live",
+      "description": "A live coolFTP panel in Claude Code: deploys, uploads, live checks and undos as Claude runs them"
+    }
+  ]
+}

@@ -134,6 +134,16 @@ claude mcp add coolftp -- node "C:\path\to\cool FTP\packages\cli\dist\coolftp.js
 
 Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
 
+## Watch it in Claude Code: the coolftp-live mod
+
+A Claude Code mod in [mods/coolftp-live](mods/coolftp-live) adds a coolFTP panel beside the conversation: each deploy, upload, live check and undo as Claude runs it, with the outcome in one line and a link to the page. Install it at the Claude Code prompt:
+
+```
+/plugin install coolftp-live --marketplace anivdel/coolFTP
+```
+
+`/coolftp-panel` opens the panel again. The mod only watches; it never blocks or changes a coolFTP call.
+
 ## Use it from the Claude Desktop app
 
 The same MCP server ships as a Claude Desktop extension. `npm run mcpb` packs it into `release/coolFTP-<version>.mcpb` (the download page carries the built one); open that file in Claude Desktop and hit Install. Claude gets the `coolftp_*` tools, and every call still routes through the desktop app while it is open, so deploys show up there and deletes, undos and rollbacks wait for your click. A chat has no working directory, so set **Default project folder** in the extension's settings or name the folder in the chat; a project's own `.coolftp.json` is found either way. The bundle is unsigned for now, which the install dialog points out.
