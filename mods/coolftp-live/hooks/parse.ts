@@ -52,6 +52,13 @@ type Outcome = {
   live?: 'live' | 'stale' | 'down'
   checks?: number
   isPreview?: boolean
+  loadMs?: number
+}
+
+/** The first page timing a live check printed: `200 https://example.com/ (175ms)`. */
+export function loadMsOf(text: string): number | undefined {
+  const m = /^\s*\d{3} https?:\/\/\S+ \((\d+)ms\)/m.exec(text)
+  return m ? Number(m[1]) : undefined
 }
 
 const verdict = (live: unknown): Outcome['live'] =>
@@ -93,6 +100,7 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
       bytes: b || undefined,
       live: verdict(live),
       isPreview: j.dryRun === true || action === 'diff',
+      loadMs: loadMsOf(text),
     }
   }
 
@@ -104,6 +112,7 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
       summary: `${String(j.live ?? 'checked')} · ${passed}/${checks.length} checks`,
       live: verdict(j.live),
       checks: checks.length,
+      loadMs: loadMsOf(text),
     }
   }
 

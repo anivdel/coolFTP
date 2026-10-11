@@ -1,12 +1,17 @@
 # Changelog
 
+## Claude Code mod: coolftp-live 0.2.1 (2026-10-11)
+
+- The first tile is now **Last change**: how long since Claude last changed anything on your server (a deploy, an upload, an undo, a delete), across sessions. It replaces "publishes this session", which stayed at 0 for anyone who updates a site a file at a time.
+- The **Up** tile says how fast the front page loaded in the last live check: "loads in 0.2s".
+
 ## Claude Code mod: coolftp-live 0.2.0 (2026-10-11)
 
 The panel is redrawn as pictures and plain English; 0.1.0 showed raw numbers that only meant something to someone who already knew coolFTP.
 
 - **A picture of the whole trip.** Your computer, your website (by its domain) and the path between them. Files fly along the path while Claude publishes or uploads, and back while it downloads; rings pulse around the site while it checks the site is up; a magnifying glass, a bin or a spinning arrow while it looks around, deletes or restores. The site gets a green ✓, yellow ! or red ✗ when the step ends.
 - **Plain English.** Each step is a headline and one sentence: "Publishing your site to coolftp.com", "Your site is live · 3 files updated · 19 KB", "Couldn't publish: coolFTP could not find this site here. Open the coolFTP app and try again." Toasts use the same words.
-- **Three tiles:** publishes this session, files sent, and whether the site is answering. Below them, "What Claude did": each step with an icon, its sentence and "2 min ago · took 3s", and a link to open the site.
+- **Three tiles:** files sent, whether the site is answering, and (0.2.1) how long since the last change. Below them, "What Claude did": each step with an icon, its sentence and "2 min ago · took 3s", and a link to open the site.
 - Bookkeeping calls (`status`, `sites`, `history`, `init`) are no longer shown.
 - The terminal, which has no pictures, gets the same plain words.
 

@@ -273,16 +273,42 @@ export function heroSvg(op: Op | undefined, siteFallback?: string): string {
 
 /* ---------- three numbers that mean something ---------- */
 
-export type Tally = { published: number; files: number; siteUp?: boolean; checkedAt?: number }
+/** Steps that change what is on the server. */
+const CHANGES = new Set(['deploy', 'upload', 'undo', 'rollback', 'delete', 'write', 'rename', 'mkdir'])
 
-export function tallyOf(ops: Op[]): Tally {
-  const done = ops.filter(op => op.status !== 'running' && !op.isEarlier)
-  const published = done.filter(op => op.action === 'deploy' && !op.isPreview && op.status !== 'error').length
-  const files = done
-    .filter(op => !op.isPreview && op.status !== 'error' && (op.action === 'deploy' || op.action === 'upload'))
-    .reduce((n, op) => n + (op.files ?? 0), 0)
+export type Tally = { sinceChange?: number; files: number; siteUp?: boolean; loadMs?: number }
+
+/** `now` is the drawing's clock; "last change" counts across sessions, "files sent" this one. */
+export function tallyOf(ops: Op[], now: number): Tally {
+  const done = ops.filter(op => op.status !== 'running' && op.status !== 'error' && !op.isPreview)
+  const files = done.filter(op => !op.isEarlier && (op.action === 'deploy' || op.action === 'upload')).reduce((n, op) => n + (op.files ?? 0), 0)
+  const change = done.find(op => CHANGES.has(op.action))
   const lastCheck = ops.find(op => op.status !== 'running' && op.live !== undefined)
-  return { published, files, siteUp: lastCheck ? lastCheck.live !== 'down' : undefined, checkedAt: lastCheck?.endedAt }
+  return {
+    sinceChange: change ? Math.max(0, now - (change.endedAt ?? change.startedAt)) : undefined,
+    files,
+    siteUp: lastCheck ? lastCheck.live !== 'down' : undefined,
+    loadMs: lastCheck?.loadMs,
+  }
+}
+
+/** "Now", "45s", "2 min", "3 h", "2 d": short enough for a tile. */
+export function short(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 30) return 'Now'
+  if (s < 60) return `${s}s`
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m} min`
+  const h = Math.round(m / 60)
+  return h < 24 ? `${h} h` : `${Math.round(h / 24)} d`
+}
+
+const loads = (ms: number) => `loads in ${(ms / 1000).toFixed(1)}s`
+
+export function tallyAlt(t: Tally): string {
+  const change = t.sinceChange === undefined ? 'No changes yet' : t.sinceChange < 30_000 ? 'Changed just now' : `Last change ${ago(t.sinceChange)}`
+  const up = t.siteUp === undefined ? 'site not checked yet' : t.siteUp ? `site up${t.loadMs ? ', ' + loads(t.loadMs) : ''}` : 'site not answering'
+  return `${change}, ${t.files} ${t.files === 1 ? 'file' : 'files'} sent, ${up}`
 }
 
 export function tallySvg(t: Tally): string {
@@ -290,10 +316,17 @@ export function tallySvg(t: Tally): string {
     `<rect x="${x}" y="2" width="136" height="60" rx="12" fill="#0f1f3a" stroke="#1f3a66"/>` +
     `<text x="${x + 68}" y="32" text-anchor="middle" font-size="22" font-weight="700" fill="${color}">${esc(value)}</text>` +
     `<text x="${x + 68}" y="51" text-anchor="middle" font-size="11" fill="${SOFT}">${esc(label)}</text>`
-  const up = t.siteUp === undefined ? ['?', 'site not checked yet', SOFT] : t.siteUp ? ['Up', 'site answering', GOOD] : ['Down', 'site not answering', BAD]
+  const change =
+    t.sinceChange === undefined ? ['None', 'changes yet', SOFT] : t.sinceChange < 30_000 ? ['Now', 'last change', INK] : [short(t.sinceChange), 'since last change', INK]
+  const up =
+    t.siteUp === undefined
+      ? ['?', 'site not checked yet', SOFT]
+      : t.siteUp
+        ? ['Up', t.loadMs ? loads(t.loadMs) : 'site answering', GOOD]
+        : ['Down', 'site not answering', BAD]
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 64" width="${W}" height="64" font-family="${FONT}">` +
-    tile(2, String(t.published), t.published === 1 ? 'publish this session' : 'publishes this session', INK) +
+    tile(2, change[0]!, change[1]!, change[2]!) +
     tile(152, String(t.files), t.files === 1 ? 'file sent' : 'files sent', INK) +
     tile(302, up[0]!, up[1]!, up[2]!) +
     `</svg>`

@@ -24,6 +24,8 @@ export type Op = {
   isPreview?: boolean
   /** pages a live check loaded */
   checks?: number
+  /** how long the site's front page took to answer in the live check, ms */
+  loadMs?: number
   /** the raw error, for plain words */
   error?: string
   /** true for ops restored from an earlier session */

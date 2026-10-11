@@ -1,10 +1,11 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { cliAction, mcpAction, outcome } from '../hooks/parse'
-import { heroSvg, words } from '../hooks/scene'
+import { cliAction, loadMsOf, mcpAction, outcome } from '../hooks/parse'
+import { heroSvg, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
 
 const DEPLOY_TEXT = [
   '↑ /index.html (2.1 KB)',
+  '200 https://demo.example.com/ (175ms)',
   '',
   JSON.stringify({
     site: 'demo',
@@ -49,6 +50,10 @@ test('plain words for each step', async () => {
   expect(words({ ...base, action: 'upload', status: 'ok', target: 'C:/site/index.html', files: 1 }).title).toBe('index.html is on coolftp.com')
   expect(words({ ...base, action: 'diff', status: 'error', error: 'Error: Unknown site "coolFTP"' }).detail).toContain('Open the coolFTP app')
   expect(heroSvg(undefined)).toContain('Ready when Claude is')
+  expect(loadMsOf(['Checking https://x.com', '200 https://x.com/ (252ms)', ''].join('\n'))).toBe(252)
+  const tally = tallyOf([{ ...base, action: 'upload', status: 'ok', files: 5, endedAt: 0 }, { ...base, action: 'verify', status: 'ok', live: 'live', loadMs: 1400, isEarlier: true }], 180_000)
+  expect(tallyAlt(tally)).toBe('Last change 3 min ago, 5 files sent, site up, loads in 1.4s')
+  expect(tallySvg(tally)).toContain('3 min')
 })
 
 test('a deploy shows in the panel on every surface', async ($, on) => {
@@ -81,6 +86,8 @@ test('a deploy shows in the panel on every surface', async ($, on) => {
     expect(String(hero?.props.source)).toContain('demo.example.com')
     expect(await ui.find({ type: 'Text', text: /3 files updated · 2.1 KB/ })).toBeDefined()
     expect(await ui.find({ type: 'Link' })).toBeDefined()
+    const tiles = (await ui.findAll({ type: 'Svg' }))[1]
+    expect(tiles?.props.alt).toBe('Changed just now, 3 files sent, site up, loads in 0.2s')
     await ui.unmount()
   }
 

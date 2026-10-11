@@ -1,6 +1,6 @@
 {
   "name": "coolftp-live",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": { "name": "Justin Ledvina" },
   "description": "A live panel of Claude's coolFTP work: deploys, uploads, live checks and undos as they run",
   "types": "./types/index.d.ts"

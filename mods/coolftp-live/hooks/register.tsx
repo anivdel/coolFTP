@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { Op, OpStatus } from '../types'
 import { clock, cliAction, doing, elapsed, mcpAction, outcome, targetOf } from './parse'
-import { QUIET, ago, heroSvg, iconSvg, tallyOf, tallySvg, took, words } from './scene'
+import { QUIET, ago, heroSvg, iconSvg, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
 
 const PANE = 'coolftp-live'
 const TITLE = 'coolFTP'
@@ -132,6 +132,7 @@ export const register: Register = on => {
         bytes: got.bytes,
         live: got.live,
         checks: got.checks,
+        loadMs: got.loadMs,
         isPreview: op.isPreview || got.isPreview,
         error: ran.isError === true ? text.slice(0, 400) : undefined,
       })
@@ -196,7 +197,7 @@ export const register: Register = on => {
     const focus = current.find(op => op.status === 'running') ?? current[0]
     const shown = focus ? named(focus) : undefined
     const story = shown ? words(shown) : undefined
-    const tally = tallyOf(list)
+    const tally = tallyOf(list, at)
     const liveUrl = current.find(op => op.url && op.status !== 'error')?.url
 
     const item = (raw: Op) => {
@@ -234,7 +235,7 @@ export const register: Register = on => {
             <Link href={liveUrl}>Open {hostOf(liveUrl) ?? 'your site'} ↗</Link>
           )}
         </Box>
-        {current.length > 0 && <Svg source={tallySvg(tally)} alt={`${tally.published} published, ${tally.files} files sent`} width={width} height={Math.round((width * 64) / 440)} />}
+        {current.length > 0 && <Svg source={tallySvg(tally)} alt={tallyAlt(tally)} width={width} height={Math.round((width * 64) / 440)} />}
         {current.length > 1 && <Text bold>What Claude did</Text>}
         {current.length > 1 && <Box flexDirection="column">{current.slice(1).map(item)}</Box>}
         {earlier.length > 0 && <Text bold dimColor>Earlier sessions</Text>}
