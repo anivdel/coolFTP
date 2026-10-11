@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP yeti spot, 4:5</title>
+<!--
+  A 44 s, 1080x1350 promo starring the coolFTP yeti, rigged from site/logo.png by yeti-rig.py.
+  Daylight, flat cartoon stickers, cut to a 120 BPM track (one beat = 0.5 s, one bar = 2 s).
+    npm run yeti            render frames to site/yeti-4x5.mp4 (scripts/demo/render.cjs)
+    npm run yeti:sound      score it (yeti-score.py) -> site/yeti-4x5-sound.mp4
+  Open with #play in a browser to watch it in real time.
+-->
+<style>
+  :root {
+    --ink: #0b1b33; --paper: #ffffff; --snow: #f4faff; --frost: #eaf6ff;
+    --ice: #bae6fd; --sky: #38bdf8; --blue: #2563eb; --face: #6aa9d4; --muted: #5b7290;
+    --red: #ef4444; --green: #10b981;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --heavy: "Segoe UI Black", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1080px; height: 1350px; background: #fff; overflow: hidden; }
+  #stage { position: relative; width: 1080px; height: 1350px; overflow: hidden; color: var(--ink); font-family: var(--sans); transform-origin: 0 0;
+    background: linear-gradient(180deg, #d6ecfc 0%, #ecf7ff 45%, #ffffff 100%); }
+  #world { position: absolute; inset: 0; }
+  canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  #snow { z-index: 1; }
+  #fx { z-index: 13; }
+  #hills { position: absolute; left: 0; bottom: 0; width: 1080px; height: 520px; }
+  #bank { position: absolute; left: -40px; bottom: -40px; width: 1160px; height: 300px; z-index: 11; }
+  #rays { position: absolute; left: -160px; top: -140px; width: 1400px; height: 1400px; z-index: 2; opacity: 0; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 50; pointer-events: none; }
+  #frostV { position: absolute; inset: 0; z-index: 44; opacity: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 62% 55% at 50% 48%, transparent 55%, rgba(255,255,255,.75) 78%, #fff 100%),
+      repeating-linear-gradient(60deg, rgba(186,230,253,0) 0 18px, rgba(186,230,253,.35) 18px 20px),
+      repeating-linear-gradient(-60deg, rgba(186,230,253,0) 0 22px, rgba(186,230,253,.3) 22px 24px);
+    -webkit-mask-image: radial-gradient(ellipse 62% 55% at 50% 48%, transparent 50%, #000 85%); }
+
+  .scene { position: absolute; inset: 0; opacity: 0; z-index: 3; }
+  .stk { border: 5px solid var(--ink); box-shadow: 9px 9px 0 var(--ink); }
+
+  /* The yeti. Rig coordinates are logo pixels (538x594). */
+  #yeti { position: absolute; left: 0; top: 0; width: 420px; height: 464px; z-index: 10; transform-origin: 0 0; }
+  #shadow { position: absolute; left: 70px; top: 430px; width: 280px; height: 40px; border-radius: 50%; background: rgba(11,27,51,.16); }
+  #head { position: absolute; inset: 0; transform-origin: 50% 88%; }
+  #rig { position: absolute; left: 0; top: 0; width: 538px; height: 594px; transform: scale(.780669); transform-origin: 0 0; }
+  #body { position: absolute; inset: 0; }
+  #rig img, #rig svg, #rig .eye { position: absolute; }
+  #base { left: 0; top: 0; width: 538px; height: 594px; }
+  #brow { left: 186px; top: 235px; }
+  #teeth { left: 182px; top: 284px; }
+  .eye { width: 66px; height: 50px; transform-origin: 50% 30%; }
+  .eye img { position: absolute; left: 0; top: 0; }
+  #eyeL { left: 172px; top: 204px; } #eyeR { left: 303px; top: 204px; }
+  #rig svg.full { left: 0; top: 0; width: 538px; height: 594px; overflow: visible; }
+  .eglow { position: absolute; width: 130px; height: 100px; margin: -50px 0 0 -65px; border-radius: 50%; opacity: 0; mix-blend-mode: screen;
+    background: radial-gradient(closest-side, rgba(224,242,254,.95), rgba(56,189,248,.4) 50%, transparent); }
+  #glL { left: 205px; top: 228px; } #glR { left: 336px; top: 228px; }
+
+  /* 1 · Chat */
+  .who { position: absolute; font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
+  .bub { position: absolute; font-size: 48px; font-weight: 750; line-height: 1.15; padding: 26px 36px; white-space: nowrap; min-height: 110px; }
+  #b1 { right: 80px; top: 360px; background: var(--blue); color: #fff; border-radius: 40px 40px 10px 40px; }
+  #b2 { left: 80px; top: 600px; background: var(--paper); color: var(--ink); border-radius: 40px 40px 40px 10px; }
+  .caret { display: inline-block; width: 4px; height: 46px; background: currentColor; vertical-align: -6px; margin-left: 4px; }
+
+  /* 2 · Title */
+  .mark { position: absolute; left: 0; right: 0; text-align: center; font-family: var(--heavy); font-weight: 900; font-size: 190px; letter-spacing: -6px; line-height: 1; text-shadow: 8px 8px 0 rgba(11,27,51,.18); }
+  .mark b { color: var(--sky); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; }
+  .mark span { color: var(--ink); }
+  .ribbon { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; padding: 14px 34px; background: var(--blue); color: #fff; font-size: 40px; font-weight: 750; border-radius: 14px; }
+
+  /* 3 · The app window */
+  #win { position: absolute; left: 60px; top: 330px; width: 960px; height: 860px; background: var(--paper); border-radius: 26px; overflow: hidden; }
+  #win .tbar { height: 64px; background: var(--frost); border-bottom: 4px solid var(--ink); display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 28px; font-weight: 800; }
+  #win .tbar img { width: 38px; height: 42px; object-fit: contain; }
+  #win .tbar i { font-style: normal; font-weight: 500; color: var(--muted); font-family: var(--mono); font-size: 24px; }
+  .pane { position: absolute; top: 80px; width: 450px; height: 590px; border: 4px solid var(--ink); border-radius: 18px; overflow: hidden; background: #fff; }
+  #pL { left: 16px; } #pR { left: 486px; }
+  .pane .ph { height: 58px; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--snow); border-bottom: 3px solid var(--ink); font-weight: 800; font-size: 25px; white-space: nowrap; }
+  .pane .ph small { font-family: var(--mono); font-weight: 500; font-size: 19px; color: var(--muted); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--green); border: 2px solid var(--ink); flex: none; }
+  .chip { margin-left: auto; font-family: var(--mono); font-size: 18px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 2.5px solid var(--ink); background: #fff; }
+  .row { position: absolute; left: 0; right: 0; height: 64px; display: flex; align-items: center; padding: 0 16px; font-family: var(--mono); font-size: 25px; border-bottom: 2px solid #dbeafe; }
+  .row .tg { margin-left: auto; font-size: 17px; font-weight: 800; padding: 3px 10px; border-radius: 999px; border: 2.5px solid transparent; white-space: nowrap; position: relative; z-index: 2; }
+  .row .hl { position: absolute; inset: 0; opacity: 0; }
+  .row .frost { position: absolute; inset: 0; opacity: 0; z-index: 1;
+    background: repeating-linear-gradient(120deg, rgba(255,255,255,.7) 0 3px, transparent 3px 20px), linear-gradient(90deg, #bae6fd, #e0f2fe); }
+  .row span { position: relative; z-index: 2; }
+  .row.more { color: var(--muted); font-size: 20px; }
+  .t-changed { background: #dbeafe; color: var(--blue); border-color: var(--blue) !important; }
+  .t-same, .t-live { background: #f1f5f9; color: #64748b; }
+  .t-saved { background: #e0f2fe; color: #0369a1; border-color: #0369a1 !important; }
+  .t-new { background: #dbeafe; color: var(--blue); border-color: var(--blue) !important; }
+  .t-bad { background: #fee2e2; color: var(--red); border-color: var(--red) !important; }
+  .t-ok { background: #d1fae5; color: #047857; border-color: #047857 !important; }
+  .strip { position: absolute; left: 16px; right: 16px; top: 690px; height: 150px; background: var(--ink); border-radius: 18px; color: #fff; padding: 20px 26px; }
+  .strip .l1 { font-family: var(--mono); font-size: 24px; white-space: nowrap; }
+  .strip .l1 b { color: var(--sky); }
+  .strip .l2 { font-family: var(--mono); font-size: 22px; margin-top: 10px; color: var(--ice); white-space: nowrap; }
+  .strip .bar { margin-top: 14px; width: 560px; height: 14px; border-radius: 99px; background: #1e3354; overflow: hidden; }
+  .strip .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--sky), #7dd3fc); }
+  #undo { position: absolute; right: 22px; top: 36px; padding: 18px 26px; border-radius: 16px; background: var(--sky); color: var(--ink); font-size: 32px; font-weight: 900; border: 4px solid #fff; box-shadow: 6px 6px 0 #000; opacity: 0; white-space: nowrap; }
+
+  .cap { position: absolute; left: 56px; top: 150px; width: 650px; background: var(--paper); border-radius: 20px; padding: 18px 26px 18px 100px; font-size: 44px; font-weight: 850; line-height: 1.1; opacity: 0; transform-origin: 20% 50%; }
+  .cap .n { position: absolute; left: 20px; top: 50%; margin-top: -32px; width: 64px; height: 64px; border-radius: 50%; background: var(--blue); color: #fff; border: 4px solid var(--ink); display: grid; place-items: center; font-size: 34px; font-weight: 900; }
+  .cap.bad .n { background: var(--red); } .cap.good .n { background: var(--green); }
+
+  .fly { position: absolute; left: 0; top: 0; padding: 10px 18px; border-radius: 12px; background: #fff; border: 4px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); font-family: var(--mono); font-size: 24px; font-weight: 700; white-space: nowrap; opacity: 0; z-index: 8; border-left: 14px solid var(--blue); }
+  #iceblock { position: absolute; left: 0; top: 0; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 22px; opacity: 0; z-index: 9;
+    background: linear-gradient(135deg, #f0f9ff 0%, #bae6fd 45%, #7dd3fc 100%); border: 5px solid var(--ink); box-shadow: 6px 6px 0 var(--ink), inset 10px 10px 0 rgba(255,255,255,.6);
+    display: grid; place-items: center; font-family: var(--heavy); font-size: 34px; color: var(--ink); }
+  #iceblock svg { position: absolute; width: 60px; height: 60px; color: #fff; opacity: .9; }
+  #iceblock b { position: relative; }
+
+  #br { position: absolute; left: 120px; top: 470px; width: 840px; height: 480px; background: #fff; border-radius: 22px; overflow: hidden; opacity: 0; z-index: 7; }
+  #br .top { height: 62px; background: var(--frost); border-bottom: 4px solid var(--ink); display: flex; align-items: center; gap: 12px; padding: 0 20px; }
+  #br .top i { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--ink); background: #fff; }
+  #br .addr { margin-left: 14px; flex: 1; height: 38px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; font-family: var(--mono); font-size: 21px; display: flex; align-items: center; padding: 0 16px; }
+  #page, #err { position: absolute; left: 0; right: 0; top: 66px; bottom: 0; padding: 30px 40px; }
+  #page h2 { margin: 0 0 22px; font-family: var(--heavy); font-size: 50px; letter-spacing: -1px; }
+  .plans { display: flex; gap: 22px; }
+  .plan { flex: 1; height: 250px; border: 4px solid var(--ink); border-radius: 18px; overflow: hidden; }
+  .plan div { background: var(--sky); border-bottom: 4px solid var(--ink); padding: 10px 16px; font-weight: 800; font-size: 26px; }
+  .plan:nth-child(2) div { background: var(--blue); color: #fff; }
+  .plan p { margin: 18px 16px 0; font-family: var(--heavy); font-size: 52px; }
+  .plan p small { font-family: var(--sans); font-size: 22px; color: var(--muted); }
+  #err { background: #fff1f2; opacity: 0; text-align: center; }
+  #err h1 { margin: 40px 0 0; font-family: var(--heavy); font-size: 170px; color: var(--red); line-height: 1; letter-spacing: -4px; }
+  #err p { margin: 14px 0 0; font-size: 36px; font-weight: 750; }
+  #pass { position: absolute; left: 250px; top: 290px; padding: 12px 22px; border: 6px solid var(--green); border-radius: 14px; color: var(--green); font-family: var(--heavy); font-size: 40px; background: rgba(255,255,255,.92); opacity: 0; white-space: nowrap; rotate: -8deg; }
+
+  .cursor { position: absolute; left: 0; top: 0; width: 56px; height: 56px; opacity: 0; z-index: 40; pointer-events: none; }
+  .cursor .press { width: 100%; height: 100%; transform-origin: 6px 4px; }
+  .cursor svg { width: 56px; height: 56px; filter: drop-shadow(4px 4px 0 rgba(11,27,51,.35)); }
+  .ring { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 6px solid var(--ink); opacity: 0; z-index: 39; }
+
+  /* 4b · The Claude Code mod: the coolFTP panel beside the chat */
+  #mw { position: absolute; left: 60px; top: 400px; width: 960px; height: 800px; background: var(--paper); border-radius: 26px; overflow: hidden; }
+  #mw .tbar { height: 64px; background: var(--frost); border-bottom: 4px solid var(--ink); display: flex; align-items: center; gap: 14px; padding: 0 22px; font-size: 28px; font-weight: 800; }
+  #mw .tbar i { font-style: normal; font-weight: 500; color: var(--muted); font-family: var(--mono); font-size: 24px; }
+  #mw .tbar .prompt { font-family: var(--mono); color: var(--blue); }
+  #chat { position: absolute; left: 20px; top: 88px; width: 300px; }
+  #chat .me { margin-left: auto; width: max-content; max-width: 280px; min-height: 66px; padding: 12px 22px; border-radius: 26px 26px 8px 26px; background: var(--blue); color: #fff; font-size: 30px; font-weight: 750; border: 4px solid var(--ink); opacity: 0; }
+  #chat .cc { margin-top: 26px; font-family: var(--mono); font-size: 24px; line-height: 1.45; opacity: 0; }
+  #chat .cc b { color: var(--blue); }
+  #chat .cc .ok { color: #047857; font-weight: 800; }
+  #panel { position: absolute; left: 340px; top: 84px; width: 600px; height: 696px; background: #0b1b33; border-radius: 20px; border: 4px solid var(--ink); color: #e6edf7; overflow: hidden; }
+  #panel .ph { height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 18px; background: #101f3a; border-bottom: 2px solid #1f3a66; font-weight: 800; font-size: 26px; }
+  #panel .ph small { font-weight: 500; color: #8fb3e0; font-size: 20px; }
+  #panel .ph .live { margin-left: auto; font-family: var(--mono); font-size: 20px; color: #7dd3fc; }
+  #hero { position: absolute; left: 22px; top: 70px; width: 550px; height: 250px; }
+  #detail { position: absolute; left: 26px; top: 334px; font-size: 28px; color: #8fb3e0; white-space: nowrap; }
+  .mt { position: absolute; top: 392px; width: 172px; height: 104px; border-radius: 16px; background: #0f1f3a; border: 3px solid #1f3a66; text-align: center; opacity: 0; }
+  .mt b { display: block; margin-top: 12px; font-size: 40px; font-weight: 800; line-height: 1.1; }
+  .mt span { font-size: 21px; color: #8fb3e0; }
+  #did { position: absolute; left: 26px; right: 26px; top: 524px; opacity: 0; }
+  #did h4 { margin: 0 0 12px; font-size: 25px; }
+  #did .st { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+  #did .st i { width: 42px; height: 42px; border-radius: 50%; background: #13305a; border: 2px solid #1f3a66; display: grid; place-items: center; font-style: normal; font-size: 22px; color: #cfe6ff; position: relative; flex: none; }
+  #did .st i::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 13px; height: 13px; border-radius: 50%; background: #34d399; border: 2px solid #0b1b33; }
+  #did .st b { display: block; font-size: 25px; }
+  #did .st span { font-size: 20px; color: #8fb3e0; }
+
+  /* 4 · Montage */
+  .card { position: absolute; inset: 0; opacity: 0; z-index: 4; overflow: hidden; }
+  .card .w { position: absolute; left: 0; right: 0; top: 190px; text-align: center; font-family: var(--heavy); font-size: 200px; letter-spacing: -8px; line-height: 1; }
+  .card .s { position: absolute; left: 0; right: 0; top: 430px; text-align: center; font-size: 48px; font-weight: 750; }
+  .card .stripes { position: absolute; inset: -200px; opacity: .12; background: repeating-linear-gradient(135deg, #fff 0 40px, transparent 40px 80px); }
+
+  /* 5 · Hosts */
+  .hosts .hh { position: absolute; left: 0; right: 0; top: 110px; text-align: center; font-family: var(--heavy); font-size: 84px; letter-spacing: -2px; line-height: 1; }
+  .hosts .hs { position: absolute; left: 0; right: 0; top: 235px; text-align: center; font-size: 46px; font-weight: 750; }
+  .tile { position: absolute; width: 440px; height: 150px; background: #fff; border-radius: 22px; display: grid; place-items: center; opacity: 0; }
+  .tile img { max-width: 370px; max-height: 100px; }
+  .tile img.tall { max-height: 136px; }
+
+  /* 6 · End */
+  #s9 { z-index: 11; }
+  #s9 .mark { top: 588px; font-size: 180px; }
+  #s9 .tag { position: absolute; left: 0; right: 0; top: 800px; text-align: center; font-size: 42px; font-weight: 750; }
+  #pill { position: absolute; left: 0; right: 0; margin: 0 auto; top: 880px; width: max-content; padding: 22px 60px; border-radius: 24px; background: var(--blue); color: #fff; font-size: 58px; font-weight: 900; }
+  #s9 .small { position: absolute; left: 0; right: 0; top: 1050px; text-align: center; font-family: var(--mono); font-size: 25px; color: var(--muted); letter-spacing: 1px; }
+  #cool { position: absolute; left: 0; right: 0; top: 1130px; text-align: center; font-family: var(--heavy); font-size: 84px; letter-spacing: -2px; opacity: 0; z-index: 46; color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="stage"><div id="world">
+  <svg id="hills" viewBox="0 0 1080 520" preserveAspectRatio="none">
+    <path d="M0 300 L140 170 L250 250 L390 110 L520 240 L640 160 L780 270 L900 140 L1080 260 V520 H0Z" fill="#c9e4f8"/>
+    <path d="M390 110 L350 150 L378 142 L396 160 L418 140 L436 154Z M900 140 L866 172 L890 166 L906 180 L926 164 L942 174Z M140 170 L112 196 L134 190 L150 204 L166 190Z" fill="#fff"/>
+    <path d="M0 400 C200 330 340 380 520 350 C700 320 860 380 1080 340 V520 H0Z" fill="#e3f2fd"/>
+  </svg>
+  <svg id="rays" viewBox="-700 -700 1400 1400"><g id="raysG" fill="#bae6fd"></g></svg>
+  <canvas id="snow" width="1080" height="1350"></canvas>
+
+  <!-- 1 · Chat -->
+  <section class="scene" id="s1">
+    <div class="who" id="w1" style="right:90px;top:316px">YOU</div>
+    <div class="bub stk" id="b1"><span id="b1t"></span></div>
+    <div class="who" id="w2" style="left:90px;top:556px">&gt;_ CLAUDE CODE</div>
+    <div class="bub stk" id="b2"><span id="b2t"></span></div>
+  </section>
+
+  <!-- 2 · Title -->
+  <section class="scene" id="s2">
+    <div class="mark" id="mk" style="top:860px"><span>cool</span><b>FTP</b></div>
+    <div class="ribbon stk" id="rb" style="top:1078px">The FTP app your coding agent drives.</div>
+  </section>
+
+  <!-- 3 · The app -->
+  <section class="scene" id="s3">
+    <div class="cap stk" id="c1"><div class="n">1</div>It backs up what's live first.</div>
+    <div class="cap stk" id="c2"><div class="n">2</div>Then sends only what changed.</div>
+    <div class="cap stk" id="c3"><div class="n">3</div>Then it checks your live site.</div>
+    <div class="cap stk bad" id="c4"><div class="n">!</div>Uh-oh. The pricing page broke.</div>
+    <div class="cap stk" id="c5"><div class="n">4</div>One click on Undo.</div>
+    <div class="cap stk good" id="c6"><div class="n">✓</div>Fixed. No git needed.</div>
+
+    <div id="win" class="stk">
+      <div class="tbar"><img src="../../site/logo.png" alt="" />coolFTP <i>· yourshop.com</i></div>
+      <div class="pane" id="pL"><div class="ph">This PC <small>my-site/</small></div></div>
+      <div class="pane" id="pR"><div class="ph"><div class="dot"></div>yourshop.com<div class="chip" id="bk">❄ 0</div></div></div>
+      <div class="strip">
+        <div class="l1">Claude Code › <b>coolftp_deploy</b> "new pricing page"</div>
+        <div class="l2" id="l2">connecting…</div>
+        <div class="bar"><i id="bar"></i></div>
+        <div id="undo">↶ Undo</div>
+      </div>
+    </div>
+    <div class="fly" id="f0">index.html</div><div class="fly" id="f1">pricing.html</div><div class="fly" id="f2">css/site.css</div>
+    <div id="iceblock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7"/></svg><b>#1</b></div>
+    <div id="br" class="stk">
+      <div class="top"><i></i><i></i><i></i><div class="addr">yourshop.com/pricing</div></div>
+      <div id="page"><h2>Pricing</h2><div class="plans">
+        <div class="plan"><div>Starter</div><p>$9<small>/mo</small></p></div>
+        <div class="plan"><div>Pro</div><p>$29<small>/mo</small></p></div>
+        <div class="plan"><div>Team</div><p>$79<small>/mo</small></p></div>
+      </div></div>
+      <div id="err"><h1>500</h1><p>Internal Server Error</p></div>
+      <div id="pass">✓ LIVE CHECK PASSED</div>
+    </div>
+    <div class="ring" id="ring"></div>
+    <div class="cursor" id="cur"><div class="press"><svg viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.4L20.5 11z" fill="#fff" stroke="#0b1b33" stroke-width="1.8" stroke-linejoin="round"/></svg></div></div>
+  </section>
+
+  <!-- 4 · Montage, one card per two beats -->
+  <section class="card" id="k1" style="background:#2563eb;color:#fff"><div class="stripes"></div><div class="w">WATCH</div><div class="s">every deploy, live in the app</div></section>
+  <section class="card" id="k2" style="background:#bae6fd;color:#0b1b33"><div class="stripes"></div><div class="w">BACKUP</div><div class="s">before every single deploy</div></section>
+  <section class="card" id="k3" style="background:#0b1b33;color:#fff"><div class="stripes"></div><div class="w" style="color:#38bdf8">CHECK</div><div class="s">your live site, automatically</div></section>
+  <section class="card" id="k4" style="background:#38bdf8;color:#0b1b33"><div class="stripes"></div><div class="w">UNDO</div><div class="s">one click, no git needed</div></section>
+
+  <!-- 4b · The Claude Code mod -->
+  <section class="scene" id="s4m">
+    <div class="cap stk" id="cm"><div class="n">★</div>New: watch it live in Claude Code.</div>
+    <div id="mw" class="stk">
+      <div class="tbar"><span class="prompt">&gt;_</span>Claude Code <i>· my-site</i></div>
+      <div id="chat">
+        <div class="me" id="me"><span id="met"></span></div>
+        <div class="cc" id="cc"><b>●</b> coolftp_deploy<br /><span id="ccl">publishing…</span></div>
+      </div>
+      <div id="panel">
+        <div class="ph">coolFTP <small>panel</small><span class="live" id="plive">● working</span></div>
+        <svg id="hero" viewBox="0 0 440 200">
+          <defs><linearGradient id="mbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c1a33"/><stop offset="1" stop-color="#112b52"/></linearGradient></defs>
+          <rect width="440" height="200" rx="16" fill="url(#mbg)"/>
+          <path id="marc" d="M122,88 Q220,10 318,88" fill="none" stroke="#4fa3ff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="5 7"/>
+          <circle cx="84" cy="88" r="36" fill="#13305a" stroke="#2b6cb0" stroke-width="2"/>
+          <rect x="65" y="73" width="38" height="25" rx="3" fill="#0b1730" stroke="#93c5fd" stroke-width="2"/><rect x="70" y="78" width="28" height="15" rx="1.5" fill="#2b6cb0" opacity=".55"/><rect x="59" y="100" width="50" height="5" rx="2.5" fill="#93c5fd"/>
+          <g id="mrip"></g>
+          <circle id="mring" cx="356" cy="88" r="36" fill="#13305a" stroke="#4fa3ff" stroke-width="2.5"/>
+          <g fill="none" stroke="#7dd3fc" stroke-width="2"><circle cx="356" cy="88" r="19"/><ellipse cx="356" cy="88" rx="8" ry="19"/><path d="M337,88 H375 M340,79 H372 M340,97 H372"/></g>
+          <g id="mfiles"></g>
+          <g id="mbadge" opacity="0"><circle cx="383" cy="61" r="13" fill="#34d399" stroke="#0b1730" stroke-width="3"/><path d="M377,61 l4,4 l8,-9" fill="none" stroke="#06281c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+          <text x="84" y="144" text-anchor="middle" font-size="14" fill="#8fb3e0" font-family="Segoe UI, sans-serif">Your computer</text>
+          <text x="356" y="144" text-anchor="middle" font-size="14" fill="#8fb3e0" font-family="Segoe UI, sans-serif">yourshop.com</text>
+          <text id="mhead" x="220" y="184" text-anchor="middle" font-size="21" font-weight="700" fill="#e6edf7" font-family="Segoe UI, sans-serif">Publishing your site to yourshop.com</text>
+        </svg>
+        <div id="detail">Sending only the files that changed</div>
+        <div class="mt" id="mt1" style="left:26px"><b>Now</b><span>last change</span></div>
+        <div class="mt" id="mt2" style="left:212px"><b>3</b><span>files sent</span></div>
+        <div class="mt" id="mt3" style="left:398px"><b style="color:#34d399">Up</b><span>loads in 0.2s</span></div>
+        <div id="did"><h4>What Claude did</h4>
+          <div class="st"><i>⌁</i><div><b>Your site is up and answering</b><span>3 pages checked, all loaded · just now</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · Hosts: works with any host that speaks FTP -->
+  <section class="card hosts" id="k5" style="background:#2563eb;color:#fff"><div class="stripes"></div>
+    <div class="hh">Works with your host.</div>
+    <div class="hs">Any host with FTP or SFTP.</div>
+    <div id="tiles"></div>
+  </section>
+
+  <div id="yeti">
+    <div id="shadow"></div>
+    <div id="head"><div id="rig">
+      <div id="body">
+        <img id="base" src="yeti/base.png" alt="" />
+        <svg class="full" viewBox="0 0 538 594">
+          <defs><clipPath id="mouthClip"><path id="cavClip" d=""/></clipPath></defs>
+          <path id="cavity" d="" fill="#0a1626"/>
+          <ellipse id="tongue" cx="269" cy="312" rx="44" ry="10" fill="#1e3a5f" clip-path="url(#mouthClip)"/>
+          <path id="upper" d="" fill="#fff"/>
+        </svg>
+        <img id="teeth" src="yeti/teeth.png" alt="" />
+        <img id="brow" src="yeti/brow.png" alt="" />
+        <div class="eye" id="eyeL"><img src="yeti/eyeL.png" alt="" /></div>
+        <div class="eye" id="eyeR"><img src="yeti/eyeR.png" alt="" /></div>
+        <svg class="full" viewBox="0 0 538 594">
+          <g id="wide" opacity="0">
+            <g id="wideL"><ellipse cx="205" cy="227" rx="25" ry="26" fill="#fff" stroke="#000" stroke-width="5"/><circle cx="206" cy="229" r="8"/><circle cx="203" cy="226" r="2.6" fill="#fff"/></g>
+            <g id="wideR"><ellipse cx="336" cy="227" rx="25" ry="26" fill="#fff" stroke="#000" stroke-width="5"/><circle cx="335" cy="229" r="8"/><circle cx="332" cy="226" r="2.6" fill="#fff"/></g>
+          </g>
+          <g id="happy" opacity="0" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round">
+            <path d="M182 236 Q205 204 228 236"/><path d="M313 236 Q336 204 359 236"/>
+          </g>
+        </svg>
+      </div>
+      <div class="eglow" id="glL"></div><div class="eglow" id="glR"></div>
+    </div></div>
+  </div>
+
+  <!-- 5 · End (sits above the yeti so it can peek over the wordmark) -->
+  <section class="scene" id="s9">
+    <div class="mark" id="mk2"><span>cool</span><b>FTP</b></div>
+    <div class="tag" id="tg2">The FTP app your coding agent drives.</div>
+    <div id="pill" class="stk">coolftp.com</div>
+    <div class="small" id="sm2">Free for Windows · Claude Code · Cursor · Codex</div>
+  </section>
+
+  <svg id="bank" viewBox="0 0 1160 300" preserveAspectRatio="none"><path d="M0 120 C120 60 220 110 330 70 C450 25 560 95 680 60 C800 25 900 90 1010 55 C1080 35 1130 60 1160 70 V300 H0Z" fill="#fff" stroke="#0b1b33" stroke-width="6"/><path d="M60 170 C200 140 320 175 460 150 M640 160 C760 135 900 170 1060 140" fill="none" stroke="#bae6fd" stroke-width="6" stroke-linecap="round"/></svg>
+  <canvas id="fx" width="1080" height="1350"></canvas>
+  <div id="frostV"></div>
+  <div id="cool">Stay cool.</div>
+</div>
+  <div id="flash"></div>
+</div>
+
+<script>
+const DURATION = 44;            // seconds; window.DURATION below is in ms for render.cjs
+const BEAT = .5;                // 120 BPM
+const hooks = [];
+const SFX = [];
+const $ = s => document.querySelector(s);
+const stage = $('#stage');
+const sfx = (t, name, vol = 1, opt = {}) => SFX.push({ t, name, vol, ...opt });
+const BOUNCE = 'cubic-bezier(.34,1.56,.64,1)';
+
+function A(el, frames, at, dur, opt = {}) {
+  if (typeof el === 'string') el = $(el);
+  el.animate(frames, { delay: at * 1000, duration: Math.max(1, dur * 1000), fill: opt.fill || 'both', easing: opt.ease || 'cubic-bezier(.2,.8,.2,1)' });
+}
+function K(el, keys, opt = {}) {
+  if (typeof el === 'string') el = $(el);
+  const t0 = keys[0][0], t1 = keys[keys.length - 1][0];
+  el.animate(keys.map(([t, p]) => ({ ...p, offset: (t - t0) / (t1 - t0) })), { delay: t0 * 1000, duration: (t1 - t0) * 1000, fill: opt.fill || 'both', easing: 'linear' });
+}
+// Sticker entrance: pops in with a wobble. Exit: flips away.
+const popIn = (el, at, rot = -2, dur = .45) => A(el, [{ opacity: 0, transform: `scale(.4) rotate(${rot * 4}deg)` }, { opacity: 1, transform: `scale(1) rotate(${rot}deg)` }], at, dur, { ease: BOUNCE });
+const popOut = (el, at, rot = -2, dur = .22) => A(el, [{ opacity: 1, transform: `scale(1) rotate(${rot}deg)` }, { opacity: 0, transform: `scale(.6) rotate(${rot * 5}deg) translateY(-40px)` }], at, dur, { fill: 'forwards', ease: 'ease-in' });
+const slam = (el, at, dur = .3, from = 1.6) => A(el, [{ opacity: 0, transform: `scale(${from})` }, { opacity: 1, transform: 'scale(1)' }], at, dur, { ease: BOUNCE });
+const show = (el, a, b) => K(el, [[a, { opacity: 0 }], [a + .001, { opacity: 1 }], [b, { opacity: 1 }], [b + .001, { opacity: 0 }]]);
+const ss = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const env = (t, a, b, i = .25, o = .3) => Math.min(ss((t - a) / i), 1 - ss((t - b) / o));
+const pulse = (t, at, up = .07, down = .12) => t < at ? 0 : t < at + up ? (t - at) / up : Math.max(0, 1 - (t - at - up) / down);
+const hop = (t, at, dur = .24) => Math.sin(Math.PI * clamp((t - at) / dur, 0, 1));
+function rand(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+const EASES = {
+  io: k => k < .5 ? 4 * k ** 3 : 1 - (-2 * k + 2) ** 3 / 2,
+  out: k => 1 - (1 - k) ** 3,
+  in: k => k * k,
+  back: k => { const c = 1.9; return 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2; },
+};
+
+/* ---------- Backdrop ---------- */
+(() => { // comic sunburst behind the yeti's entrance
+  let d = '';
+  for (let i = 0; i < 24; i += 2) { const a0 = i / 24 * 2 * Math.PI, a1 = (i + 1) / 24 * 2 * Math.PI; d += `M0 0 L${Math.cos(a0) * 1000} ${Math.sin(a0) * 1000} L${Math.cos(a1) * 1000} ${Math.sin(a1) * 1000}Z`; }
+  $('#raysG').innerHTML = `<path d="${d}"/>`;
+})();
+K('#rays', [[4.4, { opacity: 0, transform: 'scale(.2) rotate(0deg)' }], [4.8, { opacity: .8, transform: 'scale(1) rotate(10deg)' }], [7.85, { opacity: .8, transform: 'scale(1) rotate(40deg)' }], [8.1, { opacity: 0, transform: 'scale(1.3) rotate(44deg)' }]]);
+K('#bank', [[0, { transform: 'translateY(0)' }], [3.4, { transform: 'translateY(0)' }], [3.5, { transform: 'translateY(-6px)' }], [3.6, { transform: 'translateY(4px)' }], [3.7, { transform: 'translateY(-8px)' }], [3.8, { transform: 'translateY(6px)' }], [3.9, { transform: 'translateY(-10px)' }], [4.0, { transform: 'translateY(0)' }], [4.3, { transform: 'translateY(320px)' }]]);
+K('#hills', [[0, { opacity: 1 }], [8.0, { opacity: 1 }], [8.4, { opacity: .35 }], [37.9, { opacity: .35 }], [38.0, { opacity: 1 }]]);
+sfx(0, 'breeze', .5);
+
+/* ---------- The yeti's moves: [t, x, y, scale, ease into this key] (x, y = top centre of the head) ---------- */
+const JOURNEY = [
+  [0, 540, 1420, 1], [4.0, 540, 1420, 1, 'cut'], [4.36, 540, 300, 1.04, 'out'], [4.62, 540, 372, 1, 'in'],
+  [8.0, 540, 372, 1, 'io'], [8.3, 720, 100, .6, 'out'], [8.6, 870, 182, .44, 'in'],
+  [28.0, 870, 182, .44, 'io'],
+  [28.0001, 830, 925, .95, 'cut'], [29.0, 830, 925, .95, 'io'], [29.0001, 250, 870, .9, 'cut'], [30.0, 250, 870, .9, 'io'],
+  [30.0001, 540, 905, .9, 'cut'], [31.0, 540, 905, .9, 'io'], [31.0001, 800, 890, .9, 'cut'], [32.0, 800, 890, .9, 'io'],
+  [32.0001, 900, -320, .42, 'cut'], [32.45, 900, 150, .42, 'back'], [35.65, 900, 150, .42, 'io'], [36.0, 900, -320, .42, 'in'],
+  [36.0001, 540, 1420, .72, 'cut'], [36.3, 540, 1075, .72, 'back'], [38.0, 540, 1075, .72, 'io'],
+  [38.0001, 540, 1420, .9, 'cut'], [38.45, 540, 200, .9, 'back'], [44, 540, 200, .9, 'io'],
+];
+function journey(t) {
+  for (let i = 1; i < JOURNEY.length; i++) {
+    const [t0, x0, y0, s0] = JOURNEY[i - 1], [t1, x1, y1, s1, e] = JOURNEY[i];
+    if (t < t1) {
+      if (e === 'cut') return [x0, y0, s0];
+      const k = (EASES[e] || EASES.io)(clamp((t - t0) / (t1 - t0), 0, 1));
+      return [lerp(x0, x1, k), lerp(y0, y1, k), lerp(s0, s1, k)];
+    }
+  }
+  return JOURNEY[JOURNEY.length - 1].slice(1, 4);
+}
+const RIG = 420 / 538;
+const rigToStage = (t, rx, ry) => { const [X, Y, S] = journey(t); return [X + (rx - 269) * RIG * S, Y + ry * RIG * S]; };
+
+/* ---------- Yeti acting ---------- */
+const GROOVE = [[4.6, 17.75], [22.0, 42.0]];              // the head bobs to the beat while the music plays
+const BLINKS = [5.9, 7.4, 11.6, 15.3, 24.9, 27.0, 30.4, 33.1, 37.1, 39.4, 41.2];
+const TILTS = [ // [start, end, degrees, lift]
+  [9.0, 10.5, -14, 6], [12.6, 13.1, -9, 0], [13.35, 13.85, 9, 0], [14.1, 14.6, -9, 0], [16.3, 17.6, 10, 0],
+  [21.0, 21.8, -12, 0], [28.1, 28.9, -10, 0], [29.1, 29.9, 12, 6], [32.8, 33.5, -12, 0], [33.6, 34.3, -6, 0],
+  [36.5, 37.0, -10, 0], [37.2, 37.8, 10, 0], [39.6, 40.6, -8, 0],
+];
+const HOPS = [13.15, 13.9, 14.65, 22.55, 22.8, 23.05, 31.1, 31.35, 31.6, 34.55, 34.8, 35.05, 40.0];
+const SQUASH = [[4.62, .16], [8.6, .13], [32.45, .1], [36.3, .1], [38.45, .1]];
+const ROARS = [[4.62, 5.7, 1]];
+const BREATHS = [ // [start, end, target box x0, y0, x1, y1]
+  [9.3, 10.4, [570, 470, 1000, 650]],
+  [29.15, 29.9, [560, 640, 1060, 1000]],
+  [42.0, 43.2, [-80, -80, 1160, 1430]],
+];
+const ALARM = [17.85, 21.2], HAPPY = [[22.4, 24.8], [31.0, 31.9], [34.45, 35.6], [43.4, 44.5]];
+const yetiEl = $('#yeti'), head = $('#head');
+const brow = $('#brow'), teeth = $('#teeth'), wide = $('#wide'), happy = $('#happy'), glows = [$('#glL'), $('#glR')];
+const cav = $('#cavity'), cavClip = $('#cavClip'), upper = $('#upper'), tongue = $('#tongue');
+const world = $('#world');
+
+// Mouth: the teeth strip is the lower jaw; the cavity opens between it and the upper lip.
+function mouth(m) {
+  const u = 14 * m;
+  const top = `M188 321 Q269 ${272 - 2 * u} 350 321`;
+  const d = `${top} L350 ${325 + u} Q269 ${295 + u} 188 ${325 + u} Z`;
+  cav.setAttribute('d', m > 0.01 ? d : ''); cavClip.setAttribute('d', d);
+  teeth.style.transform = `translateY(${u}px)`;
+  tongue.setAttribute('cy', 314 + u); tongue.setAttribute('ry', 4 + 9 * m);
+  const cy = 272 - 2 * u, yAt = x => { const k = (x - 188) / 162; return (1 - k) ** 2 * 321 + 2 * k * (1 - k) * cy + k * k * 321; };
+  const fang = x => { const y = yAt(x); return `M${x - 7} ${y} L${x + 7} ${y} L${x} ${y + 6 + 9 * m} Z`; };
+  upper.setAttribute('d', m > 0.01 ? `${top} L350 323 Q269 ${cy + 10} 188 323 Z ${fang(222)} ${fang(316)}` : '');
+}
+
+hooks.push(t => {
+  const [X, Y, S] = journey(t);
+  let rot = 1.2 * Math.sin(t * 2 * Math.PI / 4), x = 0, y = 0, sc = 1, q = 0, m = 0, browY = 0, glow = 0, red = 0;
+  for (const [a, b] of GROOVE) if (t > a && t < b) y -= 7 * Math.abs(Math.sin(Math.PI * (t - a) / BEAT)) ** 3;
+  for (const [a, b, deg, lift] of TILTS) { const k = env(t, a, b, .15, .2); rot += deg * k; y += lift * k; }
+  for (const h of HOPS) y -= 22 * hop(t, h);
+  // Stretch on the way up out of the snow, squash on every landing
+  if (t > 4.0 && t < 4.36) q -= .14 * Math.sin(Math.PI * (t - 4.0) / .36);
+  for (const [at, a] of SQUASH) if (t >= at) q += a * Math.exp(-(t - at) * 7) * Math.cos((t - at) * 26);
+  for (const h of HOPS) { const k = t - h - .24; if (k > 0 && k < .3) q += .06 * Math.exp(-k * 12) * Math.cos(k * 30); }
+
+  for (const [a, b, w] of ROARS) {
+    const k = env(t, a, b, .1, .3);
+    m = Math.max(m, w * k); sc += .07 * k; y -= 8 * k; browY += 5 * k;
+    if (t > a + .08 && t < b) { x += 4 * Math.sin(t * 95) * k; rot += 1.6 * Math.sin(t * 61) * k; }
+  }
+  for (const [a, b] of BREATHS) {
+    const inh = env(t, a - .3, a, .22, .06);
+    sc += .06 * inh; browY -= 4 * inh; y -= 6 * inh;
+    const blow = env(t, a, b, .08, .25);
+    m = Math.max(m, .5 * blow); glow = Math.max(glow, .7 * blow);
+  }
+  const alarm = env(t, ALARM[0], ALARM[1], .06, .4), gasp = env(t, ALARM[0], ALARM[0] + .5, .05, .3);
+  browY -= 13 * alarm; sc += .1 * gasp; m = Math.max(m, .4 * gasp); red = alarm; glow = Math.max(glow, alarm);
+  if (t > ALARM[0] && t < ALARM[0] + 1) x += 6 * Math.sin((t - ALARM[0]) * 85) * (1 - (t - ALARM[0]));
+  let joy = 0; for (const [a, b] of HAPPY) joy = Math.max(joy, env(t, a, b, .12, .3));
+  browY -= 7 * joy;
+
+  yetiEl.style.transform = `translate(${X - 210 * S}px, ${Y}px) scale(${S})`;
+  head.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${sc * (1 + q)}, ${sc * (1 - q)})`;
+  $('#shadow').style.opacity = t > 4.5 && t < 8.0 ? 1 : 0;
+  $('#shadow').style.transform = `scaleX(${1 + y / 120})`;
+  mouth(m);
+  brow.style.transform = `translateY(${browY}px)`;
+
+  let lid = 0;
+  for (const b of BLINKS) lid = Math.max(lid, pulse(t, b, .06, .11));
+  const wink = env(t, 40.0, 40.45, .07, .14);
+  const lids = [lid, Math.max(lid, wink)];
+  ['#eyeL', '#eyeR'].forEach((s, i) => { const e = $(s); e.style.transform = `scaleY(${1 - .88 * lids[i]})`; e.style.opacity = (1 - alarm) * (1 - joy); });
+  wide.setAttribute('opacity', alarm);
+  ['#wideL', '#wideR'].forEach(s => { const c = s === '#wideL' ? 205 : 336; $(s).setAttribute('transform', `translate(${c} 227) scale(1 ${1 - .9 * lid}) translate(${-c} -227)`); });
+  happy.setAttribute('opacity', joy);
+  glows.forEach(g => {
+    g.style.opacity = Math.min(1, glow);
+    g.style.background = red > .3 ? 'radial-gradient(closest-side, rgba(254,226,226,.95), rgba(239,68,68,.45) 50%, transparent)' : '';
+  });
+
+  let sx = 0, sy = 0;
+  if (t > 3.4 && t < 4.0) { sx = 4 * Math.sin(t * 90); sy = 3 * Math.cos(t * 77); }
+  if (t > 4.62 && t < 5.5) { const k = 1 - (t - 4.62) / .88; sx += 10 * k * Math.sin(t * 87); sy += 8 * k * Math.cos(t * 71); }
+  if (t > 17.8 && t < 18.2) { const k = 1 - (t - 17.8) / .4; sx += 8 * k * Math.sin(t * 90); }
+  world.style.transform = sx || sy ? `translate(${sx}px, ${sy}px)` : '';
+});
+
+/* ---------- Snow, chunks, frost, shards ---------- */
+const snow = $('#snow').getContext('2d');
+const FLAKES = (() => { const r = rand(11); return Array.from({ length: 110 }, () => ({ x: r() * 1180 - 50, y: r() * 1400, v: 30 + r() * 70, s: 2 + r() * 4, a: .35 + r() * .5, sw: 10 + r() * 30, ph: r() * 6.28 })); })();
+hooks.push(t => {
+  snow.clearRect(0, 0, 1080, 1350);
+  snow.fillStyle = '#8cbde3';
+  for (const f of FLAKES) {
+    let x = f.x + 12 * t + f.sw * Math.sin(t * 1.2 + f.ph), y = f.y + f.v * t;
+    x = ((x % 1180) + 1180) % 1180 - 50; y = ((y % 1400) + 1400) % 1400 - 30;
+    snow.globalAlpha = f.a; snow.beginPath(); snow.arc(x, y, f.s, 0, 6.283); snow.fill();
+  }
+  snow.globalAlpha = 1;
+});
+const fx = $('#fx').getContext('2d');
+function puff(x, y, r, a) {
+  const g = fx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(240,249,255,${a})`); g.addColorStop(.6, `rgba(186,230,253,${a * .6})`); g.addColorStop(1, 'rgba(186,230,253,0)');
+  fx.fillStyle = g; fx.beginPath(); fx.arc(x, y, r, 0, 6.283); fx.fill();
+}
+function sparkle(x, y, s, a) {
+  fx.save(); fx.translate(x, y); fx.globalAlpha = a; fx.fillStyle = '#fff'; fx.strokeStyle = '#0b1b33'; fx.lineWidth = 2;
+  fx.beginPath(); fx.moveTo(0, -s); fx.lineTo(s * .25, -s * .25); fx.lineTo(s, 0); fx.lineTo(s * .25, s * .25); fx.lineTo(0, s); fx.lineTo(-s * .25, s * .25); fx.lineTo(-s, 0); fx.lineTo(-s * .25, -s * .25); fx.closePath(); fx.fill(); fx.stroke(); fx.restore();
+}
+const CHUNKS = (() => { const r = rand(4); return Array.from({ length: 36 }, () => ({ x: 300 + r() * 480, vx: (r() - .5) * 900, vy: -900 - r() * 900, s: 14 + r() * 26, life: 1.3 + r() * .4 })); })();
+const BREATH_P = BREATHS.map(([a, b, [x0, y0, x1, y1]], j) => { const r = rand(30 + j); const n = Math.round((b - a) * 80); return Array.from({ length: n }, (_, i) => ({ b: a + (b - a - .15) * i / n, life: .55 + r() * .2, tx: x0 + r() * (x1 - x0), ty: y0 + r() * (y1 - y0), wob: (r() - .5) * 70, r: (j === 2 ? 40 : 18) + r() * 26, spark: r() < .3 })); });
+const SHARD_T = 22.2, SHARD_AT = [540, 720];
+const SHARDS = (() => { const r = rand(9); return Array.from({ length: 34 }, () => { const ang = -Math.PI * (.05 + .9 * r()); const sp = 350 + r() * 600; return { vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, rot: r() * 6, vr: (r() - .5) * 14, s: 10 + r() * 18, life: .9 + r() * .4 }; }); })();
+const STARS = (() => { const r = rand(21); return Array.from({ length: 12 }, () => ({ dx: (r() - .5) * 360, dy: (r() - .5) * 240, d: r() * .4, s: 10 + r() * 12 })); })();
+hooks.push(t => {
+  fx.clearRect(0, 0, 1080, 1350);
+  // Snow chunks when the yeti bursts out of the bank
+  if (t > 4.0 && t < 6.0) {
+    const dt = t - 4.0;
+    for (const c of CHUNKS) {
+      if (dt > c.life) continue;
+      const x = c.x + c.vx * dt, y = 1300 + c.vy * dt + 1500 * dt * dt;
+      fx.globalAlpha = clamp((1 - dt / c.life) * 3, 0, 1); fx.strokeStyle = '#0b1b33'; fx.lineWidth = 4;
+      fx.fillStyle = '#fff'; fx.beginPath(); fx.arc(x, y, c.s, 0, 6.283); fx.fill();
+      fx.fillStyle = '#bae6fd'; fx.beginPath(); fx.arc(x + c.s * .25, y + c.s * .25, c.s * .75, 0, 6.283); fx.fill();
+      fx.fillStyle = '#fff'; fx.beginPath(); fx.arc(x - c.s * .1, y - c.s * .1, c.s * .72, 0, 6.283); fx.fill();
+      fx.beginPath(); fx.arc(x, y, c.s, 0, 6.283); fx.stroke();
+    }
+    fx.globalAlpha = 1;
+  }
+  BREATHS.forEach((_, j) => {
+    for (const p of BREATH_P[j]) {
+      const k = (t - p.b) / p.life; if (k < 0 || k > 1) continue;
+      const [mx, my] = rigToStage(p.b, 269, 312);
+      const e = 1 - (1 - k) ** 2;
+      const x = lerp(mx, p.tx, e) + p.wob * Math.sin(k * Math.PI), y = lerp(my, p.ty, e);
+      puff(x, y, p.r * (.5 + k), .75 * Math.sin(Math.PI * k));
+      if (p.spark) sparkle(x, y, 7 + 5 * k, Math.sin(Math.PI * k));
+    }
+  });
+  if (t > SHARD_T && t < SHARD_T + 1.4) {
+    const dt = t - SHARD_T;
+    for (const s of SHARDS) {
+      if (dt > s.life) continue;
+      const x = SHARD_AT[0] + s.vx * dt, y = SHARD_AT[1] + s.vy * dt + 1000 * dt * dt;
+      fx.save(); fx.translate(x, y); fx.rotate(s.rot + s.vr * dt); fx.globalAlpha = 1 - dt / s.life;
+      fx.fillStyle = '#bae6fd'; fx.strokeStyle = '#0b1b33'; fx.lineWidth = 3;
+      fx.beginPath(); fx.moveTo(0, -s.s); fx.lineTo(s.s * .55, s.s * .6); fx.lineTo(-s.s * .45, s.s * .45); fx.closePath(); fx.fill(); fx.stroke(); fx.restore();
+    }
+  }
+  for (const s of STARS) {
+    const k = (t - 40.05 - s.d) / .55; if (k < 0 || k > 1) continue;
+    const [hx, hy] = rigToStage(t, 420, 160);
+    sparkle(hx + s.dx * k, hy + s.dy * k, s.s * Math.sin(Math.PI * k), 1);
+  }
+});
+
+/* ---------- 1 · Chat (0–4 s) ---------- */
+show('#s1', 0, 4.5);
+const B1 = 'Ship the new pricing page.', B2 = 'On it. Deploying with coolFTP.';
+popIn('#w1', .2, 0, .3); popIn('#b1', .25, -1.5); popIn('#w2', 1.95, 0, .3); popIn('#b2', 2.0, 1.5);
+const typed = (s, t, at, cps) => s.slice(0, clamp(Math.floor((t - at) * cps), 0, s.length));
+hooks.push(t => {
+  $('#b1t').innerHTML = typed(B1, t, .5, 24) + (t > .4 && t < 1.85 ? '<span class="caret"></span>' : '');
+  $('#b2t').innerHTML = typed(B2, t, 2.15, 26) + (t > 2.1 && t < 3.45 ? '<span class="caret"></span>' : '');
+});
+K('#s1', [[3.4, { transform: 'none' }], [3.5, { transform: 'translate(-5px, 3px)' }], [3.6, { transform: 'translate(5px, -3px)' }], [3.7, { transform: 'translate(-6px, 2px)' }], [3.8, { transform: 'translate(6px, -4px)' }], [3.9, { transform: 'translate(-7px, 3px)' }], [4.0, { transform: 'none' }]]);
+A('#b1', [{ transform: 'rotate(-1.5deg)' }, { transform: 'translate(260px, -800px) rotate(30deg)' }], 4.05, .45, { fill: 'forwards', ease: 'ease-in' });
+A('#w1', [{ transform: 'none' }, { transform: 'translate(260px, -800px)' }], 4.05, .45, { fill: 'forwards', ease: 'ease-in' });
+A('#b2', [{ transform: 'rotate(1.5deg)' }, { transform: 'translate(-260px, -800px) rotate(-30deg)' }], 4.1, .45, { fill: 'forwards', ease: 'ease-in' });
+A('#w2', [{ transform: 'none' }, { transform: 'translate(-260px, -800px)' }], 4.1, .45, { fill: 'forwards', ease: 'ease-in' });
+sfx(.5, 'keys', .7, { len: 1.1 }); sfx(1.8, 'pop', .7); sfx(2.15, 'keys', .7, { len: 1.15 }); sfx(3.45, 'pop', .7);
+sfx(3.35, 'rumble', 1, { len: .7 }); sfx(4.0, 'burst', 1); sfx(4.0, 'slide', .7); sfx(4.6, 'roar', 1.1, { len: 1.0 });
+
+/* ---------- 2 · Title (6–8 s) ---------- */
+show('#s2', 5.9, 8.15);
+slam('#mk', 6.0, .32); popIn('#rb', 6.5, -2, .4);
+A('#mk', [{ transform: 'none' }, { transform: 'translateY(-200px)' }], 7.95, .2, { fill: 'forwards', ease: 'ease-in' });
+A('#rb', [{ transform: 'rotate(-2deg)' }, { transform: 'translateY(-200px) rotate(-6deg)' }], 7.95, .2, { fill: 'forwards', ease: 'ease-in' });
+sfx(6.0, 'stamp', 1); sfx(6.5, 'swish', .6); sfx(7.95, 'swish', .7); sfx(8.6, 'boing', .8);
+
+/* ---------- 3 · The app (8–28 s) ---------- */
+show('#s3', 8.0, 27.95);
+A('#win', [{ transform: 'translateY(1100px) rotate(4deg)' }, { transform: 'none' }], 8.05, .55, { ease: BOUNCE });
+A('#win', [{ transform: 'none' }, { transform: 'translateY(1150px) rotate(-6deg)' }], 27.6, .38, { fill: 'forwards', ease: 'ease-in' });
+const CAPS = [['#c1', 8.6, 12.2], ['#c2', 12.25, 16.2], ['#c3', 16.25, 17.8], ['#c4', 17.85, 20.6], ['#c5', 20.65, 23.95], ['#c6', 24.0, 27.6]];
+CAPS.forEach(([c, a, b], i) => { const r = i % 2 ? 1.5 : -1.5; popIn(c, a, r); popOut(c, b, r); sfx(a, 'pop', .45); });
+
+// Files in both panes
+const FILES = [['index.html', true], ['pricing.html', true], ['css/site.css', true], ['js/app.js', false], ['img/hero.jpg', false], ['about.html', false]];
+const ROW0 = 62, RH = 64;
+const mkRows = pane => {
+  const rows = FILES.map(([name], i) => {
+    const r = document.createElement('div'); r.className = 'row'; r.style.top = `${ROW0 + i * RH}px`;
+    r.innerHTML = `<i class="hl"></i><i class="frost"></i><span>${name}</span><span class="tg"></span>`;
+    $(pane).appendChild(r); return r;
+  });
+  const more = document.createElement('div'); more.className = 'row more'; more.style.top = `${ROW0 + 6 * RH}px`;
+  more.innerHTML = '<span>+ 36 more files</span><span class="tg"></span>'; $(pane).appendChild(more);
+  return rows.concat([more]);
+};
+const rowsL = mkRows('#pL'), rowsR = mkRows('#pR');
+// Stage centre of a row: window inner corner (65, 335) + pane offset + header
+const rowY = i => 335 + 80 + 4 + ROW0 + i * RH + RH / 2;
+const L_X = 65 + 16 + 225, R_X = 65 + 486 + 225;
+
+const FREEZE = 9.6, ICE_OUT = 10.6, ICE_IN = 11.0;
+const UPS = [12.6, 13.35, 14.1], FLY = .55;
+const CHECK = 16.3, FAIL = 17.8, CLICK = 21.6, RESTORED = 22.35, PASSED = 22.9;
+rowsR.slice(0, 3).forEach((r, i) => K(r.querySelector('.frost'), [[FREEZE + i * .12, { opacity: 0 }], [FREEZE + i * .12 + .3, { opacity: 1 }], [ICE_OUT, { opacity: 1 }], [ICE_OUT + .4, { opacity: 0 }]]));
+sfx(9.0, 'inhale', .7); sfx(9.3, 'frost', .9, { len: 1.1 }); sfx(FREEZE, 'freeze', .8);
+
+// The backup: an ice block pops out of the frozen files and lands in the backups chip
+const ice = $('#iceblock'), chipXY = [65 + 486 + 400, 335 + 80 + 33];
+const at = (x, y, s = 1, r = 0) => `translate(${x}px, ${y}px) scale(${s}) rotate(${r}deg)`;
+K(ice, [[ICE_OUT, { opacity: 0, transform: at(R_X, rowY(1), .3) }], [ICE_OUT + .12, { opacity: 1, transform: at(R_X, rowY(1) - 60, 1.1, -8) }],
+        [ICE_IN, { opacity: 1, transform: at(...chipXY, .3, 10), easing: 'ease-in' }], [ICE_IN + .02, { opacity: 0, transform: at(...chipXY, .3, 10) }],
+        [CLICK + .08, { opacity: 0, transform: at(...chipXY, .3) }], [CLICK + .15, { opacity: 1, transform: at(chipXY[0], chipXY[1] + 40, .9, 10) }],
+        [SHARD_T, { opacity: 1, transform: at(...SHARD_AT, 1.4, -10), easing: 'cubic-bezier(.5,0,.3,1)' }], [SHARD_T + .02, { opacity: 0, transform: at(...SHARD_AT, 1.4) }]]);
+K('#bk', [[ICE_IN, { transform: 'scale(1)' }], [ICE_IN + .1, { transform: 'scale(1.35)' }], [ICE_IN + .3, { transform: 'scale(1)' }]]);
+sfx(ICE_OUT, 'pop', .8); sfx(ICE_IN, 'clink', .9);
+
+// Uploads: file stickers arc from the left pane to the right one
+UPS.forEach((u, i) => {
+  const el = $(`#f${i}`), y = rowY(i), w = 210;
+  const p = k => { const x = lerp(L_X - w / 2 + 40, R_X - w / 2 + 40, k), yy = y - 24 - 150 * Math.sin(Math.PI * k); return `translate(${x}px, ${yy}px) rotate(${-8 + 16 * k}deg)`; };
+  K(el, [[u - .01, { transform: p(0), opacity: 0 }]].concat([0, .25, .5, .75, 1].map(k => [u + FLY * k, { transform: p(k), opacity: 1 }]), [[u + FLY + .1, { transform: p(1) + ' scale(.6)', opacity: 0 }]]));
+  K(rowsR[i].querySelector('.hl'), [[u + FLY, { opacity: 0, background: '#dbeafe' }], [u + FLY + .08, { opacity: 1, background: '#dbeafe' }], [u + FLY + .7, { opacity: 0, background: '#dbeafe' }]]);
+  sfx(u, 'swish', .45, { short: true }); sfx(u + FLY, 'blip', .6);
+});
+
+// The live check pops up a browser; the page breaks, then comes back
+K('#br', [[CHECK, { opacity: 0, transform: 'scale(.5) rotate(-6deg)' }], [CHECK + .4, { opacity: 1, transform: 'scale(1) rotate(1.5deg)' }],
+          [FAIL, { opacity: 1, transform: 'scale(1) rotate(1.5deg)' }], [FAIL + .05, { opacity: 1, transform: 'translate(-14px, 4px) rotate(0deg)' }], [FAIL + .1, { opacity: 1, transform: 'translate(12px, -4px) rotate(3deg)' }],
+          [FAIL + .16, { opacity: 1, transform: 'translate(-8px, 2px) rotate(1deg)' }], [FAIL + .24, { opacity: 1, transform: 'scale(1) rotate(1.5deg)' }],
+          [24.55, { opacity: 1, transform: 'scale(1) rotate(1.5deg)' }], [24.9, { opacity: 0, transform: 'translate(300px, 900px) rotate(25deg)' }]]);
+K('#page', [[FAIL, { opacity: 1 }], [FAIL + .02, { opacity: 0 }], [RESTORED, { opacity: 0 }], [RESTORED + .15, { opacity: 1 }]]);
+K('#err', [[FAIL, { opacity: 0 }], [FAIL + .02, { opacity: 1 }], [RESTORED, { opacity: 1 }], [RESTORED + .15, { opacity: 0 }]]);
+slam('#pass', PASSED, .3, 2.2);
+sfx(CHECK, 'pop', .8); sfx(FAIL, 'scratch', 1); sfx(FAIL + .05, 'glitch', .6); sfx(ALARM[0], 'yelp', 1); sfx(18.2, 'wah', .9);
+
+// Undo
+popIn('#undo', 20.7, 0, .4); sfx(20.7, 'pop', .7);
+const undoXY = [889, 1102];
+(function cursor() {
+  const cur = $('#cur'), ring = $('#ring'), [x, y] = undoXY, from = [x - 260, y - 420];
+  const p = (px, py) => `translate(${px - 6}px, ${py - 4}px)`;
+  A(cur, [{ opacity: 0 }, { opacity: 1 }], 20.85, .2);
+  A(cur, [{ transform: p(...from) }, { transform: p(x, y) }], 20.95, CLICK - 20.95 - .06, { ease: 'cubic-bezier(.45,0,.2,1)' });
+  A(cur.firstElementChild, [{ transform: 'scale(1)' }, { transform: 'scale(.8)' }, { transform: 'scale(1)' }], CLICK, .22, { ease: 'ease-out' });
+  A(cur, [{ opacity: 1 }, { opacity: 0 }], CLICK + .6, .25, { fill: 'forwards' });
+  ring.style.left = x + 'px'; ring.style.top = y + 'px';
+  A(ring, [{ opacity: 1, transform: 'scale(.3)' }, { opacity: 0, transform: 'scale(1.6)' }], CLICK, .5, { fill: 'forwards', ease: 'ease-out' });
+  sfx(CLICK, 'click', 1);
+})();
+A('#undo', [{ transform: 'scale(1)' }, { transform: 'scale(.88) translate(3px, 3px)' }, { transform: 'scale(1)' }], CLICK, .2, { fill: 'forwards' });
+sfx(CLICK + .1, 'swish', .6); sfx(SHARD_T, 'shatter', 1);
+K('#flash', [[SHARD_T, { opacity: 0 }], [SHARD_T + .03, { opacity: .4 }], [SHARD_T + .3, { opacity: 0 }]], { fill: 'none' });
+sfx(PASSED, 'stamp', .8); sfx(PASSED + .05, 'ding', .8);
+sfx(22.55, 'grunt', .8, { pitch: 1.1 }); sfx(22.8, 'grunt', .8, { pitch: 1.25 }); sfx(24.55, 'swish', .6); sfx(27.6, 'swish', .7);
+
+// Tags, strip text and progress follow the story
+const TAG = (r, cls, txt) => { const g = r.querySelector('.tg'); g.className = 'tg ' + cls; g.textContent = txt; };
+hooks.push(t => {
+  const ups = UPS.filter(u => t >= u + FLY).length;
+  rowsL.forEach((r, i) => {
+    if (t < 12.25) return TAG(r, '', '');
+    if (i === 6 || !FILES[i][1]) return TAG(r, 't-same', 'same');
+    TAG(r, 't-changed', 'changed');
+  });
+  rowsR.forEach((r, i) => {
+    if (i === 6 || !FILES[i][1]) return TAG(r, t >= PASSED ? 't-ok' : 't-live', t >= PASSED ? '✓ live' : 'live');
+    if (t >= PASSED) TAG(r, 't-ok', '✓ live');
+    else if (t >= RESTORED) TAG(r, 't-saved', '↶ restored');
+    else if (i === 1 && t >= FAIL) TAG(r, 't-bad', '✗ 500');
+    else if (t >= UPS[i] + FLY) TAG(r, 't-new', '↑ new ✓');
+    else if (t >= FREEZE + i * .12 + .15) TAG(r, 't-saved', '❄ saved');
+    else TAG(r, 't-live', 'live');
+  });
+  $('#bk').textContent = t >= ICE_IN ? '❄ 1 backup' : '❄ 0';
+  let l2, col = '#bae6fd';
+  if (t >= PASSED) { l2 = '✓ live check passed · yourshop.com'; col = '#6ee7b7'; }
+  else if (t >= RESTORED) l2 = '↶ restored 3 files from backup #1';
+  else if (t >= FAIL) { l2 = '✗ live check failed · /pricing 500'; col = '#fca5a5'; }
+  else if (t >= CHECK) l2 = 'checking yourshop.com…';
+  else if (t >= UPS[0]) l2 = `uploading ${ups}/3 · 39 skipped${ups === 3 ? ' · sizes confirmed' : ''}`;
+  else if (t >= ICE_IN) l2 = 'backup #1 saved · 3 files';
+  else l2 = 'backing up live files…';
+  $('#l2').textContent = l2; $('#l2').style.color = col;
+  const moving = UPS.reduce((s, u) => s + clamp((t - u) / FLY, 0, 1), 0);
+  const prog = t >= FAIL ? 1 : moving / 3;
+  const bar = $('#bar'); bar.style.width = `${prog * 100}%`;
+  bar.style.background = t >= FAIL && t < RESTORED ? '#ef4444' : t >= PASSED ? '#10b981' : '';
+  $('#undo').textContent = t >= CLICK + .1 ? '✓ Undone' : '↶ Undo';
+});
+
+/* ---------- 4 · Montage (28–32 s): a card every two beats ---------- */
+['#k1', '#k2', '#k3', '#k4'].forEach((k, i) => {
+  const a = 28 + i;
+  show(k, a, a + 1);
+  slam(`${k} .w`, a, .25, 1.5);
+  A(`${k} .s`, [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], a + .15, .25);
+  A(`${k} .stripes`, [{ transform: 'translateX(0)' }, { transform: 'translateX(113px)' }], a, 1, { ease: 'linear' });
+  sfx(a, 'stamp', .9);
+});
+sfx(29.1, 'frost', .7, { len: .75 }); sfx(31.1, 'grunt', .8, { pitch: 1.2 });
+
+/* ---------- 4b · The Claude Code mod (32–36 s): the panel shows the deploy as it happens ---------- */
+const MOD = 32, MFILES = [32.85, 33.3, 33.75], MFLY = .62, MLIVE = 34.45;
+show('#s4m', MOD, MOD + 4);
+A('#mw', [{ transform: 'translateY(1100px) rotate(4deg)' }, { transform: 'none' }], MOD + .02, .5, { ease: BOUNCE });
+A('#mw', [{ transform: 'none' }, { transform: 'translateY(1150px) rotate(-6deg)' }], 35.62, .36, { fill: 'forwards', ease: 'ease-in' });
+popIn('#cm', MOD + .15, -1.5); popOut('#cm', 35.6, -1.5);
+popIn('#me', 32.35, -1, .35); A('#cc', [{ opacity: 0 }, { opacity: 1 }], 32.7, .2);
+['#mt1', '#mt2', '#mt3'].forEach((m, i) => popIn(m, MLIVE + .2 + i * .15, i === 1 ? 1.5 : -1.5, .35));
+A('#did', [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], 35.0, .3);
+sfx(MOD, 'stamp', .9); sfx(MOD + .02, 'slide', .5); sfx(MOD + .15, 'pop', .5); sfx(32.35, 'pop', .6); sfx(32.4, 'keys', .5, { len: .3 }); sfx(32.45, 'boing', .5);
+MFILES.forEach(u => { sfx(u, 'swish', .4, { short: true }); sfx(u + MFLY, 'blip', .55); });
+sfx(MLIVE, 'ding', .9); sfx(MLIVE + .05, 'sparkle', .6); [0, 1, 2].forEach(i => sfx(MLIVE + .2 + i * .15, 'pop', .4));
+sfx(34.55, 'grunt', .7, { pitch: 1.2 }); sfx(35.0, 'swish', .4, { short: true }); sfx(35.62, 'swish', .7);
+const NS = 'http://www.w3.org/2000/svg';
+const PAPER = '<g transform="translate(-7,-9)"><path d="M0,0 H10 L14,4 V18 H0 Z" fill="#4fa3ff"/><path d="M10,0 V4 H14" fill="#cfe6ff" opacity=".8"/><path d="M3,8 H11 M3,11 H11 M3,14 H8" stroke="#0b1730" stroke-width="1.2" opacity=".55"/></g>';
+const mFiles = MFILES.map(() => { const g = document.createElementNS(NS, 'g'); g.innerHTML = PAPER; $('#mfiles').appendChild(g); return g; });
+const RIPS = [0, .35, .7];
+const mRips = RIPS.map(() => { const c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', 356); c.setAttribute('cy', 88); c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#34d399'); c.setAttribute('stroke-width', 2); $('#mrip').appendChild(c); return c; });
+const ME = 'Ship it.';
+hooks.push(t => {
+  if (t < MOD - .1 || t > MOD + 4.1) return;
+  $('#met').textContent = typed(ME, t, 32.42, 30) || ' ';
+  const live = t >= MLIVE;
+  mFiles.forEach((g, i) => {
+    const k = clamp((t - MFILES[i]) / MFLY, 0, 1), e = EASES.io(k);
+    const x = (1 - e) ** 2 * 122 + 2 * e * (1 - e) * 220 + e * e * 318, y = (1 - e) ** 2 * 88 + 2 * e * (1 - e) * 10 + e * e * 88;
+    g.setAttribute('transform', `translate(${x} ${y}) rotate(${-10 + 20 * e})`);
+    g.setAttribute('opacity', t < MFILES[i] || k >= 1 ? 0 : Math.min(1, k * 6, (1 - k) * 6));
+  });
+  const arc = $('#marc');
+  arc.setAttribute('stroke-dasharray', live ? '0' : '5 7');
+  arc.setAttribute('stroke-dashoffset', live ? 0 : -t * 34);
+  arc.setAttribute('stroke', live ? '#2b6cb0' : '#4fa3ff');
+  $('#mring').setAttribute('stroke', live ? '#34d399' : '#4fa3ff');
+  const b = clamp((t - MLIVE) / .25, 0, 1), pop = b < 1 ? EASES.back(b) : 1;
+  $('#mbadge').setAttribute('opacity', b);
+  $('#mbadge').setAttribute('transform', `translate(383 61) scale(${.4 + .6 * pop}) translate(-383 -61)`);
+  mRips.forEach((c, i) => {
+    const k = (t - MLIVE - RIPS[i]) / 1.1;
+    c.setAttribute('r', 36 + 28 * clamp(k, 0, 1));
+    c.setAttribute('opacity', k < 0 || k > 1 ? 0 : .7 * (1 - k));
+  });
+  $('#mhead').textContent = live ? 'Your site is live' : 'Publishing your site to yourshop.com';
+  const sent = MFILES.filter(u => t >= u + MFLY).length;
+  $('#detail').textContent = live ? '3 files updated · 41 KB · took 2s' : `Sending only the files that changed · ${sent}/3`;
+  $('#plive').textContent = live ? '✓ done' : '● working';
+  $('#plive').style.color = live ? '#34d399' : '#7dd3fc';
+  $('#ccl').innerHTML = live ? '<span class="ok">✓ Live.</span> 3 files updated.' : 'publishing…';
+});
+
+/* ---------- 5 · Hosts (36–38 s): logos pop in on eighth notes, the yeti pops up to look ---------- */
+const HOSTS = ['hostinger', 'bluehost', 'ionos', 'hostgator', 'dreamhost', 'godaddy', 'namecheap', 'cpanel'];
+const HT = 36;
+show('#k5', HT, HT + 2);
+slam('#k5 .hh', HT, .25, 1.5);
+A('#k5 .hs', [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], HT + .15, .25);
+A('#k5 .stripes', [{ transform: 'translateX(0)' }, { transform: 'translateX(226px)' }], HT, 2, { ease: 'linear' });
+HOSTS.forEach((h, i) => {
+  const el = document.createElement('div'); el.className = 'tile stk';
+  el.style.left = `${i % 2 ? 560 : 80}px`; el.style.top = `${330 + Math.floor(i / 2) * 180}px`;
+  el.innerHTML = `<img src="yeti/hosts/${h}.png" alt="${h}"${h === 'dreamhost' || h === 'namecheap' ? ' class="tall"' : ''} />`;
+  $('#tiles').appendChild(el);
+  popIn(el, HT + .25 + i * .125, i % 2 ? 1.5 : -1.5, .35);
+  sfx(HT + .25 + i * .125, 'pop', .3);
+});
+sfx(HT, 'stamp', .9); sfx(HT, 'slide', .5); sfx(HT + .3, 'boing', .5);
+
+/* ---------- 6 · End (38–44 s) ---------- */
+const END = 38;
+show('#s9', END - .01, 44.5);
+slam('#mk2', END, .3, 1.4); popIn('#tg2', END + .6, 0, .4); slam('#pill', END + 1, .35, 1.8); popIn('#sm2', END + 1.4, 0, .4);
+A('#pill', [{ rotate: '-2deg' }, { rotate: '2deg' }, { rotate: '-2deg' }], END + 1.4, 2.6, { fill: 'forwards', ease: 'ease-in-out' });
+sfx(END, 'stamp', .9); sfx(END + .05, 'slide', .6); sfx(END + .45, 'boing', .7); sfx(END + 1, 'pop', .7); sfx(END + 2, 'sparkle', .7);
+sfx(END + 3.7, 'inhale', .7); sfx(END + 4, 'frost', 1, { len: 1.2 }); sfx(END + 4.25, 'freeze', .8);
+K('#frostV', [[END + 4.1, { opacity: 0, transform: 'scale(1.25)' }], [END + 5, { opacity: 1, transform: 'scale(1)' }]]);
+slam('#cool', END + 4.6, .35, 1.8); sfx(END + 4.6, 'ding', .7);
+
+window.DURATION = DURATION * 1000;
+window.WIDTH = 1080;
+window.HEIGHT = 1350;
+window.SFX = SFX;
+window.seek = ms => {
+  const t = ms / 1000;
+  document.getAnimations().forEach(a => { a.pause(); a.currentTime = ms; });
+  hooks.forEach(h => h(t));
+};
+seek(0);
+if (location.hash === '#play') {
+  const fit = () => { const k = Math.min(innerWidth / 1080, innerHeight / 1350); stage.style.transform = `scale(${k})`; };
+  fit(); addEventListener('resize', fit);
+  const t0 = performance.now();
+  const loop = now => { seek((now - t0) % (DURATION * 1000)); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>

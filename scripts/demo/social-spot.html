@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP social spot, 4:5</title>
+<style>
+  :root {
+    --bg: #0b0f17; --bg-2: #101623; --bg-3: #161e2e; --line: #1f2a3d; --line-2: #2a3850;
+    --text: #e6edf7; --muted: #8b98b1; --cyan: #38bdf8; --sky: #93c5fd; --blue: #2563eb; --green: #34d399; --yellow: #fbbf24; --red: #fb7185;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); color: var(--text); font: 20px/1.4 var(--sans); }
+  #stage { position: relative; width: 1080px; height: 1350px; overflow: hidden;
+    background: radial-gradient(900px 600px at 10% -5%, rgba(37,99,235,.38), transparent 60%), radial-gradient(800px 600px at 100% 100%, rgba(56,189,248,.16), transparent 55%), var(--bg); }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 70px; }
+  .logo { width: 300px; filter: drop-shadow(0 0 40px rgba(56,189,248,.5)); }
+  .brand { font-size: 84px; font-weight: 700; letter-spacing: -1.5px; margin-top: 10px; line-height: 1; }
+  .brand b { background: linear-gradient(90deg, #7dd3fc, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .kicker { position: absolute; top: 72px; left: 0; right: 0; text-align: center; font-family: var(--mono); font-size: 19px; letter-spacing: 4px; text-transform: uppercase; color: var(--sky); }
+  .caption { position: absolute; left: 60px; right: 60px; bottom: 96px; text-align: center; font-size: 42px; font-weight: 600; line-height: 1.2; text-shadow: 0 2px 14px rgba(0,0,0,.75); }
+  .cursor { position: absolute; width: 30px; height: 40px; z-index: 9; filter: drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+
+  /* ---- S1 hook ---- */
+  #s1 .hook { font-size: 78px; font-weight: 700; line-height: 1.08; letter-spacing: -1px; margin-top: 44px; }
+  #s1 .hook span { color: var(--cyan); }
+  #s1 .sub { font-size: 44px; color: var(--muted); margin-top: 26px; }
+  #s1 .sub b { color: var(--text); font-weight: 600; }
+
+  /* ---- S2 the part that hurts ---- */
+  .oldwin { position: absolute; left: 90px; top: 300px; width: 900px; height: 880px; background: #d4d0c8; color: #000; border: 2px solid #fff; box-shadow: inset -2px -2px #808080, 0 30px 60px rgba(0,0,0,.6); font: 15px/1.3 Tahoma, "MS Sans Serif", sans-serif; opacity: .3; filter: blur(1px) saturate(.6); }
+  .oldwin .tb { background: linear-gradient(90deg, #0a246a, #a6caf0); color: #fff; font-weight: 700; padding: 4px 8px; font-size: 15px; }
+  .oldwin .mb { padding: 3px 8px; border-bottom: 1px solid #808080; }
+  .oldwin .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
+  .oldwin .lb { background: #fff; border: 2px inset #808080; height: 760px; padding: 4px; font-family: "Courier New", monospace; font-size: 13px; white-space: pre; overflow: hidden; }
+  .pains { position: absolute; left: 70px; right: 70px; top: 330px; display: flex; flex-direction: column; gap: 40px; }
+  .pain { background: rgba(16,22,35,.92); border: 1px solid var(--line-2); border-left: 6px solid var(--red); border-radius: 16px; padding: 34px 38px; font-size: 48px; font-weight: 600; line-height: 1.15; box-shadow: 0 30px 60px rgba(0,0,0,.55); opacity: 0; }
+  .pain small { display: block; font-size: 24px; color: var(--muted); font-weight: 400; margin-top: 10px; }
+
+  /* ---- the desktop app mock, portrait ---- */
+  .appwin { position: absolute; left: 40px; top: 170px; width: 1000px; height: 840px; background: var(--bg); border: 1px solid var(--line-2); border-radius: 18px; overflow: hidden; box-shadow: 0 40px 80px rgba(0,0,0,.6); font-size: 16px; display: grid; grid-template-rows: 52px 430px 358px; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg, rgba(37,99,235,.16), rgba(56,189,248,.08)); }
+  .top img { width: 26px; height: 26px; }
+  .top .n { font-weight: 600; font-size: 18px; } .top .n b { background: linear-gradient(90deg,#7dd3fc,#3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .top .sel { width: 250px; margin-left: 10px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; font-size: 13px; white-space: nowrap; overflow: hidden; }
+  .top .btn { background: linear-gradient(135deg,#0ea5e9,#2563eb); color: #fff; border-radius: 7px; padding: 6px 14px; font-weight: 600; font-size: 14px; }
+  .top .ghostb { border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 12px; font-size: 13px; }
+  .top .pill { margin-left: auto; font-family: var(--mono); font-size: 12px; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 10px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .top .pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .top .pill.busy i { background: var(--sky); box-shadow: 0 0 8px var(--sky); }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); min-height: 0; }
+  .pane { background: var(--bg); display: flex; flex-direction: column; min-height: 0; }
+  .phead { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--bg-2); font-family: var(--mono); font-size: 12px; }
+  .phead .t { letter-spacing: 2px; color: var(--cyan); } .pane.remote .phead .t { color: var(--sky); }
+  .phead .path { flex: 1; background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; color: var(--text); white-space: nowrap; overflow: hidden; }
+  .phead .path.dim { color: var(--muted); }
+  .lhead { height: 22px; display: grid; grid-template-columns: 1fr 70px 108px; gap: 8px; padding: 3px 12px; font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+  .lhead span:nth-child(2) { text-align: right; }
+  .list { flex: 1; overflow: hidden; }
+  .list.drop { box-shadow: inset 0 0 0 3px var(--sky); }
+  .frow { height: 32px; display: grid; grid-template-columns: 1fr 70px 108px; gap: 8px; padding: 0 12px; margin: 1px 4px; border-radius: 5px; font-size: 17px; align-items: center; }
+  .frow .nm { display: flex; align-items: center; gap: 8px; white-space: nowrap; } .frow .nm i { font-style: normal; width: 18px; text-align: center; opacity: .85; }
+  .frow.dir .nm { color: #cfe8ff; }
+  .frow .sz { font-family: var(--mono); font-size: 13px; text-align: right; } .frow .dt { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .frow.sel { background: rgba(56,189,248,.16); outline: 1px solid rgba(56,189,248,.35); }
+  .frow.fresh .dt { color: var(--green); }
+  .empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+  .pfoot { height: 30px; display: flex; gap: 6px; align-items: center; padding: 0 10px; border-top: 1px solid var(--line); background: var(--bg-2); font-size: 13px; }
+  .pfoot .b { border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 9px; background: var(--bg-3); white-space: nowrap; } .pfoot .b.danger { color: var(--red); }
+  .pfoot .st { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .bottom { border-top: 1px solid var(--line); background: var(--bg-2); display: flex; flex-direction: column; min-height: 0; }
+  .tabs { height: 30px; display: flex; gap: 2px; padding: 3px 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .tabs span { padding: 4px 12px; color: var(--muted); border-bottom: 2px solid transparent; } .tabs span.on { color: var(--text); border-bottom-color: var(--cyan); }
+  .tbody { padding: 10px 12px 0; font-family: var(--mono); font-size: 12px; overflow: hidden; }
+  .pc { border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 14px; background: var(--bg-3); font-family: var(--sans); margin-bottom: 8px; }
+  .pc.active { border-color: rgba(56,189,248,.5); box-shadow: inset 0 0 0 1px rgba(56,189,248,.12); }
+  .pc .h { display: flex; gap: 12px; align-items: center; margin-bottom: 7px; font-family: var(--mono); font-size: 15px; }
+  .pc .h b { font-weight: 600; } .pc .h .who { color: var(--sky); font-size: 13px; } .pc .h .conn { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .pc .h .b2 { border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 9px; font-size: 13px; font-family: var(--sans); } .pc .h .b2.c { color: var(--red); }
+  .pc .bar { height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden; } .pc .bar i { display: block; height: 100%; background: linear-gradient(90deg,#7dd3fc,#3b82f6); }
+  .pc.done .bar i { background: var(--green); }
+  .pc svg { display: block; width: 100%; height: 30px; margin-top: 7px; } .pc svg .a { fill: rgba(56,189,248,.18); } .pc svg .ln { fill: none; stroke: var(--cyan); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .pc.done svg .ln { stroke: var(--green); } .pc.done svg .a { fill: rgba(52,211,153,.14); }
+  .pc .f { display: flex; gap: 10px; margin-top: 7px; font-family: var(--mono); font-size: 13px; } .pc .f .stt { margin-left: auto; color: var(--muted); }
+  .vb { font-family: var(--mono); font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(52,211,153,.5); color: var(--green); }
+  .tr { display: grid; grid-template-columns: 20px 1fr 76px 200px; gap: 12px; padding: 5px 4px; border-bottom: 1px solid rgba(31,42,61,.6); font-family: var(--mono); font-size: 13px; align-items: center; }
+  .tr .arrow { color: var(--cyan); } .tr .bar { height: 8px; background: var(--bg-3); border-radius: 4px; overflow: hidden; } .tr .bar i { display: block; height: 100%; background: linear-gradient(90deg,#7dd3fc,#3b82f6); }
+  .tr.done .bar i { background: var(--green); } .tr .sz { text-align: right; color: var(--muted); font-size: 12px; }
+  .mq { position: absolute; z-index: 6; border: 1px solid rgba(56,189,248,.75); background: rgba(56,189,248,.14); border-radius: 2px; }
+  .dg { position: absolute; z-index: 8; background: var(--bg-3); border: 1px solid var(--cyan); border-radius: 8px; padding: 8px 12px; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+  .dg small { color: var(--cyan); font-family: var(--mono); font-size: 12px; }
+  .toast { position: absolute; right: 64px; bottom: 300px; z-index: 8; background: var(--bg-3); border: 1px solid var(--line-2); border-left: 4px solid var(--green); padding: 14px 18px; border-radius: 10px; font-size: 17px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+
+  /* ---- feature scenes (stacked for portrait) ---- */
+  .feat { position: absolute; left: 60px; right: 60px; top: 140px; bottom: 110px; display: flex; flex-direction: column; justify-content: center; }
+  .feat h2 { font-size: 72px; margin: 0 0 16px; letter-spacing: -1px; line-height: 1.08; }
+  .feat h2 span { color: var(--cyan); }
+  .feat p { font-size: 30px; color: var(--muted); margin: 0 0 34px; line-height: 1.35; }
+  .card { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 18px; box-shadow: 0 30px 60px rgba(0,0,0,.5); overflow: hidden; font-family: var(--mono); font-size: 23px; margin-bottom: 30px; }
+  .card .h { padding: 14px 22px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 15px; letter-spacing: 3px; }
+  .card .l { padding: 15px 22px; border-bottom: 1px solid rgba(31,42,61,.6); display: flex; gap: 14px; align-items: center; opacity: 0; white-space: nowrap; }
+  .card .l.dim { color: var(--muted); }
+  .card .l b { color: var(--green); font-weight: 400; } .card .l i { color: var(--yellow); font-style: normal; } .card .l s { color: var(--red); text-decoration: none; }
+  .card .l .t { color: var(--muted); font-size: 16px; margin-left: auto; }
+  .card .l .ub { margin-left: auto; border: 1px solid var(--line-2); border-radius: 8px; padding: 5px 16px; font-family: var(--sans); font-size: 19px; background: var(--bg-3); }
+  .card .l .ub.press { background: linear-gradient(135deg,#0ea5e9,#2563eb); border-color: transparent; color: #fff; }
+  .card .pc { margin: 16px; }
+  .card .pc .h { font-size: 17px; padding: 0; border: 0; letter-spacing: 0; color: var(--text); }
+  .card .pc .f { font-size: 15px; }
+
+  /* ---- S7 the helper ---- */
+  .chat { display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
+  .bub { max-width: 800px; padding: 22px 28px; border-radius: 24px; font-size: 32px; line-height: 1.3; opacity: 0; }
+  .bub.me { align-self: flex-end; background: linear-gradient(135deg,#0ea5e9,#2563eb); color: #fff; border-bottom-right-radius: 6px; }
+  .bub.ai { align-self: flex-start; background: var(--bg-2); border: 1px solid var(--line-2); border-bottom-left-radius: 6px; }
+  .bub.ai small { display: block; font-family: var(--mono); font-size: 14px; letter-spacing: 2px; color: var(--muted); margin-bottom: 6px; }
+  .caret::after { content: "▍"; color: var(--cyan); }
+  .bub.me .caret::after { color: #fff; }
+
+  /* ---- S8 cta ---- */
+  .cta .free { font-size: 46px; color: var(--sky); margin-top: 30px; font-weight: 600; }
+  .cta .works { font-size: 30px; color: var(--muted); margin-top: 12px; }
+  .cta .url { font-family: var(--mono); font-size: 62px; color: var(--cyan); margin-top: 46px; }
+  .cta .foot { margin-top: 34px; color: var(--muted); font-size: 22px; font-family: var(--mono); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- S1 hook -->
+  <div class="scene center" id="s1">
+    <img class="logo" id="s1logo" src="../../site/logo.png" alt="" />
+    <div class="hook" id="s1hook">Still putting your websites online <span>with FTP?</span></div>
+    <div class="sub" id="s1sub"><b>Good.</b> So do we.</div>
+  </div>
+
+  <!-- S2 the part that hurts -->
+  <div class="scene" id="s2">
+    <div class="kicker">but you know the part that hurts</div>
+    <div class="oldwin"><div class="tb">FTP Commander 3.2  -  ftp.mainstreetbakery.com</div><div class="mb">File  Edit  View  Transfer  Server  Help</div>
+      <div class="cols"><div class="lb" id="old1"></div><div class="lb" id="old2"></div></div></div>
+    <div class="pains">
+      <div class="pain" id="p1">Which files did I change?<small>Timestamps say one thing. Your memory says another.</small></div>
+      <div class="pain" id="p2">Did that upload actually finish?<small>Half a file on the server looks like a whole one in the list.</small></div>
+      <div class="pain" id="p3">I just overwrote the live page.<small>And there is no way back.</small></div>
+    </div>
+  </div>
+
+  <!-- S3 the app -->
+  <div class="scene" id="s3">
+    <div class="kicker">meet coolFTP</div>
+    <div class="appwin">
+      <div class="top"><img src="../../site/logo.png" alt="" /><span class="n">cool<b>FTP</b></span><span class="sel">Main Street Bakery · ftp.mainstreetbakery.com</span><span class="btn" id="connectbtn">Connect</span><span class="ghostb">Sites</span><span class="pill" id="pill3"><i></i>ready</span></div>
+      <div class="panes">
+        <div class="pane local">
+          <div class="phead"><span class="t">MY COMPUTER</span><span class="path">C:\Users\dana\Sites\bakery</span></div>
+          <div class="lhead"><span>Name</span><span>Size</span><span>Modified</span></div>
+          <div class="list" id="llist"></div>
+          <div class="pfoot"><span class="b">Upload ⇒</span><span class="b">New folder</span><span class="b">Open in Explorer</span><span class="st" id="lst">8 items</span></div>
+        </div>
+        <div class="pane remote">
+          <div class="phead"><span class="t">MY WEBSITE</span><span class="path" id="rpath">/public_html</span></div>
+          <div class="lhead"><span>Name</span><span>Size</span><span>Modified</span></div>
+          <div class="list" id="rlist"></div>
+          <div class="pfoot"><span class="b">⇐ Download</span><span class="b">New folder</span><span class="b">Rename</span><span class="b danger">Delete</span><span class="st" id="rst"></span></div>
+        </div>
+      </div>
+      <div class="bottom">
+        <div class="tabs"><span class="on">Transfers</span><span>History</span><span>Activity</span></div>
+        <div class="tbody" id="tbody"></div>
+      </div>
+    </div>
+    <div class="mq" id="mq" style="opacity:0"></div>
+    <div class="dg" id="dg" style="opacity:0"><span id="dgi"></span><small id="dgh"></small></div>
+    <div class="toast" id="toast3" style="opacity:0">3 files uploaded to mainstreetbakery.com, all confirmed</div>
+    <svg class="cursor" id="cur3" viewBox="0 0 22 30"><path d="M2 2 L2 24 L8 18 L12 28 L16 26 L12 17 L20 17 Z" fill="#fff" stroke="#000" stroke-width="1.5"/></svg>
+    <div class="caption" id="s3cap"></div>
+  </div>
+
+  <!-- S4 only what changed -->
+  <div class="scene" id="s4">
+    <div class="kicker">no more guessing</div>
+    <div class="feat">
+      <h2>It knows <span>what changed.</span></h2>
+      <p>Only those files go up. The rest of your site is left exactly as it is.</p>
+      <div class="card"><div class="h">UPLOAD · MAINSTREETBAKERY.COM</div>
+        <div class="l" data-at="400">↑ prices.html <span class="t">6.2 KB</span></div>
+        <div class="l" data-at="900">↑ contact.html <span class="t">3.1 KB</span></div>
+        <div class="l" data-at="1400">↑ images/spring-sale.jpg <span class="t">640 KB</span></div>
+        <div class="l dim" data-at="2300">312 other files unchanged, skipped</div>
+        <div class="l" data-at="3200"><b>✔ Done in 1.9s</b> <span class="t">today 2:14 pm</span></div></div>
+    </div>
+  </div>
+
+  <!-- S5 checked twice -->
+  <div class="scene" id="s5">
+    <div class="kicker">no more wondering</div>
+    <div class="feat">
+      <h2>Checked. <span>Twice.</span></h2>
+      <p>After each file lands, the server confirms it. Then your website is opened, to make sure it really loads.</p>
+      <div class="card"><div class="h">CONFIRMED BY THE SERVER</div>
+        <div class="l" data-at="300">↑ prices.html <b>confirmed</b><span class="t">6.2 KB</span></div>
+        <div class="l" data-at="800">↑ contact.html <b>confirmed</b><span class="t">3.1 KB</span></div>
+        <div class="l" data-at="1300">↑ images/spring-sale.jpg <b>confirmed</b><span class="t">640 KB</span></div>
+        <div class="l" data-at="1900"><b>✔ 3 of 3 files, whole and correct</b></div></div>
+      <div class="card"><div class="h">YOUR SITE, LIVE</div>
+        <div class="l" data-at="3600"><b>✔</b> https://mainstreetbakery.com/ <span class="t">loads · 310ms</span></div>
+        <div class="l" data-at="4200"><b>✔</b> https://mainstreetbakery.com/prices.html <span class="t">the new version</span></div>
+        <div class="l" data-at="4800"><b>✔</b> https://mainstreetbakery.com/contact.html <span class="t">the new version</span></div>
+        <div class="l" data-at="5500"><b>✔ Your site is up and showing the new pages</b></div></div>
+    </div>
+  </div>
+
+  <!-- S6 undo -->
+  <div class="scene" id="s6">
+    <div class="kicker">no more panic</div>
+    <div class="feat">
+      <h2>Overwrote the wrong page? <span>Undo.</span></h2>
+      <p>The previous version was kept on your server. Nothing to set up, nothing to remember.</p>
+      <div class="card" id="hist"><div class="h">HISTORY · MAINSTREETBAKERY.COM</div>
+        <div class="l" id="undone" data-at="99999"><span style="color:var(--yellow)">↶</span> put back prices.html and contact.html <span class="vb">restored</span><span class="t">just now</span></div>
+        <div class="l" data-at="0">today 2:14 pm · prices, contact, spring sale <span class="ub" id="undobtn">↶ Undo</span></div>
+        <div class="l" data-at="0">yesterday · new photos <span class="ub">↶ Undo</span></div>
+        <div class="l dim" data-at="0">Sep 2 · the whole site <span class="t">first upload</span></div></div>
+    </div>
+    <svg class="cursor" id="cur6" viewBox="0 0 22 30"><path d="M2 2 L2 24 L8 18 L12 28 L16 26 L12 17 L20 17 Z" fill="#fff" stroke="#000" stroke-width="1.5"/></svg>
+  </div>
+
+  <!-- S7 an AI helper -->
+  <div class="scene" id="s7">
+    <div class="kicker">and if you use an AI helper</div>
+    <div class="feat">
+      <h2>Just <span>tell it.</span></h2>
+      <p>Plain words. It uses coolFTP to do the uploading, and you watch it happen in the app.</p>
+      <div class="chat">
+        <div class="bub me" id="b1"></div>
+        <div class="bub ai" id="b2"><small>ASSISTANT</small><span id="b2t"></span></div>
+      </div>
+      <div class="card" id="c7"><div class="h">TRANSFERS</div><div id="c7body"></div></div>
+    </div>
+  </div>
+
+  <!-- S8 cta -->
+  <div class="scene center cta" id="s8">
+    <img class="logo" src="../../site/logo.png" alt="" style="width:260px" />
+    <div class="brand">cool<b>FTP</b></div>
+    <div class="free">Free for Windows</div>
+    <div class="works">Works with the hosting you already have.</div>
+    <div class="url">coolftp.com</div>
+    <div class="foot">SFTP · FTPS · FTP · no account needed</div>
+  </div>
+</div>
+
+<script>
+// Deterministic timeline: seek(ms) renders the frame for that moment. No timers, no CSS animations.
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const fadeIn = (t, s, d = 600) => clamp((t - s) / d, 0, 1);
+const window_ = (t, s, e, f = 500) => Math.min(fadeIn(t, s, f), 1 - fadeIn(t, e - f, f));
+const typed = (str, t, s, cps = 28) => str.slice(0, Math.max(0, Math.floor(((t - s) / 1000) * cps)));
+const fmtB = (kb) => (kb >= 1024 ? `${(kb / 1024).toFixed(2)} MB` : `${Math.round(kb)} KB`);
+const caps = (el, list, l) => {
+  let cap = list[0][1], at = 0;
+  for (const [a, c] of list) if (l >= a) { cap = c; at = a; }
+  el.textContent = cap; el.style.opacity = fadeIn(l, at, 350);
+};
+const cursorAt = (keys, l) => {
+  if (l <= keys[0][0]) return [keys[0][1], keys[0][2]];
+  for (let i = 1; i < keys.length; i++) {
+    if (l <= keys[i][0]) { const [a, ax, ay] = keys[i - 1], [b, bx, by] = keys[i]; const p = ease(clamp((l - a) / Math.max(1, b - a), 0, 1)); return [lerp(ax, bx, p), lerp(ay, by, p)]; }
+  }
+  const k = keys[keys.length - 1]; return [k[1], k[2]];
+};
+const spark = (samples) => {
+  const n = samples.length; if (n < 2) return ["", ""];
+  const peak = Math.max(1, ...samples); const W = 100, H = 30;
+  const pts = samples.map((v, i) => `${((i / (n - 1)) * W).toFixed(2)},${(H - 1 - (v / peak) * (H - 3)).toFixed(2)}`);
+  return [`M${pts.join(" L")}`, `M0,${H} L${pts.join(" L")} L${W},${H} Z`];
+};
+// Card lines carry data-at (ms into their scene); they slide in one by one.
+const reveal = (scene, l) => {
+  for (const el of scene.querySelectorAll("[data-at]")) {
+    const at = Number(el.dataset.at); const f = ease(fadeIn(l, at, 420));
+    el.style.opacity = f; el.style.transform = `translateX(${lerp(-14, 0, f)}px)`;
+  }
+};
+
+const T = { s1: [0, 5500], s2: [5000, 15500], s3: [15000, 29500], s4: [29000, 36500], s5: [36000, 44500], s6: [44000, 52500], s7: [52000, 59500], s8: [59000, 66000] };
+const DURATION = 66000;
+
+// files in the app scene
+const LOCAL = [["📁", "images", "", "9/16/26 13:40", 1], ["📁", "css", "", "8/30/26 10:12", 1], ["🌐", "index.html", "5.4 KB", "8/30/26 10:12"], ["🌐", "about.html", "3.9 KB", "8/30/26 10:12"],
+  ["🌐", "services.html", "4.7 KB", "8/30/26 10:12"], ["🌐", "prices.html", "6.2 KB", "9/16/26 14:02"], ["🌐", "contact.html", "3.1 KB", "9/16/26 14:05"], ["🖼", "spring-sale.jpg", "640 KB", "9/16/26 13:40"]];
+const REMOTE = [["📁", "images", "", "9/2/26 18:22", 1], ["📁", "css", "", "9/2/26 18:22", 1], ["🌐", "index.html", "5.4 KB", "9/2/26 18:22"], ["🌐", "about.html", "3.9 KB", "9/2/26 18:22"],
+  ["🌐", "services.html", "4.7 KB", "9/2/26 18:22"], ["🌐", "prices.html", "5.8 KB", "9/2/26 18:22"], ["🌐", "contact.html", "3.0 KB", "9/2/26 18:22"]];
+const REMOTE_AFTER = [["📁", "images", "", "9/16/26 14:11", 1], ["📁", "css", "", "9/2/26 18:22", 1], ["🌐", "index.html", "5.4 KB", "9/2/26 18:22"], ["🌐", "about.html", "3.9 KB", "9/2/26 18:22"],
+  ["🌐", "services.html", "4.7 KB", "9/2/26 18:22"], ["🌐", "prices.html", "6.2 KB", "9/16/26 14:11", 0, 1], ["🌐", "contact.html", "3.1 KB", "9/16/26 14:11", 0, 1], ["🖼", "spring-sale.jpg", "640 KB", "9/16/26 14:11", 0, 1]];
+const rowsHtml = (list, sel) => list.map(([ic, nm, sz, dt, dir, fresh], i) => `<div class="frow ${dir ? "dir" : ""} ${sel.has(i) ? "sel" : ""} ${fresh ? "fresh" : ""}"><span class="nm"><i>${ic}</i>${nm}</span><span class="sz">${sz}</span><span class="dt">${dt}</span></div>`).join("");
+// stage geometry of the app mock
+const ROW0 = 170 + 52 + 36 + 22 + 1 + 16, ROWH = 34; // centre of row 0
+const rowY = (i) => ROW0 + i * ROWH;
+const PANE_SPLIT = 540; // x where the remote pane begins
+const btnCentre = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+
+// the faded old-school client behind the pains
+(() => {
+  const names = ["about.htm", "contact.htm", "index.htm", "menu.htm", "prices.htm", "gallery.htm", "cake1.jpg", "cake2.jpg", "cake3.jpg", "logo.gif", "spacer.gif", "style.css", "counter.cgi", "map.jpg", "hours.htm", "order.htm", "thanks.htm", "bg.gif", "photo01.jpg", "photo02.jpg", "photo03.jpg", "photo04.jpg", "news.htm", "links.htm", "specials.htm", "staff.jpg", "banner.gif", "form.htm", "faq.htm", "sitemap.htm", "old_index.htm", "index_backup2.htm", "index_FINAL.htm", "index_FINAL2.htm"];
+  const line = (n, i) => `${n.padEnd(20)} ${String(1000 + ((i * 7919) % 90000)).padStart(7)}  ${String(1 + (i % 28)).padStart(2, "0")}/0${1 + (i % 9)}/2004`;
+  $("old1").textContent = names.map(line).join("\n");
+  $("old2").textContent = names.slice(3).concat(names.slice(0, 3)).map(line).join("\n");
+})();
+
+function seek(t) {
+  // S1 hook
+  {
+    const [s, e] = T.s1; $("s1").style.opacity = window_(t, s, e);
+    $("s1logo").style.transform = `scale(${lerp(0.7, 1, ease(fadeIn(t, 100, 900)))})`;
+    $("s1logo").style.opacity = fadeIn(t, 100, 700);
+    $("s1hook").style.opacity = fadeIn(t, 700, 600);
+    $("s1hook").style.transform = `translateY(${lerp(16, 0, ease(fadeIn(t, 700, 600)))}px)`;
+    $("s1sub").style.opacity = fadeIn(t, 2600, 600);
+    $("s1sub").style.transform = `translateY(${lerp(12, 0, ease(fadeIn(t, 2600, 600)))}px)`;
+  }
+  // S2 the part that hurts
+  {
+    const [s, e] = T.s2; $("s2").style.opacity = window_(t, s, e);
+    const l = t - s;
+    for (const [id, at] of [["p1", 2600], ["p2", 4900], ["p3", 7300]]) {
+      const f = ease(fadeIn(l, at, 550));
+      $(id).style.opacity = f; $(id).style.transform = `translateY(${lerp(30, 0, f)}px)`;
+    }
+  }
+  // S3 the app
+  {
+    const [s, e] = T.s3; $("s3").style.opacity = window_(t, s, e);
+    const l = t - s;
+    const connected = l >= 1700;
+    const CONNECT = btnCentre($("connectbtn"));
+    // box select rows 5..7 between 2600 and 4600
+    const boxT = clamp((l - 2600) / 2000, 0, 1);
+    const boxOn = l > 2600 && l < 5000;
+    const y1 = rowY(5) - 4, y2 = lerp(rowY(5) - 4, rowY(7) + 10, ease(boxT));
+    const lsel = new Set();
+    if (l > 2600) for (let i = 5; i < 8; i++) if (y2 > rowY(i) - 12) lsel.add(i);
+    if (l > 12600) lsel.clear();
+    $("llist").innerHTML = rowsHtml(LOCAL, lsel);
+    $("mq").style.opacity = boxOn ? 1 : 0;
+    $("mq").style.left = "90px"; $("mq").style.top = `${y1}px`; $("mq").style.width = `${lerp(0, 240, ease(boxT))}px`; $("mq").style.height = `${y2 - y1}px`;
+    $("lst").textContent = lsel.size ? `${lsel.size} files (649 KB) selected · 8 items` : "8 items";
+    const remote = !connected ? [] : l >= 12400 ? REMOTE_AFTER : REMOTE;
+    $("rlist").innerHTML = connected ? rowsHtml(remote, new Set()) : `<div class="empty">Pick your site and hit <b>Connect</b>.<br/><span style="font-size:13px">Drop files here to upload.</span></div>`;
+    $("rpath").className = "path" + (connected ? "" : " dim"); $("rpath").textContent = connected ? "/public_html" : "not connected";
+    $("rst").textContent = l >= 1100 && l < 1700 ? "connecting…" : connected ? `${remote.length} items` : "";
+    // cursor and drag ghost
+    const dragOn = l > 5300 && l < 7900;
+    const [cx, cy] = cursorAt([[0, 760, 760], [400, 760, 760], [1000, CONNECT[0], CONNECT[1]], [2000, CONNECT[0], CONNECT[1]], [2600, 90, rowY(5) - 4], [4600, 330, rowY(7) + 10], [5000, 330, rowY(7) + 10],
+      [5300, 118, rowY(6)], [7700, 800, rowY(3)], [8300, 800, rowY(3)], [9200, 990, 1040]], l);
+    $("cur3").style.left = `${cx}px`; $("cur3").style.top = `${cy}px`;
+    $("rlist").className = "list" + (dragOn && cx > PANE_SPLIT ? " drop" : "");
+    $("dg").style.opacity = dragOn ? 1 : 0; $("dg").style.left = `${cx + 18}px`; $("dg").style.top = `${cy + 16}px`;
+    $("dgi").textContent = "3 files · prices.html, contact.html, spring-sale.jpg";
+    $("dgh").textContent = cx > PANE_SPLIT ? "Upload to /public_html" : "Drop on your website to upload";
+    // the upload card
+    const U0 = 7900, U1 = 12400;
+    const p = clamp((l - U0) / (U1 - U0), 0, 1);
+    const upDone = l >= U1;
+    const ticks = Math.floor(clamp(l - U0, 0, U1 - U0) / 300);
+    const samples = []; for (let k = 0; k < ticks; k++) samples.push(520 + 380 * Math.sin(k * 0.9) + 120 * Math.sin(k * 2.3));
+    const [ln, ar] = spark(samples);
+    const files = [["prices.html", 6.2], ["contact.html", 3.1], ["images/spring-sale.jpg", 640]];
+    const total = 649.3;
+    const filesDone = upDone ? 3 : Math.min(2, Math.floor(p * 3));
+    const rate = upDone ? 0 : samples.length ? samples[samples.length - 1] : 0;
+    const cardHtml = l >= U0 ? `<div class="pc ${upDone ? "done" : "active"}"><div class="h"><b>upload → mainstreetbakery.com</b><span class="conn">${upDone ? '<span class="vb">confirmed</span>' : "2 connections"}</span>${upDone ? "" : `<span class="b2">⏸ Pause</span><span class="b2 c">✕ Cancel</span>`}</div>
+      <div class="bar"><i style="width:${Math.round(p * 100)}%"></i></div>
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="display:${ln ? "block" : "none"}"><path class="a" d="${ar}"/><path class="ln" d="${ln}"/></svg>
+      <div class="f"><span>${filesDone} / 3 files · ${fmtB(p * total)} of 634 KB (${Math.round(p * 100)}%)</span><span class="stt">${upDone ? "done · every file confirmed by the server" : `${fmtB(rate)}/s · ~${Math.max(1, Math.round((1 - p) * 5))}s left`}</span></div></div>` : "";
+    const trHtml = l >= U0 ? files.map(([n, kb], i) => { const fp = clamp(p * 3 - i, 0, 1); return `<div class="tr ${fp >= 1 ? "done" : ""}"><span class="arrow">↑</span><span>/public_html/${n}</span><span class="sz">${fmtB(kb)}</span><div class="bar"><i style="width:${Math.round(fp * 100)}%"></i></div></div>`; }).slice(0, 2).join("") : "";
+    $("tbody").innerHTML = l < U0 ? `<div class="empty" style="padding:40px;font-family:var(--sans);font-size:16px">No transfers yet. Drag files across to upload.</div>` : cardHtml + trHtml;
+    $("pill3").className = "pill" + (l > U0 && l < U1 ? " busy" : "");
+    $("pill3").lastChild.textContent = l > U0 && l < U1 ? "uploading" : "ready";
+    $("toast3").style.opacity = window_(l, 12600, 14400, 250);
+    caps($("s3cap"), [[0, "Your files on the left. Your website on the right."], [2500, "Drag across, the way you always have."], [7900, "Every upload shows its progress, its speed, and a pause button."], [12600, "Done. Three files, all confirmed."]], l);
+  }
+  // S4, S5: cards reveal line by line
+  for (const id of ["s4", "s5"]) {
+    const [s, e] = T[id]; const el = $(id); el.style.opacity = window_(t, s, e);
+    const l = t - s; reveal(el, l);
+    const f = ease(fadeIn(l, 0, 600)); el.querySelector(".feat").style.transform = `translateY(${lerp(20, 0, f)}px)`;
+  }
+  // S6 undo
+  {
+    const [s, e] = T.s6; const el = $("s6"); el.style.opacity = window_(t, s, e);
+    const l = t - s;
+    $("undone").dataset.at = 2900;
+    $("undone").style.display = l >= 2700 ? "" : "none";
+    reveal(el, l);
+    const f = ease(fadeIn(l, 0, 600)); el.querySelector(".feat").style.transform = `translateY(${lerp(20, 0, f)}px)`;
+    const btn = btnCentre($("undobtn"));
+    const pressed = l > 2400 && l < 2900;
+    $("undobtn").className = "ub" + (pressed || l >= 2900 ? " press" : "");
+    $("undobtn").textContent = l >= 2900 ? "✔ Undone" : "↶ Undo";
+    const [cx, cy] = cursorAt([[0, 940, 1250], [900, 940, 1250], [2100, btn[0] + 4, btn[1] + 2], [3400, btn[0] + 4, btn[1] + 2], [4300, 980, 1250]], l);
+    $("cur6").style.left = `${cx}px`; $("cur6").style.top = `${cy}px`;
+    $("cur6").style.opacity = l > 600 ? 1 : 0;
+  }
+  // S7 the helper
+  {
+    const [s, e] = T.s7; const el = $("s7"); el.style.opacity = window_(t, s, e);
+    const l = t - s;
+    const f = ease(fadeIn(l, 0, 600)); el.querySelector(".feat").style.transform = `translateY(${lerp(20, 0, f)}px)`;
+    const msg = "Put the new prices page live.";
+    $("b1").style.opacity = fadeIn(l, 500, 300);
+    $("b1").innerHTML = typed(msg, l, 700, 24) + (l > 500 && l < 700 + (msg.length / 24) * 1000 + 400 ? '<span class="caret"></span>' : "");
+    const reply = "Done. prices.html went up, your site loads with the new page, and Undo is one click away in coolFTP.";
+    $("b2").style.opacity = fadeIn(l, 3600, 300);
+    $("b2t").innerHTML = typed(reply, l, 3800, 60);
+    const A0 = 2300, A1 = 3500;
+    const ap = clamp((l - A0) / (A1 - A0), 0, 1), aDone = l >= A1;
+    $("c7").style.opacity = fadeIn(l, 2000, 400);
+    $("c7body").innerHTML = l >= A0 ? `<div class="pc ${aDone ? "done" : "active"}"><div class="h"><b>upload → mainstreetbakery.com</b><span class="who">assistant</span><span class="conn">${aDone ? '<span class="vb">live</span>' : ""}</span></div><div class="bar"><i style="width:${Math.round(ap * 100)}%"></i></div><div class="f"><span>${aDone ? 1 : 0} / 1 file · prices.html</span><span class="stt">${aDone ? "confirmed · site checked · undo available" : "uploading…"}</span></div></div>` : `<div class="pc"><div class="f" style="margin:0;color:var(--muted)">waiting…</div></div>`;
+  }
+  // S8 cta
+  {
+    const [s, e] = T.s8; $("s8").style.opacity = window_(t, s, e, 700);
+  }
+}
+window.seek = seek;
+window.DURATION = DURATION;
+window.WIDTH = 1080;
+window.HEIGHT = 1350;
+seek(0);
+// Preview mode in a normal browser: play in real time.
+if (location.hash === "#play") {
+  const start = performance.now();
+  (function tick() { const t = performance.now() - start; seek(t % DURATION); requestAnimationFrame(tick); })();
+}
+</script>
+</body>
+</html>

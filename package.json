@@ -21,6 +21,11 @@
     "dev:sftp": "node scripts/lib/sftp-server.cjs",
     "demo": "electron scripts/demo/render.cjs",
     "demo:voice": "node scripts/demo/narrate.cjs",
+    "spot": "electron scripts/demo/render.cjs scripts/demo/social-spot.html site/social-4x5.mp4",
+    "spot:voice": "node scripts/demo/narrate.cjs site/social-4x5.mp4 scripts/demo/social-spot.lines.cjs",
+    "spot:music": "python scripts/demo/spot-score.py",
+    "yeti": "electron scripts/demo/render.cjs scripts/demo/yeti.html site/yeti-4x5.mp4",
+    "yeti:sound": "python scripts/demo/yeti-score.py site/yeti-4x5.mp4",
     "social": "electron scripts/social/render.cjs",
     "test:license": "node scripts/license/test.cjs"
   },

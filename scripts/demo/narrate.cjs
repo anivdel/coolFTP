@@ -1,9 +1,12 @@
 /*
- * AI voiceover for the demo: synthesizes each narration line with Microsoft Edge's
+ * AI voiceover for a rendered video: synthesizes each narration line with Microsoft Edge's
  * neural voices (free, online), places every line at its cue on a silent track,
- * and muxes the result into site/demo.mp4.
- *   node scripts/demo/narrate.cjs            (run after `npm run demo`)
- *   VOICE=en-US-AvaNeural node scripts/demo/narrate.cjs
+ * and muxes the result into the MP4 in place.
+ *   node scripts/demo/narrate.cjs                                   (site/demo.mp4, lines below)
+ *   node scripts/demo/narrate.cjs site/social-4x5.mp4 scripts/demo/social-spot.lines.cjs
+ *   VOICE=en-US-AvaNeural RATE=+10% node scripts/demo/narrate.cjs
+ * A cue that a slower voice would talk over is pushed back to the end of the line before it (reported as "nudged").
+ * A lines file exports an array of [cueMs, text]; cached clips live in scripts/demo/audio.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -12,12 +15,13 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require("msedge-tts");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const AUDIO = path.join(__dirname, "audio");
-const VIDEO = path.join(ROOT, "site", "demo.mp4");
-const VOICE = process.env.VOICE || "en-US-AndrewNeural";
+const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const VIDEO = path.resolve(ROOT, args[0] || path.join("site", "demo.mp4"));
+
 const ffmpeg = process.env.FFMPEG || require("ffmpeg-static");
 
 // Cue (ms into the video) and text. Keep each line inside its scene; timings mirror demo.html.
-const LINES = [
+const DEMO_LINES = [
   [300, "This is coolFTP. An FTP client for you, and for your coding agent."],
   [5800, "Connect. Your files on the left, the server on the right."],
   [9450, "Drag a box to select."],
@@ -37,6 +41,10 @@ const LINES = [
   [76400, "Undo the last deploy, or roll back to any commit."],
   [80600, "coolFTP. Free and open source, at coolftp dot com."],
 ];
+const LINES = args[1] ? require(path.resolve(ROOT, args[1])) : DEMO_LINES;
+// A lines file may carry its own voice and rate; the environment still wins.
+const VOICE = process.env.VOICE || LINES.voice || "en-US-AndrewNeural";
+const RATE = process.env.RATE || LINES.rate || "";
 
 function duration(file) {
   const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" });
@@ -50,7 +58,7 @@ function duration(file) {
 async function synth(text, file) {
   const tts = new MsEdgeTTS();
   await tts.setMetadata(VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
-  const { audioStream } = tts.toStream(text);
+  const { audioStream } = tts.toStream(text, RATE ? { rate: RATE } : undefined);
   const chunks = [];
   await new Promise((resolve, reject) => {
     audioStream.on("data", (c) => chunks.push(c));
@@ -63,19 +71,24 @@ async function synth(text, file) {
 (async () => {
   fs.mkdirSync(AUDIO, { recursive: true });
   const clips = [];
+  let floor = 0; // earliest start for the next line: the previous line's end plus a breath
   for (let i = 0; i < LINES.length; i++) {
-    const [at, text] = LINES[i];
-    const key = require("node:crypto").createHash("sha1").update(VOICE + "|" + text).digest("hex").slice(0, 10);
+    const [cue, text] = LINES[i];
+    const at = Math.max(cue, floor);
+    const key = require("node:crypto").createHash("sha1").update(VOICE + "|" + RATE + "|" + text).digest("hex").slice(0, 10);
     const file = path.join(AUDIO, `line${String(i).padStart(2, "0")}-${key}.mp3`);
     if (!fs.existsSync(file) || process.env.FRESH) await synth(text, file);
     const d = duration(file);
     const next = LINES[i + 1] ? LINES[i + 1][0] : Infinity;
     const end = at + d * 1000;
-    const overlap = end > next;
+    floor = end + 60;
     clips.push({ at, file, d, end });
-    console.log(`${String(at).padStart(6)}ms  ${d.toFixed(2)}s  ends ${Math.round(end).toString().padStart(6)}ms ${overlap ? `OVERLAPS next cue at ${next}` : ""}  ${text}`);
+    const note = at > cue ? `nudged +${at - cue}ms` : end > next ? `runs ${Math.round(end - next)}ms past next cue` : "";
+    console.log(`${String(at).padStart(6)}ms  ${d.toFixed(2)}s  ends ${Math.round(end).toString().padStart(6)}ms ${note.padEnd(26)} ${text}`);
   }
   const total = duration(VIDEO);
+  const last = clips[clips.length - 1];
+  if (last.end > total * 1000) console.warn(`WARNING: the last line ends ${Math.round(last.end - total * 1000)}ms after the video does and will be cut off`);
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-i", VIDEO];
   for (const c of clips) args.push("-i", c.file);
   const delayed = clips.map((c, i) => `[${i + 1}:a]adelay=${c.at}|${c.at},apad[a${i}]`).join(";");

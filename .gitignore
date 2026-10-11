@@ -5,6 +5,8 @@ release/
 .DS_Store
 site/releases/
 site/demo.mp4
+site/social-4x5*.mp4
+site/yeti-4x5*
 scripts/demo/stills/
 scripts/demo/audio/
 scripts/license/private/
