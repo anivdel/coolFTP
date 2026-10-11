@@ -72,6 +72,8 @@
     .term .g { color: var(--green); }
     .term .y { color: var(--yellow); }
     .term .d { color: #5b6b86; }
+    .herovid { display: flex; justify-content: center; }
+    .herovid video { display: block; width: 100%; max-width: 440px; aspect-ratio: 4 / 5; height: auto; border-radius: 16px; border: 1px solid var(--line-2); background: #dfeefb; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.08); }
     .cursor::after { content: "▍"; color: var(--cyan); animation: blink 1s steps(1) infinite; }
     @keyframes blink { 50% { opacity: 0; } }
 
@@ -221,23 +223,8 @@
         <p class="cta alt" style="margin-top:6px">Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS.</p>
         <a class="newpill" href="#claude-mod"><span class="ver">new</span> A Claude Code mod: watch every deploy in a live panel <span class="arrow">→</span></a>
       </div>
-      <div class="term" aria-label="Example session">
-        <div class="bar"><i></i><i></i><i></i><span>claude code · my-site</span></div>
-        <pre><span class="p">›</span> ship it to the server
-
-<span class="d">⏺</span> <span class="m">coolftp_deploy</span>(message: "nav fix + og tags")
-  <span class="d">via coolFTP app (port 51422)</span>
-  <span class="d">·</span> Running build: npm run build
-  <span class="d">·</span> Scanning ./dist
-  <span class="c">↑</span> index.html <span class="d">4.1 KB</span>
-  <span class="c">↑</span> css/site.css <span class="d">12.8 KB</span>
-  <span class="c">↑</span> js/nav.js <span class="d">2.2 KB</span>
-  <span class="g">✔</span> Deployed to coolftp.com in 1.8s: +0 ~3 -0 <span class="d">(a91c2e0 on main)</span>
-
-<span class="d">⏺</span> Live. Three changed files went up; 214 unchanged files were skipped
-  because their hashes matched the manifest on the server.
-
-<span class="p">›</span> <span class="cursor"></span></pre>
+      <div class="herovid">
+        <video src="yeti-4x5-sound.mp4" poster="yeti-poster.jpg" autoplay muted loop playsinline controls preload="metadata" aria-label="coolFTP in 40 seconds: Claude Code asks to ship a page, coolFTP backs up what is live, sends only what changed and checks the site"></video>
       </div>
     </div>
 
