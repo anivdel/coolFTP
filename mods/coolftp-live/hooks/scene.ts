@@ -1,0 +1,328 @@
+import type { Op } from '../types'
+import { bytes } from './parse'
+
+/** Pictures for the panel: plain words and SVG drawn on surfaces that have it. */
+
+const INK = '#e6edf7'
+const SOFT = '#8fb3e0'
+const BLUE = '#4fa3ff'
+const SKY = '#7dd3fc'
+const DEEP = '#2b6cb0'
+const NODE = '#13305a'
+const GOOD = '#34d399'
+const WARN = '#fbbf24'
+const BAD = '#fb7185'
+const FONT = "'Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif"
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
+const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
+
+/** Calls that are bookkeeping, not work worth showing. */
+export const QUIET = new Set(['status', 'sites', 'history', 'init'])
+
+export type Kind = 'publish' | 'send' | 'fetch' | 'check' | 'look' | 'restore' | 'remove' | 'edit'
+
+export function kindOf(action: string): Kind {
+  switch (action) {
+    case 'deploy':
+      return 'publish'
+    case 'upload':
+    case 'push':
+      return 'send'
+    case 'download':
+    case 'pull':
+      return 'fetch'
+    case 'verify':
+      return 'check'
+    case 'undo':
+    case 'rollback':
+      return 'restore'
+    case 'delete':
+    case 'rm':
+      return 'remove'
+    case 'write':
+    case 'mkdir':
+    case 'rename':
+    case 'mv':
+      return 'edit'
+    default:
+      return 'look'
+  }
+}
+
+const baseName = (p?: string) => (p ? (p.split(/[\\/]/).filter(Boolean).pop() ?? p) : undefined)
+
+/** What happened, in words someone who has never used FTP reads at a glance. */
+export function words(op: Op): { title: string; detail: string } {
+  const site = op.site ?? 'your server'
+  const name = baseName(op.target)
+  const running = op.status === 'running'
+  const files = op.files
+  const size = op.bytes ? bytes(op.bytes) : undefined
+  const fail = op.status === 'error' ? plainError(op.error ?? op.summary ?? '') : undefined
+
+  switch (op.action) {
+    case 'deploy':
+    case 'diff':
+      if (op.isPreview || op.action === 'diff') {
+        if (running) return { title: `Seeing what changed on ${site}`, detail: 'Comparing your files with the ones online' }
+        if (fail) return { title: `Couldn't compare with ${site}`, detail: fail }
+        return {
+          title: files ? `${plural(files, 'file')} would change` : 'Everything is already up to date',
+          detail: files ? `A preview. Nothing was sent to ${site}.` : `${site} matches your files`,
+        }
+      }
+      if (running) return { title: `Publishing your site to ${site}`, detail: 'Sending only the files that changed' }
+      if (fail) return { title: `Couldn't publish to ${site}`, detail: fail }
+      if (op.live === 'down') return { title: 'Published, but the site is not answering', detail: `${files ? plural(files, 'file') + ' sent. ' : ''}Visitors may see an error.` }
+      if (op.live === 'stale') return { title: 'Published. Some visitors see the old version for a bit', detail: 'A cache in front of your site has not caught up yet' }
+      return {
+        title: op.live === 'live' ? 'Your site is live' : 'Your site is updated',
+        detail: files ? [plural(files, 'file') + ' updated', size].filter(Boolean).join(' · ') : 'Nothing needed changing',
+      }
+    case 'upload':
+      if (running) return { title: `Sending ${name ?? 'files'} to ${site}`, detail: 'Uploading' }
+      if (fail) return { title: `Couldn't send ${name ?? 'the files'}`, detail: fail }
+      return { title: `${name ?? 'Files'} ${files && files > 1 ? 'are' : 'is'} on ${site}`, detail: [files && files > 1 ? plural(files, 'file') : undefined, size, 'confirmed by the server'].filter(Boolean).join(' · ') }
+    case 'download':
+      if (running) return { title: `Copying ${name ?? 'files'} from ${site}`, detail: 'Downloading to your computer' }
+      if (fail) return { title: `Couldn't copy ${name ?? 'the files'}`, detail: fail }
+      return { title: `Copied ${name ?? 'the files'} to your computer`, detail: size ?? 'Done' }
+    case 'verify':
+      if (running) return { title: `Checking ${site} is up`, detail: 'Opening your pages like a visitor would' }
+      if (fail || op.live === 'down') return { title: 'Your site is not answering', detail: fail ?? 'A page did not load. Claude will look into it.' }
+      if (op.live === 'stale') return { title: 'Your site is up, with a few old copies', detail: 'A cache has not caught up yet. It usually does within minutes.' }
+      return { title: 'Your site is up and answering', detail: op.checks ? `${plural(op.checks, 'page')} checked, all loaded` : 'Every page checked loaded' }
+    case 'undo':
+    case 'rollback':
+      if (running) return { title: 'Putting the previous version back', detail: 'If the coolFTP app asks, approve it there' }
+      if (fail) return { title: "Couldn't put the previous version back", detail: fail }
+      return { title: 'The previous version is back', detail: files ? `${plural(files, 'file')} restored` : 'Restored' }
+    case 'delete':
+      if (running) return { title: `Removing ${name ?? 'a file'} from ${site}`, detail: 'If the coolFTP app asks, approve it there' }
+      if (fail) return { title: `Didn't remove ${name ?? 'the file'}`, detail: fail }
+      return { title: `Removed ${name ?? 'the file'}`, detail: `Gone from ${site}` }
+    case 'write':
+      if (running) return { title: `Saving ${name ?? 'a file'} on ${site}`, detail: 'Writing' }
+      if (fail) return { title: `Couldn't save ${name ?? 'the file'}`, detail: fail }
+      return { title: `Saved ${name ?? 'the file'} on ${site}`, detail: size ?? 'Done' }
+    case 'mkdir':
+      return running ? { title: `Making a folder on ${site}`, detail: name ?? '' } : fail ? { title: "Couldn't make the folder", detail: fail } : { title: `Made the folder ${name ?? ''}`.trim(), detail: `On ${site}` }
+    case 'rename':
+      return running ? { title: `Renaming on ${site}`, detail: op.target ?? '' } : fail ? { title: "Couldn't rename it", detail: fail } : { title: 'Renamed', detail: op.target ?? '' }
+    default:
+      if (running) return { title: `Looking at ${site}`, detail: name ? `Reading ${name}` : "Reading the server's files" }
+      if (fail) return { title: `Couldn't look at ${site}`, detail: fail }
+      return { title: `Looked at ${name ?? 'the files on ' + site}`, detail: 'Nothing was changed' }
+  }
+}
+
+/** An error, said the way a person would say it. */
+export function plainError(raw: string): string {
+  const s = raw.replace(/^Error:\s*/, '')
+  if (/Unknown site/i.test(s)) return 'coolFTP could not find this site here. Open the coolFTP app and try again.'
+  if (/Denied in the coolFTP app/i.test(s)) return 'You said no in the coolFTP app, so nothing changed.'
+  if (/blocked:/i.test(s)) return 'This step was blocked before it ran.'
+  if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|timed? ?out|connect/i.test(s)) return "Couldn't reach the server. It may be down or the address changed."
+  if (/auth|password|login|530/i.test(s)) return 'The server did not accept the login.'
+  if (/No such file|ENOENT|not found|550/i.test(s)) return "That file or folder isn't there."
+  return clip(s.split('\n')[0] ?? s, 110)
+}
+
+export function ago(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  if (s < 10) return 'just now'
+  if (s < 60) return `${s}s ago`
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m} min ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h} h ago`
+  return `${Math.round(h / 24)} d ago`
+}
+
+export function took(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
+/* ---------- the hero: your computer, the path, your website ---------- */
+
+const W = 440
+const H = 200
+const L = { x: 84, y: 88 }
+const R = { x: 356, y: 88 }
+const ARC = `M${L.x + 38},${L.y} Q${W / 2},${L.y - 78} ${R.x - 38},${R.y}`
+const ARC_BACK = `M${R.x - 38},${R.y} Q${W / 2},${L.y - 78} ${L.x + 38},${L.y}`
+
+const laptop = (x: number, y: number, stroke: string) =>
+  `<rect x="${x - 19}" y="${y - 15}" width="38" height="25" rx="3" fill="#0b1730" stroke="${stroke}" stroke-width="2"/>` +
+  `<rect x="${x - 14}" y="${y - 10}" width="28" height="15" rx="1.5" fill="${DEEP}" opacity=".55"/>` +
+  `<rect x="${x - 25}" y="${y + 12}" width="50" height="5" rx="2.5" fill="${stroke}"/>`
+
+const globe = (x: number, y: number, stroke: string) =>
+  `<g fill="none" stroke="${stroke}" stroke-width="2">` +
+  `<circle cx="${x}" cy="${y}" r="19"/>` +
+  `<ellipse cx="${x}" cy="${y}" rx="8" ry="19"/>` +
+  `<path d="M${x - 19},${y} H${x + 19} M${x - 16},${y - 9} H${x + 16} M${x - 16},${y + 9} H${x + 16}"/>` +
+  `</g>`
+
+const paper = (fill: string) =>
+  `<g transform="translate(-7,-9)"><path d="M0,0 H10 L14,4 V18 H0 Z" fill="${fill}"/><path d="M10,0 V4 H14" fill="#cfe6ff" opacity=".8"/>` +
+  `<path d="M3,8 H11 M3,11 H11 M3,14 H8" stroke="#0b1730" stroke-width="1.2" opacity=".55"/></g>`
+
+const flying = (path: string, count: number, dur: number, fill: string) =>
+  Array.from({ length: count }, (_, i) => {
+    const begin = ((dur / count) * i).toFixed(2)
+    return (
+      `<g opacity="0">${paper(fill)}` +
+      `<animateMotion dur="${dur}s" begin="${begin}s" repeatCount="indefinite" path="${path}"/>` +
+      `<animate attributeName="opacity" dur="${dur}s" begin="${begin}s" repeatCount="indefinite" values="0;1;1;0" keyTimes="0;.12;.85;1"/></g>`
+    )
+  }).join('')
+
+const ripple = (x: number, y: number, color: string) =>
+  [0, 0.7, 1.4]
+    .map(
+      b =>
+        `<circle cx="${x}" cy="${y}" r="34" fill="none" stroke="${color}" stroke-width="2" opacity="0">` +
+        `<animate attributeName="r" values="34;62" dur="2.1s" begin="${b}s" repeatCount="indefinite"/>` +
+        `<animate attributeName="opacity" values=".7;0" dur="2.1s" begin="${b}s" repeatCount="indefinite"/></circle>`,
+    )
+    .join('')
+
+const badge = (x: number, y: number, tone: 'good' | 'warn' | 'bad') => {
+  const fill = tone === 'good' ? GOOD : tone === 'warn' ? WARN : BAD
+  const mark =
+    tone === 'good'
+      ? `<path d="M${x - 6},${y} l4,4 l8,-9" fill="none" stroke="#06281c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`
+      : tone === 'warn'
+        ? `<path d="M${x},${y - 6} v7" stroke="#2a1d02" stroke-width="2.6" stroke-linecap="round"/><circle cx="${x}" cy="${y + 6}" r="1.6" fill="#2a1d02"/>`
+        : `<path d="M${x - 5},${y - 5} l10,10 M${x + 5},${y - 5} l-10,10" stroke="#3a0812" stroke-width="2.6" stroke-linecap="round"/>`
+  return (
+    `<g><circle cx="${x}" cy="${y}" r="13" fill="${fill}" stroke="#0b1730" stroke-width="3"/>${mark}` +
+    `<animate attributeName="opacity" values="0;1" dur=".5s" fill="freeze"/></g>`
+  )
+}
+
+const spinner = (x: number, y: number, color: string) =>
+  `<g><path d="M${x + 12},${y} A12,12 0 1 1 ${x},${y - 12}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>` +
+  `<path d="M${x - 1},${y - 17} l6,5 l-7,4" fill="${color}"/>` +
+  `<animateTransform attributeName="transform" type="rotate" from="0 ${x} ${y}" to="-360 ${x} ${y}" dur="1.4s" repeatCount="indefinite"/></g>`
+
+const magnifier = (x: number, y: number) =>
+  `<g><circle cx="${x}" cy="${y}" r="9" fill="#0b1730" stroke="${SKY}" stroke-width="3"/><path d="M${x + 7},${y + 7} l8,8" stroke="${SKY}" stroke-width="4" stroke-linecap="round"/>` +
+  `<animateTransform attributeName="transform" type="translate" values="-10,0;10,4;-10,0" dur="2.4s" repeatCount="indefinite"/></g>`
+
+const bin = (x: number, y: number) =>
+  `<g><path d="M${x - 8},${y - 6} h16 l-2,16 h-12 z" fill="#0b1730" stroke="${SKY}" stroke-width="2.4" stroke-linejoin="round"/><path d="M${x - 11},${y - 7} h22 M${x - 4},${y - 10} h8" stroke="${SKY}" stroke-width="2.4" stroke-linecap="round"/>` +
+  `<animateTransform attributeName="transform" type="rotate" values="-8 ${x} ${y};8 ${x} ${y};-8 ${x} ${y}" dur=".9s" repeatCount="indefinite"/></g>`
+
+/**
+ * The whole story in one picture. `op` is the step to show (the running one,
+ * else the newest); undefined draws the idle scene.
+ */
+export function heroSvg(op: Op | undefined, siteFallback?: string): string {
+  const site = clip(op?.site ?? siteFallback ?? 'your website', 22)
+  const running = op?.status === 'running'
+  const kind = op ? kindOf(op.action) : undefined
+  const tone = op?.status === 'ok' ? 'good' : op?.status === 'warn' ? 'warn' : op?.status === 'error' ? 'bad' : undefined
+  const preview = op?.isPreview || op?.action === 'diff'
+  const headline = op ? words(op).title : 'Ready when Claude is'
+
+  const arcColor = tone === 'bad' ? BAD : running ? BLUE : op ? DEEP : '#244a7a'
+  const arcDash = tone === 'bad' ? '3 9' : running ? '5 7' : op ? '0' : '4 8'
+  const arcAnim = running ? `<animate attributeName="stroke-dashoffset" from="0" to="-24" dur=".7s" repeatCount="indefinite"/>` : ''
+
+  let action = ''
+  if (running && (kind === 'publish' || kind === 'send' || kind === 'edit') && !preview) action = flying(ARC, 4, 2.2, BLUE)
+  else if (running && kind === 'fetch') action = flying(ARC_BACK, 4, 2.2, SKY)
+  else if (running && kind === 'check')
+    action =
+      ripple(R.x, R.y, SKY) +
+      `<circle r="5" fill="${SKY}"><animateMotion dur="1.6s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;.5;1" calcMode="linear" path="${ARC}"/></circle>`
+  else if (running && kind === 'restore') action = spinner(R.x, R.y - 54, SKY)
+  else if (running && kind === 'remove') action = bin(R.x, R.y - 54)
+  else if (running) action = magnifier(R.x, R.y - 52)
+
+  const glow = tone === 'good' && (kind === 'publish' || kind === 'check') && !preview ? ripple(R.x, R.y, GOOD).replace(/repeatCount="indefinite"/g, 'repeatCount="2"') : ''
+  const rightRing = tone === 'good' ? GOOD : tone === 'warn' ? WARN : tone === 'bad' ? BAD : running ? BLUE : DEEP
+
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="${FONT}">` +
+    `<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c1a33"/><stop offset="1" stop-color="#112b52"/></linearGradient>` +
+    `<radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="${BLUE}" stop-opacity=".28"/><stop offset="1" stop-color="${BLUE}" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect width="${W}" height="${H}" rx="16" fill="url(#bg)"/>` +
+    [[40, 26], [130, 40], [205, 18], [300, 30], [402, 22], [250, 52], [60, 150], [395, 150]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#cfe6ff" opacity=".35"/>`).join('') +
+    `<path d="${ARC}" fill="none" stroke="${arcColor}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${arcDash}">${arcAnim}</path>` +
+    `<circle cx="${L.x}" cy="${L.y}" r="52" fill="url(#halo)"/>` +
+    `<circle cx="${L.x}" cy="${L.y}" r="36" fill="${NODE}" stroke="${DEEP}" stroke-width="2"/>` +
+    laptop(L.x, L.y, '#93c5fd') +
+    `<circle cx="${R.x}" cy="${R.y}" r="52" fill="url(#halo)"/>` +
+    glow +
+    `<circle cx="${R.x}" cy="${R.y}" r="36" fill="${NODE}" stroke="${rightRing}" stroke-width="2.5"/>` +
+    globe(R.x, R.y, SKY) +
+    action +
+    (tone ? badge(R.x + 27, R.y - 27, tone) : '') +
+    `<text x="${L.x}" y="${L.y + 56}" text-anchor="middle" font-size="12" fill="${SOFT}">Your computer</text>` +
+    `<text x="${R.x}" y="${R.y + 56}" text-anchor="middle" font-size="12" fill="${SOFT}">${esc(site)}</text>` +
+    `<text x="${W / 2}" y="${H - 18}" text-anchor="middle" font-size="18" font-weight="700" fill="${INK}">${esc(clip(headline, 44))}</text>` +
+    `</svg>`
+  )
+}
+
+/* ---------- three numbers that mean something ---------- */
+
+export type Tally = { published: number; files: number; siteUp?: boolean; checkedAt?: number }
+
+export function tallyOf(ops: Op[]): Tally {
+  const done = ops.filter(op => op.status !== 'running' && !op.isEarlier)
+  const published = done.filter(op => op.action === 'deploy' && !op.isPreview && op.status !== 'error').length
+  const files = done
+    .filter(op => !op.isPreview && op.status !== 'error' && (op.action === 'deploy' || op.action === 'upload'))
+    .reduce((n, op) => n + (op.files ?? 0), 0)
+  const lastCheck = ops.find(op => op.status !== 'running' && op.live !== undefined)
+  return { published, files, siteUp: lastCheck ? lastCheck.live !== 'down' : undefined, checkedAt: lastCheck?.endedAt }
+}
+
+export function tallySvg(t: Tally): string {
+  const tile = (x: number, value: string, label: string, color: string) =>
+    `<rect x="${x}" y="2" width="136" height="60" rx="12" fill="#0f1f3a" stroke="#1f3a66"/>` +
+    `<text x="${x + 68}" y="32" text-anchor="middle" font-size="22" font-weight="700" fill="${color}">${esc(value)}</text>` +
+    `<text x="${x + 68}" y="51" text-anchor="middle" font-size="11" fill="${SOFT}">${esc(label)}</text>`
+  const up = t.siteUp === undefined ? ['?', 'site not checked yet', SOFT] : t.siteUp ? ['Up', 'site answering', GOOD] : ['Down', 'site not answering', BAD]
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 64" width="${W}" height="64" font-family="${FONT}">` +
+    tile(2, String(t.published), t.published === 1 ? 'publish this session' : 'publishes this session', INK) +
+    tile(152, String(t.files), t.files === 1 ? 'file sent' : 'files sent', INK) +
+    tile(302, up[0]!, up[1]!, up[2]!) +
+    `</svg>`
+  )
+}
+
+/* ---------- one small icon per step ---------- */
+
+const GLYPH: Record<Kind, string> = {
+  publish: `<path d="M9,20 h14 a5,5 0 0 0 0,-10 a7,7 0 0 0 -13,-1 a5,5 0 0 0 -1,11 z" fill="none" stroke="#cfe6ff" stroke-width="2" stroke-linejoin="round"/><path d="M16,23 v-8 m-3,3 l3,-3 l3,3" fill="none" stroke="#cfe6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  send: `<path d="M16,23 v-14 m-5,5 l5,-5 l5,5 M9,25 h14" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  fetch: `<path d="M16,9 v14 m-5,-5 l5,5 l5,-5 M9,25 h14" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  check: `<path d="M6,17 h5 l3,-6 l4,12 l3,-6 h5" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  look: `<circle cx="14" cy="14" r="6" fill="none" stroke="#cfe6ff" stroke-width="2.2"/><path d="M19,19 l5,5" stroke="#cfe6ff" stroke-width="2.6" stroke-linecap="round"/>`,
+  restore: `<path d="M10,13 a7,7 0 1 1 1,8" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round"/><path d="M8,8 v6 h6" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  remove: `<path d="M11,12 h10 l-1,12 h-8 z M9,11 h14 M14,8 h4" fill="none" stroke="#cfe6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  edit: `<path d="M10,22 l1,-4 l9,-9 l3,3 l-9,9 z" fill="none" stroke="#cfe6ff" stroke-width="2" stroke-linejoin="round"/>`,
+}
+
+export function iconSvg(op: Op): string {
+  const kind = kindOf(op.action)
+  const dot = op.status === 'ok' ? GOOD : op.status === 'warn' ? WARN : op.status === 'error' ? BAD : BLUE
+  const fill = op.isEarlier ? '#16243c' : op.status === 'running' ? DEEP : NODE
+  const pulse = op.status === 'running' ? `<animate attributeName="r" values="4;6;4" dur="1.2s" repeatCount="indefinite"/>` : ''
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">` +
+    `<circle cx="16" cy="16" r="15" fill="${fill}" stroke="${op.status === 'running' ? BLUE : '#1f3a66'}" stroke-width="1.5"/>` +
+    GLYPH[kind] +
+    `<circle cx="26" cy="26" r="5" fill="${dot}" stroke="#0b1730" stroke-width="2">${pulse}</circle>` +
+    `</svg>`
+  )
+}

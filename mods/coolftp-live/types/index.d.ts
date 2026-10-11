@@ -15,6 +15,17 @@ export type Op = {
   /** one line on the outcome */
   summary?: string
   url?: string
+  /** files the step sent, changed or would change */
+  files?: number
+  bytes?: number
+  /** the live check's verdict, when the step ran one */
+  live?: 'live' | 'stale' | 'down'
+  /** a dry run or diff: nothing changed on the server */
+  isPreview?: boolean
+  /** pages a live check loaded */
+  checks?: number
+  /** the raw error, for plain words */
+  error?: string
   /** true for ops restored from an earlier session */
   isEarlier?: boolean
 }

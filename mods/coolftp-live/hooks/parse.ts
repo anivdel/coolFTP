@@ -42,7 +42,20 @@ const liveStatus = (live: unknown): OpStatus | undefined =>
         ? 'warn'
         : 'ok'
 
-type Outcome = { status: OpStatus; summary: string; url?: string; site?: string }
+type Outcome = {
+  status: OpStatus
+  summary: string
+  url?: string
+  site?: string
+  files?: number
+  bytes?: number
+  live?: 'live' | 'stale' | 'down'
+  checks?: number
+  isPreview?: boolean
+}
+
+const verdict = (live: unknown): Outcome['live'] =>
+  typeof live !== 'string' ? undefined : /^NOT/.test(live) ? 'down' : /but|old copy/.test(live) ? 'stale' : 'live'
 
 /** Reads an MCP tool's text result into a status and one line. */
 export function outcome(action: string, text: string, isError: boolean): Outcome {
@@ -71,7 +84,16 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     const live = typeof j.live === 'string' ? j.live : undefined
     if (live) parts.push(/^NOT/.test(live) ? 'NOT verified' : /but/.test(live) ? 'live, some files stale' : 'live')
     const status = liveStatus(live) ?? (warnings ? 'warn' : 'ok')
-    return { status, summary: parts.join(' · ') || firstLine(text), url, site }
+    return {
+      status,
+      summary: parts.join(' · ') || firstLine(text),
+      url,
+      site,
+      files: c ? c.add + c.change + c.delete : undefined,
+      bytes: b || undefined,
+      live: verdict(live),
+      isPreview: j.dryRun === true || action === 'diff',
+    }
   }
 
   if (action === 'verify') {
@@ -80,10 +102,18 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     return {
       status: liveStatus(j.live) ?? 'ok',
       summary: `${String(j.live ?? 'checked')} · ${passed}/${checks.length} checks`,
+      live: verdict(j.live),
+      checks: checks.length,
     }
   }
 
-  return { status: warnings ? 'warn' : 'ok', summary: firstLine(text), site }
+  return {
+    status: warnings ? 'warn' : 'ok',
+    summary: firstLine(text),
+    site,
+    files: typeof j.files === 'number' ? j.files : undefined,
+    bytes: typeof j.bytes === 'number' ? j.bytes : undefined,
+  }
 }
 
 /** What an MCP call acted on, from its arguments. */

@@ -1,5 +1,15 @@
 # Changelog
 
+## Claude Code mod: coolftp-live 0.2.0 (2026-10-11)
+
+The panel is redrawn as pictures and plain English; 0.1.0 showed raw numbers that only meant something to someone who already knew coolFTP.
+
+- **A picture of the whole trip.** Your computer, your website (by its domain) and the path between them. Files fly along the path while Claude publishes or uploads, and back while it downloads; rings pulse around the site while it checks the site is up; a magnifying glass, a bin or a spinning arrow while it looks around, deletes or restores. The site gets a green ✓, yellow ! or red ✗ when the step ends.
+- **Plain English.** Each step is a headline and one sentence: "Publishing your site to coolftp.com", "Your site is live · 3 files updated · 19 KB", "Couldn't publish: coolFTP could not find this site here. Open the coolFTP app and try again." Toasts use the same words.
+- **Three tiles:** publishes this session, files sent, and whether the site is answering. Below them, "What Claude did": each step with an icon, its sentence and "2 min ago · took 3s", and a link to open the site.
+- Bookkeeping calls (`status`, `sites`, `history`, `init`) are no longer shown.
+- The terminal, which has no pictures, gets the same plain words.
+
 ## Claude Code mod: coolftp-live 0.1.0 (2026-10-11)
 
 A Claude Code mod that shows coolFTP's work in a panel beside the conversation. It works with coolFTP 0.1.2 as it is; the app, CLI and MCP server are unchanged. Source in [mods/coolftp-live](mods/coolftp-live); the repository root is a Claude Code marketplace for it.

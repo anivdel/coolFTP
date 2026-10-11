@@ -1,6 +1,6 @@
 # coolftp-live: a Claude Code mod
 
-Adds a coolFTP panel to Claude Code. Every deploy, upload, live check and undo Claude runs through coolFTP shows up as it happens: a ticking timer while it runs, then a ✓, ! or ✗ with the result in one line (`+1 ~2 −0 · 41 KB · 2s · live`) and a link to the site.
+Adds a coolFTP panel to Claude Code that shows, as a picture, what Claude is doing to your website: files fly from your computer to your site while it publishes, rings pulse while it checks the site is up, and the site gets a ✓ or ✗ when it is done. Every step is told in plain English ("Your site is live · 3 files updated"), with three tiles for publishes, files sent and whether the site is up.
 
 - Works with the coolFTP MCP tools (`coolftp_deploy`, `coolftp_undo`, ...) and with `coolftp ...` commands Claude runs in the shell.
 - The status line says what is running; changes to the server end with a toast.
