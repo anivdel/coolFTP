@@ -458,6 +458,8 @@ export class CoolFtp {
               firstError = e;
               break;
             }
+            // Claim the item only after the gate: another worker may have taken the last one meanwhile.
+            if (i >= items.length || firstError) break;
             const item = items[i++];
             try {
               await fn(t, item);
