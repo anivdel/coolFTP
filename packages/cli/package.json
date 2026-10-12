@@ -1,6 +1,6 @@
 {
   "name": "coolftp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Deploy a website to its SFTP or FTP host from the terminal or from a coding agent. Only changed files go up, the live site is checked afterward, and a bad deploy is undone without git. CLI plus MCP server for Claude Code, Cursor and Codex.",
   "keywords": [
     "ftp",

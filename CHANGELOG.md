@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 (2026-10-11)
+
+A fix release. The app, CLI and MCP server are otherwise the same as 0.1.2; the Claude Code mod ships separately (below).
 
 - **Fixed:** a deploy, upload or download that runs on several workers could report "Deploy stopped after 30 of 30 files" when every file had landed. Two workers finishing together could both reach for the last file, and the one that came up empty failed the whole run. Seen intermittently in CI on the SFTP e2e.
 

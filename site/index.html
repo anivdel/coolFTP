@@ -216,7 +216,7 @@
           and <code>coolftp undo</code> puts the old version back if it went wrong, no git needed. You watch every file land.
         </p>
         <div class="cta">
-          <a class="btn primary" href="#download">Download for Windows <small>free, open source</small></a>
+          <a class="btn primary" href="#download">Download for Windows <small>v0.1.3 · free, open source</small></a>
           <a class="btn" href="#quickstart">Read the quickstart</a>
         </div>
         <p class="cta alt" style="margin-top:14px">Or install the CLI on any OS: <code>npm i -g coolftp</code></p>
@@ -448,7 +448,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
           <div class="when"><span class="ver">mod 0.2.1</span><span>2026-10-11</span><span class="latest-tag">new</span></div>
           <div>
             <h3>A Claude Code mod: watch every deploy in a live panel</h3>
-            <p class="what">coolFTP now plugs into Claude Code itself. The <code>coolftp-live</code> mod adds a coolFTP panel beside the conversation, so you can follow what Claude is doing to your server as it happens instead of scrolling the chat for it. It works with coolFTP 0.1.2; nothing to update in the app or the CLI.</p>
+            <p class="what">coolFTP now plugs into Claude Code itself. The <code>coolftp-live</code> mod adds a coolFTP panel beside the conversation, so you can follow what Claude is doing to your server as it happens instead of scrolling the chat for it. It works with coolFTP 0.1.2 or newer; nothing to change in the app or the CLI.</p>
             <div class="groups">
               <div class="group new"><b>New</b><ul>
                 <li><b>A picture of the whole trip.</b> Your computer, your website and the path between them: files fly across while Claude publishes, rings pulse while it checks the site is up, and the site gets a ✓ or ✗ when it is done.</li>
@@ -468,7 +468,20 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
           </div>
         </article>
         <article class="release">
-          <div class="when"><span class="ver">0.1.2</span><span>2026-09-09</span><span class="latest-tag">latest</span></div>
+          <div class="when"><span class="ver">0.1.3</span><span>2026-10-11</span><span class="latest-tag">latest</span></div>
+          <div>
+            <h3>A fix for deploys that finished but said they had stopped</h3>
+            <p class="what">The app, CLI and MCP server are the same as 0.1.2 apart from this one fix. Update if you deploy with coolFTP, especially over SFTP.</p>
+            <div class="groups">
+              <div class="group fix"><b>Fixed</b><ul>
+                <li>A deploy, upload or download could land every file and still end with <b>"Deploy stopped after 30 of 30 files"</b>. Two of the parallel workers finishing at the same moment could both reach for the last file, and the one that came up empty failed the run. Each worker now takes a file only when it is ready to send it.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="#download">Download 0.1.3</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#013-2026-10-11">Full notes</a></div>
+          </div>
+        </article>
+        <article class="release">
+          <div class="when"><span class="ver">0.1.2</span><span>2026-09-09</span></div>
           <div>
             <h3>Undo without git, confirmed uploads, parallel FTP, and output an agent can read</h3>
             <p class="what">Four days of deploying a 15,000-file site from Claude Code, then fixing what got in the agent's way. Most of this release is for the agent; the app gets a few things to watch it with, and a yeti.</p>
@@ -496,7 +509,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
                 <li><b>Claude Desktop extension.</b> A one-click install (<code>.mcpb</code>) gives the Claude Desktop app the same deploy tools Claude Code has, with the approvals in coolFTP.</li>
               </ul></div>
             </div>
-            <div class="links"><a href="#download">Download 0.1.2</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#012-2026-09-09">Full notes</a></div>
+            <div class="links"><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#012-2026-09-09">Full notes</a></div>
           </div>
         </article>
         <article class="release">
@@ -537,14 +550,14 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <h2>Download</h2>
       <p class="sub">Windows installer and portable build. macOS and Linux builds come from the same Electron source; run <code>npm run dist</code> to build them yourself until signed builds are published.</p>
       <div class="cta">
-        <a class="btn primary" href="releases/coolFTP-0.1.2-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.2</small></a>
+        <a class="btn primary" href="releases/coolFTP-0.1.3-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.3</small></a>
         <a class="btn" href="releases/coolFTP-portable.exe">Portable .exe</a>
-        <a class="btn" href="releases/coolFTP-0.1.2.mcpb">Claude Desktop extension <small>.mcpb</small></a>
+        <a class="btn" href="releases/coolFTP-0.1.3.mcpb">Claude Desktop extension <small>.mcpb</small></a>
         <a class="btn" href="https://github.com/anivdel/coolFTP">Source on GitHub</a>
       </div>
-      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.2-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
-      <p class="note" style="margin-top:8px">Using the Claude Desktop app rather than Claude Code? Open <code>coolFTP-0.1.2.mcpb</code> in Claude Desktop and hit Install. The chat gets the same coolftp tools, deploys still show up in the coolFTP app, and deletes, undos and rollbacks still wait for your click there. It is not code-signed yet, which the install dialog points out.</p>
-      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.2-x64.exe</code> 3725555a2dff04aeadcb2bff938d0b92c9e8bd9371ce644e1304ecbfaebe144d<br /><code>coolFTP-portable.exe</code> 32cf284f8634fa173b457c7d3c2b9cac3a49374e53efa45d15de3c0366d72a46<br /><code>coolFTP-0.1.2.mcpb</code> 5ef6e981da82ae32a31e12c67b731011ac21df089b2ee2b19d77532914421a57</p>
+      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.3-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.2-x64.exe">0.1.2</a>, <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
+      <p class="note" style="margin-top:8px">Using the Claude Desktop app rather than Claude Code? Open <code>coolFTP-0.1.3.mcpb</code> in Claude Desktop and hit Install. The chat gets the same coolftp tools, deploys still show up in the coolFTP app, and deletes, undos and rollbacks still wait for your click there. It is not code-signed yet, which the install dialog points out.</p>
+      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.3-x64.exe</code> e0e6bb5a5c960e24802171e09c3d67aeed5c898d27644ad6be57afbd82f387df<br /><code>coolFTP-portable.exe</code> 6f5585c70837d4a5cb014f73eaa3fbff5b542432069a7beeb5a1caa7c1a8321a<br /><code>coolFTP-0.1.3.mcpb</code> 173ba0bdcc960a8a06856e5996203c9c178c8b449a06b5a3256aeb0342b0612e</p>
     </section>
 
     <section id="faq">
