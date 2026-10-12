@@ -1,3 +1,4 @@
+import nodePath from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -34,6 +35,9 @@ function describeUndo(b: NonNullable<DeployRecord["backup"]>): string {
  */
 /** The Claude Desktop app has no working directory of its own; its extension settings can name a project folder instead. */
 const defaultCwd = () => process.env.COOLFTP_PROJECT || process.cwd();
+
+/** Local paths go out absolute: when a call routes through the desktop app, its working directory is its install folder. */
+const localPath = (cwd: string | undefined, p: string) => nodePath.resolve(cwd || defaultCwd(), p);
 
 export async function startMcpServer(factory: { get(): Promise<Runner> }, version: string): Promise<void> {
   const server = new McpServer({ name: "coolftp", version });
@@ -395,7 +399,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
       try {
         const runner = await factory.get();
         const { site: s, path: rp } = await target(runner, cwd, site, remote);
-        const { result, log } = await call("upload", { site: s, local, remote: rp ?? "", cwd: cwd || defaultCwd() });
+        const { result, log } = await call("upload", { site: s, local: localPath(cwd, local), remote: rp ?? "", cwd: cwd || defaultCwd() });
         return text(result, log);
       } catch (e) {
         return fail(e);
@@ -411,7 +415,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
       try {
         const runner = await factory.get();
         const { site: s, path: rp } = await target(runner, cwd, site, remote);
-        const { result, log } = await call("download", { site: s, remote: rp, local: local || "." });
+        const { result, log } = await call("download", { site: s, remote: rp, local: localPath(cwd, local || ".") });
         return text(result, log);
       } catch (e) {
         return fail(e);
