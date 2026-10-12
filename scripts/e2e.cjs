@@ -332,7 +332,9 @@ async function suite(label, { protocol, port, webPort, serverRoot, tmp, afterDep
 /** Drive `coolftp mcp` over stdio the way Claude Code does: initialize, list tools, call a few. */
 async function mcpSmoke({ PROJECT, env }) {
   console.log("\nMCP server over stdio");
-  const child = spawn("node", [CLI, "--direct", "mcp"], { cwd: PROJECT, env, stdio: ["pipe", "pipe", "pipe"] });
+  // Started away from the project, as the desktop app is: local paths must resolve against the call's cwd.
+  const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-mcp-"));
+  const child = spawn("node", [CLI, "--direct", "mcp"], { cwd: elsewhere, env, stdio: ["pipe", "pipe", "pipe"] });
   const pending = new Map();
   let buf = "";
   child.stdout.on("data", (chunk) => {
@@ -385,6 +387,11 @@ async function mcpSmoke({ PROJECT, env }) {
     const undo = await request("tools/call", { name: "coolftp_undo", arguments: { cwd: PROJECT, dryRun: true } });
     const undoText = undo.result?.content?.[0]?.text ?? "";
     check("mcp undo dry run describes the work", /"dryRun": true/.test(undoText) && /undoOf/.test(undoText), undoText.slice(0, 300));
+    const up = await request("tools/call", { name: "coolftp_upload", arguments: { cwd: PROJECT, local: "app.js", remote: "app.js" } });
+    check("mcp upload resolves a relative local path against cwd", !up.result?.isError && /"files": 1/.test(up.result?.content?.[0]?.text ?? ""), JSON.stringify(up).slice(0, 300));
+    const dlDir = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-dl-"));
+    const dl = await request("tools/call", { name: "coolftp_download", arguments: { cwd: dlDir, remote: "app.js", local: "fetched.js" } });
+    check("mcp download lands relative to cwd", !dl.result?.isError && fs.existsSync(path.join(dlDir, "fetched.js")), JSON.stringify(dl).slice(0, 300));
   } catch (e) {
     failures++;
     console.log("  FAIL  exception:", e.message);

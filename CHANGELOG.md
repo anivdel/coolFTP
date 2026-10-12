@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 (2026-10-12)
+
+A fix release for the MCP server. The app and CLI are otherwise the same as 0.1.3.
+
+- **Fixed:** with the coolFTP app open, `coolftp_upload` given a relative local path (`index.html`) failed with "Local path not found: C:\Program Files\coolFTP\index.html", and `coolftp_download` saved into the app's install folder instead of the project. The MCP server handed the path to the app as it was, and the app read it from its own folder. The tools now resolve local paths against the project folder before calling the app, as the CLI always has. Deploys were not affected.
+
 ## 0.1.3 (2026-10-11)
 
 A fix release. The app, CLI and MCP server are otherwise the same as 0.1.2; the Claude Code mod ships separately (below).
