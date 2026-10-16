@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.8 (2026-10-16)
+
+- Undo and delete steps in the panel say what they do ("Restoring the files from before the last change", "Taking it off the server") instead of asking you to approve them in the coolFTP app, which the plugin does not need.
+
 ## Claude Code plugin: coolftp 0.3.7 (2026-10-16)
 
 - **No pale rim around the yeti.** The traced fur reached out to the logo's soft edge pixels, past the black outline, leaving a thin white line around him. `scripts/plugin-yeti.py` now drops soft edge pixels before tracing and draws the silhouette's black edge over the fur.
