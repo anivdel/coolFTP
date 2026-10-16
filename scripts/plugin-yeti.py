@@ -10,6 +10,7 @@ import re
 import tempfile
 
 import vtracer
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RIG = os.path.join(ROOT, "scripts", "demo", "yeti")
@@ -19,11 +20,25 @@ OUT = os.path.join(ROOT, "plugins", "coolftp", "hooks", "yeti-art.ts")
 LAYERS = {"base": (0, 0), "brow": (186, 235), "teeth": (182, 284), "eyeL": (172, 204), "eyeR": (303, 204)}
 
 
+def hard_edges(src: str, dst: str) -> None:
+    """Soft, half-transparent edge pixels trace as a pale rim around each shape: make every
+    pixel either solid or gone."""
+    img = Image.open(src).convert("RGBA")
+    px = img.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = px[x, y]
+            px[x, y] = (r, g, b, 255) if a >= 160 else (0, 0, 0, 0)
+    img.save(dst)
+
+
 def trace(name: str) -> tuple[str, int, int]:
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, name + ".svg")
+        src = os.path.join(tmp, name + ".png")
+        hard_edges(os.path.join(RIG, name + ".png"), src)
         vtracer.convert_image_to_svg_py(
-            os.path.join(RIG, name + ".png"),
+            src,
             out,
             colormode="color",
             hierarchical="stacked",
@@ -39,7 +54,14 @@ def trace(name: str) -> tuple[str, int, int]:
         )
         svg = open(out, encoding="utf-8").read()
     w, h = (int(v) for v in re.search(r'width="(\d+)" height="(\d+)"', svg).groups())
-    paths = "".join(re.findall(r"<path[^>]*/>", svg))
+    found = re.findall(r"<path[^>]*/>", svg)
+    if name == "base" and len(found) > 2:
+        # Stacked tracing fills the whole silhouette twice, white fur then grey shading, out to the
+        # logo's soft rim, and the black outline lands just inside it: a pale hairline around him.
+        # The silhouette again as a black edge, over both fur layers, covers it.
+        edge = re.sub(r'fill="[^"]*"', 'fill="none" stroke="#000000" stroke-width="18" stroke-linejoin="round"', found[0], count=1)
+        found.insert(2, edge)
+    paths = "".join(found)
     return re.sub(r"\s+", " ", paths).replace("'", "&apos;"), w, h
 
 

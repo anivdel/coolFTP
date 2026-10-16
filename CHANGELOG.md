@@ -1,5 +1,10 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.7 (2026-10-16)
+
+- **No pale rim around the yeti.** The traced fur reached out to the logo's soft edge pixels, past the black outline, leaving a thin white line around him. `scripts/plugin-yeti.py` now drops soft edge pixels before tracing and draws the silhouette's black edge over the fur.
+
+
 ## Claude Code plugin: coolftp 0.3.6 (2026-10-16)
 
 - **The yeti's face shows in Claude's panel.** 0.3.5 drew him from embedded PNGs, which the panel strips, so only his vector eyes showed. He is now all vector shapes, traced from the rig with vtracer (`scripts/plugin-yeti.py`), and half the size.
