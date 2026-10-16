@@ -1,12 +1,18 @@
 # coolFTP
 
-**The FTP client your coding agent can drive.** A desktop SFTP / FTPS / FTP client for Windows, plus a CLI and an MCP server, built for people who write code with Claude Code, Codex, or Cursor and still have to get files onto a web server.
+**Let Claude deploy your site to your SFTP or FTP host, with undo and a check that it is actually live.** One line in Claude Code:
 
-Say "deploy this". The agent calls coolFTP. Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and you watch every step live in the app. If it went wrong, `coolftp undo` puts the previous version back, no git needed. Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS. Free and MIT. Website: [coolftp.com](https://coolftp.com).
+```
+/plugin install coolftp --marketplace anivdel/coolFTP
+```
 
-![coolFTP after an agent deploy](docs/app.png)
+Then say "set up coolFTP for this project" and "deploy this". Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and "undo that" puts the previous version back, no git needed. Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS. Free and MIT. Website: [coolftp.com](https://coolftp.com).
 
-Agents ask before they delete anything:
+The plugin, the `coolftp` CLI and the MCP server run on macOS, Linux and Windows with Node 18 or newer, and Cursor, Codex or any agent with a shell can drive them too. The Windows desktop app is an optional companion: with it open, you watch every agent call live and click to approve deletes, undos and rollbacks.
+
+![The coolFTP desktop app after an agent deploy](docs/app.png)
+
+With the desktop app open, agents ask before they delete anything:
 
 ![Approval dialog](docs/approval.png)
 
@@ -19,7 +25,7 @@ Every FTP client assumes a human is clicking. coolFTP assumes a human is watchin
 - **Deploy history with git.** Each deploy stores the commit, branch, dirty flag, message, byte count, which agent ran it, and whether the site verified live.
 - **One-command rollback.** `coolftp rollback` restores the previous live commit through a temporary git worktree.
 - **Verification.** Give a site its public URL and every deploy fetches the changed pages, compares static files byte for byte with what you uploaded, and exits non-zero when the site does not answer. `coolftp verify` does the same on demand.
-- **Live agent feed and approval dialog.** Deletes, `--delete` deploys, rollbacks and undos wait for your click while the app is open. Deploys show as a progress card, and a Windows notification tells you how they ended.
+- **Live agent feed and approval dialog,** in the desktop app. Deletes, `--delete` deploys, rollbacks and undos wait for your click while the app is open. Deploys show as a progress card, and a Windows notification tells you how they ended.
 - **Safety by default.** Pinned SSH host keys, passwords encrypted with your Windows account, a first-deploy guard that refuses to delete files it never uploaded, changed files swapped into place rather than overwritten, sizes confirmed by the server, resumable deploys.
 
 ```
