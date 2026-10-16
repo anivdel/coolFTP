@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.4 (2026-10-16)
+
+- **The panel lists the files each step touched.** Under every deploy, upload, download, undo and rollback: new (`+`), changed (`~`), removed (`−`), sent (`↑`) or fetched (`↓`), with sizes where coolFTP gives them. The first five show; **All N files** opens the rest. Paths are shown inside the web root (`index.html`, not `/domains/x.com/public_html/index.html`). Panel only: no server change.
+
 ## Claude Code plugin: coolftp 0.3.3 (2026-10-16)
 
 - **The MCP server ships inside the plugin.** The plugin carries its own copy of the coolftp CLI (`server/coolftp.js`, one file with no dependencies, refreshed by `npm run build`), and starts it in place of a global `coolftp` or `npx`. A plugin update now brings server changes with it, so the live progress from 0.3.2 works straight away, with no npm install and no desktop app. `COOLFTP_BIN` still picks another coolftp.

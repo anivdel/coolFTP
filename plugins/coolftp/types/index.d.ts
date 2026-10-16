@@ -35,7 +35,14 @@ export type Op = {
   isEarlier?: boolean
   /** while files move: what the coolFTP MCP server last wrote to its live file */
   progress?: Progress
+  /** the files the step touched, as many as coolFTP listed (it lists up to 20 of each kind) */
+  touched?: Touched[]
+  /** files the step touched beyond the ones listed */
+  moreTouched?: number
 }
+
+/** One file a step sent, replaced, removed or fetched. */
+export type Touched = { path: string; kind: 'new' | 'changed' | 'removed' | 'sent' | 'fetched'; size?: string }
 
 /** A transfer in flight, as the panel draws it. */
 export type Progress = {
@@ -62,6 +69,6 @@ export type Place = { site?: string; host?: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    'coolftp': { ops: Op[]; now: number; where: Record<string, Place> }
+    'coolftp': { ops: Op[]; now: number; where: Record<string, Place>; opened: Record<string, boolean> }
   }
 }

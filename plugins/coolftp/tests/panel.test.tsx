@@ -209,3 +209,34 @@ test('a running deploy shows the file moving and a progress bar', async ($, on) 
   expect(await after.find({ type: 'Text', text: /Your site is live/ })).toBeDefined()
   await after.unmount()
 })
+
+test('each step lists the files it touched', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  const deployText = JSON.stringify({
+    site: 'Woodpecker',
+    remoteRoot: '/',
+    live: 'live: every check passed',
+    plan: { counts: { add: 3, change: 3, delete: 1 }, add: ['media/a.mp4', 'media/b.mp4', 'media/c.mp4'], change: ['index.html', 'styles.css', 'app.js'], delete: ['old.html'] },
+    urls: ['https://woodpeckerdig.com/'],
+  })
+  const uploadText = ['↑ /public_html/download/setup.exe (75.2 MB)', '', JSON.stringify({ files: 1, bytes: 78871265 })].join('\n')
+  on('tool.call', { tool: 'mcp__coolftp__coolftp_deploy' }, () => ({ result: {}, text: deployText }))
+  on('tool.call', { tool: 'mcp__coolftp__coolftp_upload' }, () => ({ result: {}, text: uploadText }))
+  await $.tool.call({ tool: 'mcp__coolftp__coolftp_deploy', cwd: 'C:/w' })
+  expect(outcome('upload', uploadText, false).touched).toEqual([{ path: 'download/setup.exe', kind: 'sent', size: '75.2 MB' }])
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'coolftp', surface, component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
+    expect(await ui.find({ type: 'Text', text: /\+ media\/a\.mp4/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /~ index\.html/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /old\.html/ })).toBeUndefined()
+    await ui.press({ key: 'more-' + (await ui.find({ type: 'Button', props: { label: 'All 7 files' } }))!.key!.slice(5) })
+    expect(await ui.find({ type: 'Text', text: /− old\.html/ })).toBeDefined()
+    await ui.press({ key: 'more-' + (await ui.find({ type: 'Button', props: { label: 'Fewer files' } }))!.key!.slice(5) })
+    await ui.unmount()
+  }
+})

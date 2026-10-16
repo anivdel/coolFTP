@@ -1,4 +1,36 @@
-import type { OpStatus, Place, Progress } from '../types'
+import type { OpStatus, Place, Progress, Touched } from '../types'
+
+/**
+ * The files a step touched. A deploy's plan names new, changed and removed files (up to 20 of
+ * each, then "… and N more"); uploads and downloads print a `↑ path (size)` line per file.
+ */
+export function touchedOf(action: string, text: string, j: Record<string, unknown> | undefined): { touched: Touched[]; more: number } {
+  const touched: Touched[] = []
+  let more = 0
+  const root = typeof j?.remoteRoot === 'string' ? j.remoteRoot.replace(/\/+$/, '') : undefined
+  /* Paths inside the web root read best: `/domains/x.com/public_html/index.html` is `index.html`. */
+  const rel = (p: string) =>
+    root && root !== '' && p.startsWith(root + '/') ? p.slice(root.length + 1) : p.replace(/^.*?\/(?:public_html|htdocs|www|httpdocs)\//, '').replace(/^\/+/, '')
+  const plan = j?.plan as Record<string, unknown> | undefined
+  if (plan && (action === 'deploy' || action === 'undo' || action === 'rollback' || action === 'diff')) {
+    const kinds: Array<[string, Touched['kind']]> = [['add', 'new'], ['change', 'changed'], ['delete', 'removed']]
+    for (const [key, kind] of kinds) {
+      for (const item of Array.isArray(plan[key]) ? (plan[key] as unknown[]) : []) {
+        if (typeof item !== 'string') continue
+        const extra = /^… and (\d+) more$/.exec(item)
+        if (extra) more += Number(extra[1])
+        else touched.push({ path: rel(item), kind })
+      }
+    }
+    return { touched, more }
+  }
+  for (const m of text.matchAll(/^([↑↓]) (.+) \(([^)]+)\)$/gm)) {
+    touched.push({ path: rel(m[2]!), kind: m[1] === '↑' ? 'sent' : 'fetched', size: m[3] })
+  }
+  const extra = /^… (\d+) more files/m.exec(text)
+  if (extra) more += Number(extra[1])
+  return { touched, more }
+}
 
 /** The live file's name for a project folder: the same rule as coolFTP's MCP server (liveFileName). */
 export const liveFileName = (cwd: string) =>
@@ -94,6 +126,8 @@ type Outcome = {
   checks?: number
   isPreview?: boolean
   loadMs?: number
+  touched?: Touched[]
+  moreTouched?: number
 }
 
 /** The first page timing a live check printed: `200 https://example.com/ (175ms)`. */
@@ -132,7 +166,10 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     const live = typeof j.live === 'string' ? j.live : undefined
     if (live) parts.push(/^NOT/.test(live) ? 'NOT verified' : /but/.test(live) ? 'live, some files stale' : 'live')
     const status = liveStatus(live) ?? (warnings ? 'warn' : 'ok')
+    const t = touchedOf(action, text, j)
     return {
+      touched: t.touched,
+      moreTouched: t.more,
       status,
       summary: parts.join(' · ') || firstLine(text),
       url,
@@ -158,9 +195,12 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     }
   }
 
+  const t = touchedOf(action, text, j)
   return {
     status: warnings ? 'warn' : 'ok',
     summary: firstLine(text),
+    touched: t.touched,
+    moreTouched: t.more,
     site,
     files: typeof j.files === 'number' ? j.files : undefined,
     bytes: typeof j.bytes === 'number' ? j.bytes : undefined,

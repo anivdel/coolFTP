@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Op, OpStatus, Place } from '../types'
+import type { Op, OpStatus, Place, Touched } from '../types'
 import { clock, cliAction, doing, elapsed, liveFileName, mcpAction, outcome, placeOf, progressOf, resultJson, targetOf } from './parse'
 import { QUIET, ago, heroSvg, iconSvg, progressBar, progressSvg, progressWords, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
 
@@ -45,6 +45,50 @@ async function tick($: EngineInterface) {
 
 /** Calls that move file bytes: the MCP server reports their progress in a live file. */
 const MOVES = new Set(['deploy', 'upload', 'download', 'undo', 'rollback'])
+
+/** Steps whose whole file list is open in the panel, by op id. */
+const opened = atom({ plugin: 'coolftp', key: 'opened' } as const, {})
+
+const MARK: Record<Touched['kind'], string> = { new: '+', changed: '~', removed: '−', sent: '↑', fetched: '↓' }
+const TONE: Record<Touched['kind'], string | undefined> = { new: 'success', changed: BLUE, removed: 'error', sent: BLUE, fetched: undefined }
+const SHOWN = 5
+
+/** The files a step touched: the first few, and the rest behind a button. */
+function fileList($: EngineInterface, e: { surface: string }, op: Op, isOpen: boolean, indent = '') {
+  const { Box, Text, Button } = $.ui.resolve(e as never)
+  const files = op.touched ?? []
+  if (!files.length) return null
+  const total = files.length + (op.moreTouched ?? 0)
+  const shown = isOpen ? files : files.slice(0, SHOWN)
+  const hidden = total - shown.length
+  return (
+    <Box key={`files-${op.id}`} flexDirection="column">
+      {shown.map((f, i) => (
+        <Text key={`${op.id}-${i}`} wrap="truncate" dimColor={op.isEarlier}>
+          {indent}
+          <Text color={TONE[f.kind]}>{MARK[f.kind]}</Text> {f.path}
+          {f.size ? <Text dimColor> {f.size}</Text> : null}
+        </Text>
+      ))}
+      {isOpen && op.moreTouched ? (
+        <Text dimColor>
+          {indent}…and {op.moreTouched} more coolFTP did not list
+        </Text>
+      ) : null}
+      {(hidden > 0 || isOpen) && files.length > SHOWN ? (
+        <Button
+          key={`more-${op.id}`}
+          label={isOpen ? 'Fewer files' : `All ${total} files`}
+          onPress={() => update($, opened, all => ({ ...all, [op.id]: !all[op.id] }))}
+        />
+      ) : hidden > 0 ? (
+        <Text dimColor>
+          {indent}…and {hidden} more
+        </Text>
+      ) : null}
+    </Box>
+  )
+}
 
 /** Where the MCP server writes live files: COOLFTP_LIVE_DIR in .mcp.json, under the plugin's folder. */
 const liveDir = ($: EngineInterface) => `${$.plugin.root.replace(/[\\/]\.claude-plugin[\\/]?$/, '')}/.live`
@@ -211,6 +255,8 @@ export const register: Register = on => {
         live: got.live,
         checks: got.checks,
         loadMs: got.loadMs,
+        touched: got.touched?.length ? got.touched : undefined,
+        moreTouched: got.moreTouched || undefined,
         isPreview: op.isPreview || got.isPreview,
         error: ran.isError === true ? text.slice(0, 400) : undefined,
       })
@@ -224,6 +270,7 @@ export const register: Register = on => {
     const at = Math.max(await read($, now), Date.now())
     const current = list.filter(op => !op.isEarlier)
     const earlier = list.filter(op => op.isEarlier)
+    const open = await read($, opened)
 
     /* The terminal draws no pictures: the same story in lines of text. */
     if (e.surface === 'terminal') {
@@ -264,6 +311,7 @@ export const register: Register = on => {
                 {w.detail}
               </Text>
             )}
+            {op.status !== 'running' && fileList($, e, op, open[op.id] === true, '  ')}
           </Box>
         )
       }
@@ -317,6 +365,7 @@ export const register: Register = on => {
             <Text dimColor wrap="wrap">
               {w.detail}
             </Text>
+            {op.status !== 'running' && fileList($, e, op, open[op.id] === true)}
             <Text dimColor>{when}</Text>
           </Box>
         </Box>
@@ -342,6 +391,7 @@ export const register: Register = on => {
               {shown?.status === 'running' ? ` · ${took(at - shown.startedAt)}` : ''}
             </Text>
           )}
+          {shown && shown.status !== 'running' && fileList($, e, shown, open[shown.id] === true)}
           {liveUrl && shown?.status !== 'running' && (
             <Link href={liveUrl}>Open {hostOf(liveUrl) ?? 'your site'} ↗</Link>
           )}
