@@ -1,11 +1,12 @@
 {
   "name": "coolftp",
   "owner": { "name": "Justin Ledvina" },
+  "description": "coolFTP: deploy websites to SFTP and FTP hosts from Claude Code",
   "plugins": [
     {
-      "name": "coolftp-live",
-      "source": "./mods/coolftp-live",
-      "description": "A live coolFTP panel in Claude Code: deploys, uploads, live checks and undos as Claude runs them"
+      "name": "coolftp",
+      "source": "./plugins/coolftp",
+      "description": "Deploy your site to its SFTP or FTP host from Claude Code: changed files only, live checks, one-step undo, and a live panel of each deploy"
     }
   ]
 }

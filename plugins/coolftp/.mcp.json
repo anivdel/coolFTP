@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "coolftp": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/coolftp-mcp.mjs"]
+    }
+  }
+}

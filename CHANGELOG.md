@@ -1,5 +1,15 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.0 (2026-10-16)
+
+coolFTP is now one Claude Code plugin. One install gives Claude the MCP server, the deploy skill, slash commands and the live panel; before, that took an npm install, a `claude mcp add` (with a `cmd /c` wrapper on Windows), copying a skill folder by hand and a separate mod. Works with coolFTP 0.1.4 as it is; the app, CLI and MCP server are unchanged. Source in [plugins/coolftp](plugins/coolftp).
+
+- Install with `/plugin install coolftp --marketplace anivdel/coolFTP`. Needs Node 18 or newer; the desktop app is optional.
+- **MCP server, started for you.** A global `coolftp` is used when there is one, so it matches the CLI and the app; otherwise the latest from npm runs through `npx`. No `cmd /c` on Windows.
+- **Deploy skill, MCP first.** The skill that was in this repo's `.claude/skills/deploy` now ships with the plugin and works in any project: it links a new project, previews before deploying, reports the live verdict exactly, and never asks for a password in the chat.
+- **Commands:** `/coolftp:setup`, `/coolftp:deploy`, `/coolftp:undo`, `/coolftp:live`.
+- **The coolftp-live panel is part of the plugin.** If you installed `coolftp-live`, uninstall it (`/plugin uninstall coolftp-live`) and install `coolftp`; the panel's saved history starts fresh. If you added the MCP server by hand, `claude mcp remove coolftp -s user` so Claude does not see each tool twice.
+
 ## 0.1.4 (2026-10-12)
 
 A fix release for the MCP server. The app and CLI are otherwise the same as 0.1.3.

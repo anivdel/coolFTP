@@ -250,7 +250,7 @@
       <div class="flow">
         <ol class="steps">
           <li><div><b>Link a folder once</b><span>Run <code>coolftp init my-server</code> in the project. It writes a tiny <code>.coolftp.json</code> so nobody has to remember hosts or paths again, agents included.</span></div></li>
-          <li><div><b>Give your agent the tools</b><span>One line: <code>claude mcp add --scope user coolftp -- coolftp mcp</code>. Claude Code gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI. In the Claude Desktop app, install the <a href="#download">coolFTP extension</a> and the chat gets the same tools.</span></div></li>
+          <li><div><b>Give your agent the tools</b><span>One line in Claude Code: <code>/plugin install coolftp --marketplace anivdel/coolFTP</code>. Claude gets <code>coolftp_deploy</code>, <code>coolftp_diff</code>, <code>coolftp_undo</code>, <code>coolftp_verify</code>, <code>coolftp_ls</code> and friends, with results sized for an agent to read. Any other agent just calls the CLI. In the Claude Desktop app, install the <a href="#download">coolFTP extension</a> and the chat gets the same tools.</span></div></li>
           <li><div><b>Keep the app open</b><span>Agent commands route through the running desktop app. You see each call in the Agents panel, each file in the transfer queue, and each deploy in history, tagged with who did it.</span></div></li>
           <li><div><b>Say the word</b><span>"Deploy this." The agent previews the diff, uploads only what changed, records the git commit next to the deploy, checks the site is live, and tells you what it skipped. "Undo that" puts the previous versions back.</span></div></li>
         </ol>
@@ -268,9 +268,9 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
     </section>
 
     <section id="claude-mod">
-      <div class="eyebrow">New · Claude Code mod</div>
+      <div class="eyebrow">New · Claude Code plugin</div>
       <h2>Watch Claude deploy, live, in a panel beside the chat</h2>
-      <p class="sub">coolFTP now has a mod for Claude Code. It adds a coolFTP panel next to the conversation, so you can see each deploy, upload, live check and undo while Claude runs it, without opening another window or reading through the chat.</p>
+      <p class="sub">coolFTP is now one Claude Code plugin. One install gives Claude the coolFTP tools, the know-how to deploy safely, <code>/coolftp:setup</code>, <code>/coolftp:deploy</code>, <code>/coolftp:undo</code> and <code>/coolftp:live</code>, and a panel next to the conversation where you see each deploy, upload, live check and undo while Claude runs it.</p>
       <div class="mod">
         <div>
           <ul class="points">
@@ -282,10 +282,12 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
           </ul>
           <h4 style="margin:0 0 8px;font-size:15px">Install it in Claude Code</h4>
 <pre class="code"><span class="d"># at the Claude Code prompt; answer y to add the marketplace</span>
-<span class="cmd">/plugin install coolftp-live <span class="c">--marketplace</span> anivdel/coolFTP</span>
+<span class="cmd">/plugin install coolftp <span class="c">--marketplace</span> anivdel/coolFTP</span>
+<span class="d"># then link your project</span>
+<span class="cmd">/coolftp:setup</span>
 <span class="d"># open the panel again any time</span>
 <span class="cmd">/coolftp-panel</span></pre>
-          <p class="note" style="margin-top:10px">Or download <a href="releases/coolftp-live-mod.zip">coolftp-live-mod.zip</a>, unzip it and start Claude Code with <code>claude --plugin-dir coolftp-live</code>. Mods are an early-access Claude Code feature, so use a current build. Source in <a href="https://github.com/anivdel/coolFTP/tree/main/mods/coolftp-live">mods/coolftp-live</a>.</p>
+          <p class="note" style="margin-top:10px">Needs Node 18 or newer; the desktop app is optional. In the Claude desktop app: + next to the prompt box, Plugins, Add marketplace <code>anivdel/coolFTP</code>, then add <code>coolftp</code>. Had the older <code>coolftp-live</code> mod? Uninstall it; its panel is part of this plugin. Source in <a href="https://github.com/anivdel/coolFTP/tree/main/plugins/coolftp">plugins/coolftp</a>.</p>
         </div>
 <div class="pane" role="img" aria-label="The coolFTP panel in Claude Code while Claude publishes a site: files fly from your computer to your website, with plain-English steps below">
           <div class="bar"><b>coolFTP</b><span>panel · Claude Code</span><span class="x">✕</span></div>
@@ -390,7 +392,9 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
         </div>
         <div>
           <h4>Wire up Claude Code</h4>
-<pre class="code"><span class="d"># macOS, Linux</span>
+<pre class="code"><span class="d"># the plugin: tools, deploy skill, commands, live panel</span>
+<span class="cmd">/plugin install coolftp <span class="c">--marketplace</span> anivdel/coolFTP</span>
+<span class="d"># or just the MCP server, macOS and Linux</span>
 <span class="cmd">claude mcp add --scope user coolftp -- coolftp mcp</span>
 <span class="d"># Windows (npm installs a .cmd shim, so go through cmd)</span>
 <span class="cmd">claude mcp add --scope user coolftp -- cmd /c coolftp mcp</span>
@@ -453,7 +457,27 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <p class="sub">Every release, dated, with what changed and why. The full notes live in the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>; releases are built from tagged commits on GitHub.</p>
       <div class="releases">
         <article class="release latest">
-          <div class="when"><span class="ver">mod 0.2.1</span><span>2026-10-11</span><span class="latest-tag">new</span></div>
+          <div class="when"><span class="ver">plugin 0.3.0</span><span>2026-10-16</span><span class="latest-tag">new</span></div>
+          <div>
+            <h3>coolFTP is one Claude Code plugin</h3>
+            <p class="what">One install now gives Claude everything: the coolFTP tools, the deploy know-how, slash commands and the live panel. Before, that took an npm install, a <code>claude mcp add</code> line (a different one on Windows), copying a skill folder by hand and a separate mod. Works with coolFTP 0.1.4; nothing to change in the app or the CLI.</p>
+            <div class="groups">
+              <div class="group new"><b>New</b><ul>
+                <li><b>The tools, started for you.</b> Uses your installed <code>coolftp</code> when there is one, otherwise the latest from npm. No <code>cmd /c</code> on Windows.</li>
+                <li><b>The deploy skill in every project.</b> Claude links a new project, previews before it deploys, only calls a deploy live when the site answered, and never asks for your password in the chat.</li>
+                <li><b>Commands</b>: <code>/coolftp:setup</code>, <code>/coolftp:deploy</code>, <code>/coolftp:undo</code>, <code>/coolftp:live</code>.</li>
+                <li><b>The live panel</b> from the coolftp-live mod is built in.</li>
+              </ul></div>
+              <div class="group"><b>Install</b><ul>
+                <li>In Claude Code: <code>/plugin install coolftp --marketplace anivdel/coolFTP</code>, answer <code>y</code>, pick a scope.</li>
+                <li>Had <code>coolftp-live</code> or a hand-added <code>coolftp</code> MCP server? Remove them so Claude does not see each tool twice.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="#claude-mod">See the panel</a><a href="https://github.com/anivdel/coolFTP/tree/main/plugins/coolftp">Source</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#claude-code-plugin-coolftp-030-2026-10-16">Full notes</a></div>
+          </div>
+        </article>
+        <article class="release">
+          <div class="when"><span class="ver">mod 0.2.1</span><span>2026-10-11</span></div>
           <div>
             <h3>A Claude Code mod: watch every deploy in a live panel</h3>
             <p class="what">coolFTP now plugs into Claude Code itself. The <code>coolftp-live</code> mod adds a coolFTP panel beside the conversation, so you can follow what Claude is doing to your server as it happens instead of scrolling the chat for it. It works with coolFTP 0.1.2 or newer; nothing to change in the app or the CLI.</p>
@@ -468,11 +492,10 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
                 <li><b>MCP tools and the CLI</b> are both followed; the mod only watches and never blocks a call. In a plain terminal, where there are no pictures, it tells the same story in words.</li>
               </ul></div>
               <div class="group"><b>Install</b><ul>
-                <li>In Claude Code: <code>/plugin install coolftp-live --marketplace anivdel/coolFTP</code>, answer <code>y</code>, pick a scope.</li>
-                <li>Or the <a href="releases/coolftp-live-mod.zip">zip</a> with <code>claude --plugin-dir</code>.</li>
+                <li>Now part of the <code>coolftp</code> plugin (above).</li>
               </ul></div>
             </div>
-            <div class="links"><a href="#claude-mod">See the panel</a><a href="https://github.com/anivdel/coolFTP/tree/main/mods/coolftp-live">Source</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#claude-code-mod-coolftp-live-021-2026-10-11">Full notes</a></div>
+            <div class="links"><a href="#claude-mod">See the panel</a><a href="https://github.com/anivdel/coolFTP/tree/main/plugins/coolftp">Source</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md#claude-code-mod-coolftp-live-021-2026-10-11">Full notes</a></div>
           </div>
         </article>
         <article class="release">

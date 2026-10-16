@@ -106,7 +106,17 @@ Git Bash rewrites arguments that start with `/` into Windows paths before any pr
 
 ## Let Claude Code drive it
 
-MCP (recommended, gives Claude typed tools). With the CLI installed from npm, on macOS and Linux:
+The coolFTP plugin is the one-step way: it starts the MCP server, teaches Claude how to deploy safely, adds `/coolftp:setup`, `/coolftp:deploy`, `/coolftp:undo` and `/coolftp:live`, and shows each deploy in a live panel beside the chat. In Claude Code:
+
+```
+/plugin install coolftp --marketplace anivdel/coolFTP
+```
+
+Answer `y` to add the marketplace, then pick a scope. In the Claude desktop app: + next to the prompt box, Plugins, Add marketplace `anivdel/coolFTP`, then add `coolftp`. It needs Node 18 or newer and nothing else; the desktop app is optional. Then say "set up coolFTP for this project". Details in [plugins/coolftp](plugins/coolftp).
+
+### The MCP server by hand
+
+For other MCP clients, or to wire Claude Code yourself without the plugin. With the CLI installed from npm, on macOS and Linux:
 
 ```bash
 claude mcp add --scope user coolftp -- coolftp mcp
@@ -134,16 +144,6 @@ claude mcp add coolftp -- node "C:\path\to\cool FTP\packages\cli\dist\coolftp.js
 
 Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
 
-## Watch it in Claude Code: the coolftp-live mod
-
-A Claude Code mod in [mods/coolftp-live](mods/coolftp-live) adds a coolFTP panel beside the conversation: each deploy, upload, live check and undo as Claude runs it, with the outcome in one line and a link to the page. Install it at the Claude Code prompt:
-
-```
-/plugin install coolftp-live --marketplace anivdel/coolFTP
-```
-
-`/coolftp-panel` opens the panel again. The mod only watches; it never blocks or changes a coolFTP call.
-
 ## Use it from the Claude Desktop app
 
 The same MCP server ships as a Claude Desktop extension. `npm run mcpb` packs it into `release/coolFTP-<version>.mcpb` (the download page carries the built one); open that file in Claude Desktop and hit Install. Claude gets the `coolftp_*` tools, and every call still routes through the desktop app while it is open, so deploys show up there and deletes, undos and rollbacks wait for your click. A chat has no working directory, so set **Default project folder** in the extension's settings or name the folder in the chat; a project's own `.coolftp.json` is found either way. The bundle is unsigned for now, which the install dialog points out.
@@ -164,7 +164,7 @@ The same MCP server ships as a Claude Desktop extension. `npm run mcpb` packs it
 
 Any agent with a shell can simply run `coolftp deploy` inside a linked project. The CLI detects Claude Code, Cursor, Codex, Gemini CLI and Aider from their environment and labels the call accordingly; pass `--agent <name>` to override.
 
-This repo also ships a `/deploy` skill for Claude Code in `.claude/skills/deploy`. Copy that folder to `~/.claude/skills/deploy` and register the MCP server with `claude mcp add --scope user` so every project on the machine gets it, not only this checkout.
+The deploy skill Claude follows ships in the plugin, in [plugins/coolftp/skills/deploy](plugins/coolftp/skills/deploy/SKILL.md).
 
 ## How agent calls reach the app
 

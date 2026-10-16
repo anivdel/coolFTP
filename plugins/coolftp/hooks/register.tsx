@@ -5,7 +5,7 @@ import type { Op, OpStatus } from '../types'
 import { clock, cliAction, doing, elapsed, mcpAction, outcome, targetOf } from './parse'
 import { QUIET, ago, heroSvg, iconSvg, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
 
-const PANE = 'coolftp-live'
+const PANE = 'coolftp'
 const TITLE = 'coolFTP'
 const KEEP = 40
 const STORE_KEY = 'recent'
@@ -17,8 +17,8 @@ const DEEP = '#2B6CB0'
 /** Calls that change the server: these toast when they finish. */
 const LOUD = new Set(['deploy', 'undo', 'rollback', 'upload', 'delete', 'write', 'rename', 'mkdir'])
 
-const ops = atom({ plugin: 'coolftp-live', key: 'ops' } as const, [])
-const now = atom({ plugin: 'coolftp-live', key: 'now' } as const, 0)
+const ops = atom({ plugin: 'coolftp', key: 'ops' } as const, [])
+const now = atom({ plugin: 'coolftp', key: 'now' } as const, 0)
 
 const GLYPH: Record<OpStatus, string> = { running: '◐', ok: '✓', warn: '!', error: '✗' }
 const COLOR: Record<OpStatus, string> = { running: BLUE, ok: 'success', warn: 'warning', error: 'error' }

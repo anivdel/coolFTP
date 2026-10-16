@@ -72,7 +72,7 @@ test('a deploy shows in the panel on every surface', async ($, on) => {
   expect(toasts[0]).toBe('coolFTP ✓ Your site is live')
 
   const mountPane = (surface: 'terminal' | 'desktop' | 'vscode') =>
-    $.ui.mount({ plugin: 'coolftp-live', surface, component: 'Pane', requestId: 'coolftp-live', props: PANE_PROPS })
+    $.ui.mount({ plugin: 'coolftp', surface, component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
 
   const terminal = await mountPane('terminal')
   expect(await terminal.find({ type: 'Text', text: /Your site is live/ })).toBeDefined()
@@ -80,7 +80,7 @@ test('a deploy shows in the panel on every surface', async ($, on) => {
   await terminal.unmount()
 
   for (const surface of ['desktop', 'vscode'] as const) {
-    const ui = await $.ui.mount({ plugin: 'coolftp-live', surface, component: 'Pane', requestId: 'coolftp-live', props: PANE_PROPS })
+    const ui = await $.ui.mount({ plugin: 'coolftp', surface, component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
     const hero = await ui.find({ type: 'Svg' })
     expect(hero?.props.alt).toBe('Your site is live')
     expect(String(hero?.props.source)).toContain('demo.example.com')

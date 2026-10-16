@@ -34,6 +34,6 @@ export type Op = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'coolftp-live': { ops: Op[]; now: number }
+    'coolftp': { ops: Op[]; now: number }
   }
 }
