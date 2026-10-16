@@ -130,10 +130,12 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
 export function placeOf(status: Record<string, unknown> | undefined): Place | undefined {
   if (!status) return undefined
   const site = status.site as { name?: unknown; host?: unknown } | undefined
-  const config = status.config as { site?: unknown } | null | undefined
+  const config = status.config as { site?: unknown; url?: unknown } | null | undefined
   const name = typeof site?.name === 'string' ? site.name : typeof config?.site === 'string' && config.site ? config.site : undefined
   if (!name) return undefined
-  return { site: name, host: typeof site?.host === 'string' && site.host ? site.host : undefined }
+  /* The project's own url (.coolftp.json) wins over the saved site's, as it does for live checks. */
+  const own = typeof config?.url === 'string' ? /^https?:\/\/([^/:]+)/.exec(config.url)?.[1] : undefined
+  return { site: name, host: typeof site?.host === 'string' && site.host ? site.host : own }
 }
 
 /** The first address a live check opened: `Checking https://example.com and 2 files`. */

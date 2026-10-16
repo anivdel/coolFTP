@@ -100,6 +100,7 @@ test('a deploy shows in the panel on every surface', async ($, on) => {
 test('reads the site a folder deploys to', async () => {
   expect(placeOf({ config: { site: 'coolFTP' }, site: { name: 'coolFTP', host: 'coolftp.com' } })).toEqual({ site: 'coolFTP', host: 'coolftp.com' })
   expect(placeOf({ config: { site: 'jledvina' } })).toEqual({ site: 'jledvina', host: undefined })
+  expect(placeOf({ config: { site: 'jledvina', url: 'https://jledvina.com' } })).toEqual({ site: 'jledvina', host: 'jledvina.com' })
   expect(placeOf({ config: null })).toBeUndefined()
   expect(checkedUrl('Checking https://coolftp.com and 1 file\n200 https://coolftp.com/ (897ms)')).toBe('https://coolftp.com')
 })
