@@ -4,7 +4,7 @@ One plugin that lets Claude deploy your site to its SFTP, FTPS or FTP host: Host
 
 What it adds to Claude Code:
 
-- **The coolFTP MCP server**, started for you. A global `coolftp` (`npm i -g coolftp`) is used when there is one, so it matches your CLI and desktop app; otherwise it runs the latest from npm with `npx`.
+- **The coolFTP MCP server**, built in. The plugin carries its own copy of the coolftp CLI, so updating the plugin updates the server too: nothing to install from npm, and the desktop app is optional. Set `COOLFTP_BIN` to run a different coolftp instead.
 - **A deploy skill** that tells Claude how to deploy safely: preview first, never call a deploy live until the site answered, never delete remote files unless you asked, stop when you deny something in the coolFTP app.
 - **Commands:** `/coolftp:setup` links a project to your server, `/coolftp:deploy` deploys, `/coolftp:undo` puts the previous version back, `/coolftp:live` checks what is live.
 - **A live panel** beside the chat that shows each deploy as it runs: files flying to your site, the live check, a ✓ or ✗, told in plain English. `/coolftp-panel` opens it again after you close it.

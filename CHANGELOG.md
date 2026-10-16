@@ -1,5 +1,10 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.3 (2026-10-16)
+
+- **The MCP server ships inside the plugin.** The plugin carries its own copy of the coolftp CLI (`server/coolftp.js`, one file with no dependencies, refreshed by `npm run build`), and starts it in place of a global `coolftp` or `npx`. A plugin update now brings server changes with it, so the live progress from 0.3.2 works straight away, with no npm install and no desktop app. `COOLFTP_BIN` still picks another coolftp.
+- Downloads report live progress too: the live file is named for the project folder the call came from.
+
 ## Claude Code plugin: coolftp 0.3.2 (2026-10-16)
 
 - **Live progress in the panel.** While files move, the panel names the file being sent with its bytes so far (`…/media/intro.mp4 · 12.0 MB of 48.0 MB`), draws a progress bar, and shows the whole job: files done, bytes, speed and time left. The terminal panel gets a text bar. The status line shows the percentage.

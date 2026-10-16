@@ -1,10 +1,15 @@
 #!/usr/bin/env node
-// Starts the coolFTP MCP server for the plugin. A `coolftp` already on PATH (npm i -g coolftp)
-// wins, so the server matches the CLI and the desktop app the user installed; otherwise npx
-// fetches the latest coolftp from npm. stdio is passed straight through.
+// Starts the coolFTP MCP server for the plugin. The plugin ships its own copy of the coolftp CLI
+// (server/coolftp.js, one file with no dependencies), so a plugin update brings server changes
+// with it and nothing else needs installing. COOLFTP_BIN points at another coolftp instead; a
+// copy missing from the plugin falls back to a coolftp on PATH, then to npx. stdio is passed
+// straight through.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const bundled = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "server", "coolftp.js");
 
 const win = process.platform === "win32";
 
@@ -20,7 +25,7 @@ function onPath(name) {
   return undefined;
 }
 
-const installed = process.env.COOLFTP_BIN || onPath("coolftp");
+const installed = process.env.COOLFTP_BIN || (existsSync(bundled) ? bundled : onPath("coolftp"));
 const script = installed && /\.[cm]?js$/i.test(installed);
 const [cmd, args] = script
   ? [process.execPath, [installed, "mcp"]]

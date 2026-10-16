@@ -158,12 +158,12 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
   };
 
   /** Run a method, collecting a readable log: full detail for small jobs, a summary for big ones. */
-  const call = async (method: string, args: Record<string, unknown>) => {
+  const call = async (method: string, args: Record<string, unknown>, project?: string) => {
     const runner = await factory.get();
     const log: string[] = [];
     let fileLines = 0;
     let lastProgress = "";
-    const live = liveProgress(method, typeof args.cwd === "string" ? args.cwd : defaultCwd());
+    const live = liveProgress(method, project || (typeof args.cwd === "string" ? args.cwd : defaultCwd()));
     const onEvent = (e: CoolEvent) => {
       live?.event(e);
       if (e.type === "log") log.push(`${e.level === "error" ? "ERROR: " : e.level === "warn" ? "WARNING: " : ""}${e.message}`);
@@ -534,7 +534,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
       try {
         const runner = await factory.get();
         const { site: s, path: rp } = await target(runner, cwd, site, remote);
-        const { result, log } = await call("download", { site: s, remote: rp, local: localPath(cwd, local || ".") });
+        const { result, log } = await call("download", { site: s, remote: rp, local: localPath(cwd, local || ".") }, cwd);
         return text(result, log);
       } catch (e) {
         return fail(e);

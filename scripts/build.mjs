@@ -73,6 +73,17 @@ function copyStatic() {
   if (fs.existsSync(assets)) fs.cpSync(assets, path.join(root, "packages/app/dist/assets"), { recursive: true });
 }
 
+/**
+ * The Claude Code plugin ships its own copy of the CLI (one file, no dependencies), so a plugin
+ * update carries MCP server changes with it: no npm install, no global coolftp, no desktop app.
+ */
+function bundleIntoPlugin() {
+  const dst = path.join(root, "plugins/coolftp/server");
+  fs.mkdirSync(dst, { recursive: true });
+  fs.copyFileSync(path.join(root, "packages/cli/dist/coolftp.js"), path.join(dst, "coolftp.js"));
+  fs.writeFileSync(path.join(dst, "VERSION"), `${pkg.version} ${buildDate}\n`);
+}
+
 copyStatic();
 if (watch) {
   const ctxs = await Promise.all(targets.map((t) => esbuild.context(t)));
@@ -81,5 +92,6 @@ if (watch) {
   console.log("watching...");
 } else {
   await Promise.all(targets.map((t) => esbuild.build(t)));
+  bundleIntoPlugin();
   console.log("build complete");
 }
