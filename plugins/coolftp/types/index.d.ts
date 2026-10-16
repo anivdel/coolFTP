@@ -6,6 +6,9 @@ export type Op = {
   action: string
   /** mcp or cli */
   via: 'mcp' | 'cli'
+  /** the project folder the step ran for */
+  cwd?: string
+  /** the site it went to: its domain when known, else its coolFTP name */
   site?: string
   /** what it acted on: a path, "dry run", a deploy id */
   target?: string
@@ -32,8 +35,11 @@ export type Op = {
   isEarlier?: boolean
 }
 
+/** The site a project folder deploys to: its coolFTP name and the domain people know it by. */
+export type Place = { site?: string; host?: string }
+
 declare module 'claude-code' {
   interface PluginState {
-    'coolftp': { ops: Op[]; now: number }
+    'coolftp': { ops: Op[]; now: number; where: Record<string, Place> }
   }
 }

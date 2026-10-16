@@ -130,6 +130,15 @@
     summary { cursor: pointer; font-weight: 600; }
     details p { color: var(--muted); margin: 8px 0 0; font-size: 14px; }
 
+    /* The sister tools, same strip as woodpeckerdig.com. */
+    .family { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 34px; }
+    .sister { display: flex; align-items: flex-start; gap: 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+    .sister img { flex: none; }
+    .sister p { margin: 0; color: var(--muted); font-size: 14px; }
+    .sister b { color: var(--text); }
+    @media (max-width: 960px) { .family { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 640px) { .family { grid-template-columns: minmax(0, 1fr); } }
+
     footer { padding: 34px 0 50px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--line); }
     .note { font-size: 12px; color: var(--muted); }
 
@@ -616,8 +625,23 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <details><summary>Why Electron?</summary><p>Because the same TypeScript core runs the CLI, the MCP server and the app, and because ssh2 and basic-ftp are the most battle-tested SFTP and FTP libraries in any language that also ships a GUI toolkit. The bundle is bigger than a native app. The code is smaller.</p></details>
     </section>
 
+    <div class="family">
+      <div class="sister">
+        <img src="https://woodpeckerdig.com/logo.png" alt="" width="44" height="44" loading="lazy" />
+        <p><b>woodpeckerDig.</b> Did the deploy break something? <a href="https://woodpeckerdig.com">woodpeckerDig</a> shows Claude what your program said: a live error feed per project.</p>
+      </div>
+      <div class="sister">
+        <img src="https://magpiesnap.com/logo.png" alt="" width="44" height="44" loading="lazy" />
+        <p><b>magpieSnap.</b> Show Claude what you see on the live site. <a href="https://magpiesnap.com">magpieSnap</a>: press Print Screen, box it, send it.</p>
+      </div>
+      <div class="sister">
+        <img src="https://owlsql.com/logo.png" alt="" width="44" height="44" loading="lazy" />
+        <p><b>OwlSQL.</b> Files are live, now the data. <a href="https://owlsql.com">OwlSQL</a> lets Claude fix your MySQL database, with every write undoable.</p>
+      </div>
+    </div>
+
     <footer>
-      <div>coolFTP · MIT licensed · built by Justin Ledvina, a working dev, for working devs</div>
+      <div>coolFTP · MIT licensed · Justin Ledvina</div>
       <div><a href="https://github.com/anivdel/coolFTP">GitHub</a> · <a href="https://github.com/anivdel/coolFTP/issues">Issues</a> · <a href="#quickstart">Docs</a></div>
     </footer>
   </div>

@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Op, OpStatus } from '../types'
-import { clock, cliAction, doing, elapsed, mcpAction, outcome, targetOf } from './parse'
+import type { Op, OpStatus, Place } from '../types'
+import { clock, cliAction, doing, elapsed, mcpAction, outcome, placeOf, resultJson, targetOf } from './parse'
 import { QUIET, ago, heroSvg, iconSvg, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
 
 const PANE = 'coolftp'
@@ -19,6 +19,8 @@ const LOUD = new Set(['deploy', 'undo', 'rollback', 'upload', 'delete', 'write',
 
 const ops = atom({ plugin: 'coolftp', key: 'ops' } as const, [])
 const now = atom({ plugin: 'coolftp', key: 'now' } as const, 0)
+/** Which site each project folder deploys to, as coolFTP answered: the panel names it on every step. */
+const where = atom({ plugin: 'coolftp', key: 'where' } as const, {})
 
 const GLYPH: Record<OpStatus, string> = { running: '◐', ok: '✓', warn: '!', error: '✗' }
 const COLOR: Record<OpStatus, string> = { running: BLUE, ok: 'success', warn: 'warning', error: 'error' }
@@ -66,6 +68,45 @@ const hostOf = (url?: string) => {
   return m ? m[1] : undefined
 }
 
+/** The name a step's site goes by: its domain when known, else the coolFTP site name. */
+const labelOf = (place: Place | undefined, explicit?: string) =>
+  explicit && place?.site && explicit.toLowerCase() !== place.site.toLowerCase() ? explicit : (place?.host ?? place?.site ?? explicit)
+
+let server: string | undefined
+
+/** Asks coolFTP once per folder which site it deploys to. Quiet on failure: the step still shows. */
+async function learn($: EngineInterface, cwd: string): Promise<Place | undefined> {
+  const known = (await read($, where))[cwd]
+  if (known?.host) return known
+  try {
+    if (!server) {
+      const got = await $.mcp.connect('coolftp')
+      if (!got.isConnected) return known
+      server = got.server
+    }
+    const textOf = (r: { content?: Array<{ type: string; text?: string }> }) => (r.content ?? []).map(c => c.text ?? '').join('\n')
+    const status = resultJson(textOf(await $.mcp.call(server, 'coolftp_status', { cwd })))
+    let place = placeOf(status)
+    /* Older coolFTP answers the site name only: the saved site's url gives the domain. */
+    if (place?.site && !place.host) {
+      const sites = JSON.parse(textOf(await $.mcp.call(server, 'coolftp_sites', {}))) as Array<{ name?: string; url?: string }>
+      const saved = Array.isArray(sites) ? sites.find(s => s.name === place!.site) : undefined
+      place = { ...place, host: hostOf(saved?.url) }
+    }
+    if (place) await update($, where, all => ({ ...all, [cwd]: { ...all[cwd], ...place } }))
+    return place ?? known
+  } catch {
+    return known
+  }
+}
+
+/** Puts a learned domain on the steps of that folder that do not name one yet. */
+async function relabel($: EngineInterface, cwd: string, explicit: string | undefined, place: Place | undefined) {
+  const name = labelOf(place, explicit)
+  if (!name) return
+  await update($, ops, all => all.map(op => (op.cwd === cwd && !op.isEarlier && (op.site === undefined || op.site === explicit || op.site === place?.site) ? { ...op, site: name } : op)))
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -97,17 +138,22 @@ export const register: Register = on => {
     if (!action || QUIET.has(action)) return next(e)
 
     const args = e as unknown as Record<string, unknown>
+    const explicit = typeof args.site === 'string' ? args.site : undefined
+    const cwd = typeof args.cwd === 'string' && args.cwd ? args.cwd : await $.session.cwd().catch(() => '')
+    const place = (await read($, where))[cwd]
     const op: Op = {
       id: e.tool_use_id,
       action,
       via: fromMcp ? 'mcp' : 'cli',
-      site: typeof args.site === 'string' ? args.site : undefined,
+      cwd,
+      site: labelOf(place, explicit),
       target: fromMcp ? targetOf(action, args) : e.tool === 'Bash' ? e.command.slice(0, 120) : undefined,
       status: 'running',
       startedAt: Date.now(),
       isPreview: args.dryRun === true || action === 'diff' || (fromCli !== undefined && /--dry-run/.test(String(args.command))),
     }
     await begin($, op)
+    if (!place?.host && cwd) void learn($, cwd).then(p => relabel($, cwd, explicit, p))
 
     let ran
     try {
@@ -123,11 +169,17 @@ export const register: Register = on => {
     } else {
       const text = ran.text ?? ''
       const got = outcome(action, text, ran.isError === true)
+      /* A live check's address names the domain for this folder from now on. */
+      const host = hostOf(got.url)
+      if (host && cwd && (!explicit || !got.site || explicit === got.site)) {
+        await update($, where, all => ({ ...all, [cwd]: { site: got.site ?? all[cwd]?.site, host } }))
+      }
+      const label = labelOf((await read($, where))[cwd], explicit) ?? got.site
       await finish($, op.id, {
         status: got.status,
         summary: got.summary,
         url: got.url,
-        site: op.site ?? got.site,
+        site: label,
         files: got.files,
         bytes: got.bytes,
         live: got.live,
@@ -190,9 +242,11 @@ export const register: Register = on => {
     const { Box, Text, Button, Link, Svg } = $.ui.resolve(e)
     const width = Math.max(280, Math.min(560, Math.round((e.props.bodyColumns || 56) * 8)))
 
-    /** The domain people know the site by, when a step told us; else the coolFTP site name. */
-    const knownHost = list.map(op => hostOf(op.url)).find(Boolean)
-    const named = (op: Op): Op => ({ ...op, site: hostOf(op.url) ?? knownHost ?? op.site })
+    /** Each step keeps the site it went to, so two projects in one panel never borrow each other's name. */
+    const named = (op: Op): Op => ({ ...op, site: hostOf(op.url) ?? op.site })
+    const places = await read($, where)
+    const sessionCwd = await $.session.cwd().catch(() => '')
+    const idleSite = labelOf(places[sessionCwd]) ?? current.find(op => op.site)?.site
 
     const focus = current.find(op => op.status === 'running') ?? current[0]
     const shown = focus ? named(focus) : undefined
@@ -225,7 +279,7 @@ export const register: Register = on => {
 
     return (
       <Box flexDirection="column" gap={1}>
-        <Svg source={heroSvg(shown, knownHost)} alt={story?.title ?? 'Ready when Claude is'} width={width} height={Math.round((width * 200) / 440)} isInteractive />
+        <Svg source={heroSvg(shown, idleSite)} alt={story?.title ?? 'Ready when Claude is'} width={width} height={Math.round((width * 200) / 440)} isInteractive />
         <Box flexDirection="column">
           <Text color={shown?.status === 'error' ? 'error' : undefined} wrap="wrap">
             {story ? story.detail : 'Ask Claude to publish your site. You will see your files travel to it, then a check that it is live.'}

@@ -161,9 +161,22 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
         const cfg = file ? readJson<ProjectConfig>(file, { site: "" }) : null;
         const { result: connections, runner } = await call("connections", {});
         const note = runner.mode === "direct" ? sandboxNote() : undefined;
+        /** The address people know the site by, so a panel can say which site a call goes to. */
+        let site: { name: string; url?: string; host?: string } | undefined;
+        if (cfg?.site) {
+          const { result: sites } = await call("sites", {});
+          const saved = (sites as Array<{ name: string; url?: string }>).find((s) => s.name === cfg.site);
+          const url = cfg.url || saved?.url;
+          let host: string | undefined;
+          try {
+            host = url ? new URL(url).hostname : undefined;
+          } catch {}
+          site = { name: cfg.site, url, host };
+        }
         return text({
           projectFile: file,
           config: cfg,
+          site,
           app: runner.mode === "hub" ? { running: true, port: runner.hubPort, version: runner.appVersion } : { running: false },
           cli: version,
           mode: runner.mode,

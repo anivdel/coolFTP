@@ -1,4 +1,4 @@
-import type { OpStatus } from '../types'
+import type { OpStatus, Place } from '../types'
 
 /** `mcp__coolftp__coolftp_deploy`, `mcp__plugin_x_coolftp__coolftp_undo`: the action, or undefined. */
 export function mcpAction(tool: string): string | undefined {
@@ -110,6 +110,7 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     return {
       status: liveStatus(j.live) ?? 'ok',
       summary: `${String(j.live ?? 'checked')} · ${passed}/${checks.length} checks`,
+      url: checkedUrl(text),
       live: verdict(j.live),
       checks: checks.length,
       loadMs: loadMsOf(text),
@@ -123,6 +124,22 @@ export function outcome(action: string, text: string, isError: boolean): Outcome
     files: typeof j.files === 'number' ? j.files : undefined,
     bytes: typeof j.bytes === 'number' ? j.bytes : undefined,
   }
+}
+
+/** The site a coolftp_status answer says the folder deploys to. */
+export function placeOf(status: Record<string, unknown> | undefined): Place | undefined {
+  if (!status) return undefined
+  const site = status.site as { name?: unknown; host?: unknown } | undefined
+  const config = status.config as { site?: unknown } | null | undefined
+  const name = typeof site?.name === 'string' ? site.name : typeof config?.site === 'string' && config.site ? config.site : undefined
+  if (!name) return undefined
+  return { site: name, host: typeof site?.host === 'string' && site.host ? site.host : undefined }
+}
+
+/** The first address a live check opened: `Checking https://example.com and 2 files`. */
+export function checkedUrl(text: string): string | undefined {
+  const m = /^Checking (https?:\/\/\S+)/m.exec(text) ?? /^\s*\d{3} (https?:\/\/\S+) \(/m.exec(text)
+  return m ? m[1] : undefined
 }
 
 /** What an MCP call acted on, from its arguments. */

@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { cliAction, loadMsOf, mcpAction, outcome } from '../hooks/parse'
+import { checkedUrl, cliAction, loadMsOf, mcpAction, outcome, placeOf } from '../hooks/parse'
 import { heroSvg, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
 
 const DEPLOY_TEXT = [
@@ -48,7 +48,7 @@ test('plain words for each step', async () => {
   expect(words({ ...base, action: 'deploy', status: 'ok', live: 'live', files: 2 }).title).toBe('Your site is live')
   expect(words({ ...base, action: 'deploy', status: 'ok', isPreview: true, files: 0 }).title).toBe('Everything is already up to date')
   expect(words({ ...base, action: 'upload', status: 'ok', target: 'C:/site/index.html', files: 1 }).title).toBe('index.html is on coolftp.com')
-  expect(words({ ...base, action: 'diff', status: 'error', error: 'Error: Unknown site "coolFTP"' }).detail).toContain('Open the coolFTP app')
+  expect(words({ ...base, action: 'diff', status: 'error', error: 'Error: Unknown site "coolFTP"' }).detail).toContain("doesn't have this site saved")
   expect(heroSvg(undefined)).toContain('Ready when Claude is')
   expect(loadMsOf(['Checking https://x.com', '200 https://x.com/ (252ms)', ''].join('\n'))).toBe(252)
   const tally = tallyOf([{ ...base, action: 'upload', status: 'ok', files: 5, endedAt: 0 }, { ...base, action: 'verify', status: 'ok', live: 'live', loadMs: 1400, isEarlier: true }], 180_000)
@@ -94,5 +94,48 @@ test('a deploy shows in the panel on every surface', async ($, on) => {
   const ui = await mountPane('desktop')
   await ui.press({ key: 'clear' })
   expect(await ui.find({ type: 'Text', text: /Ask Claude to publish your site/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('reads the site a folder deploys to', async () => {
+  expect(placeOf({ config: { site: 'coolFTP' }, site: { name: 'coolFTP', host: 'coolftp.com' } })).toEqual({ site: 'coolFTP', host: 'coolftp.com' })
+  expect(placeOf({ config: { site: 'jledvina' } })).toEqual({ site: 'jledvina', host: undefined })
+  expect(placeOf({ config: null })).toBeUndefined()
+  expect(checkedUrl('Checking https://coolftp.com and 1 file\n200 https://coolftp.com/ (897ms)')).toBe('https://coolftp.com')
+})
+
+test('each step names the site it went to, across projects', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  const statuses: Record<string, object> = {
+    'C:/work/coolftp': { config: { site: 'coolFTP' }, site: { name: 'coolFTP', url: 'https://coolftp.com', host: 'coolftp.com' } },
+    'C:/work/jledvina': { config: { site: 'jledvina' } },
+  }
+  const sites = [{ name: 'jledvina', url: 'https://jledvina.com' }]
+  const statusLines: string[] = []
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('ui.status', (_$, e) => {
+    if (e.text) statusLines.push(String(e.text))
+    return { value: undefined }
+  })
+  on('ui.toast', () => ({ value: undefined }))
+  on('mcp.connect', () => ({ value: { isConnected: true as const, server: 'plugin:coolftp:coolftp' } }))
+  on('mcp.call', (_$, e) => {
+    const body = e.tool === 'coolftp_status' ? statuses[String((e.args as { cwd?: string } | undefined)?.cwd)] : sites
+    return { value: { content: [{ type: 'text', text: JSON.stringify(body) }] } }
+  })
+  const UPLOAD = JSON.stringify({ files: 1, bytes: 900, verified: 1 })
+  on('tool.call', { tool: 'mcp__coolftp__coolftp_upload' }, () => ({ result: {}, text: UPLOAD }))
+
+  await $.tool.call({ tool: 'mcp__coolftp__coolftp_upload', cwd: 'C:/work/coolftp', local: 'index.html' })
+  await $.tool.call({ tool: 'mcp__coolftp__coolftp_upload', cwd: 'C:/work/jledvina', local: 'about.html' })
+  /* Once learned, the domain is there from the first moment of the next step. */
+  await $.tool.call({ tool: 'mcp__coolftp__coolftp_upload', cwd: 'C:/work/coolftp', local: 'logo.png' })
+  expect(statusLines.at(-1)).toBe('coolFTP: uploading coolftp.com…')
+
+  const ui = await $.ui.mount({ plugin: 'coolftp', surface: 'terminal', component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
+  expect(await ui.find({ type: 'Text', text: /logo\.png is on coolftp\.com/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /about\.html is on jledvina\.com/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /index\.html is on coolftp\.com/ })).toBeDefined()
   await ui.unmount()
 })

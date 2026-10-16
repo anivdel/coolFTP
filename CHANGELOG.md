@@ -1,5 +1,11 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.1 (2026-10-16)
+
+- **The panel names the site.** Every step says which site it went to, by the domain people know it by: "Publishing your site to coolftp.com", "about.html is on jledvina.com". The panel asks coolFTP once per project folder, so two projects in one session never borrow each other's name. Before, it said "your website" until a live check gave it an address, and could reuse another project's domain.
+- `coolftp_status` now answers `site: { name, url, host }` for the project. The plugin falls back to `coolftp_sites` with coolFTP 0.1.4.
+- An unknown site no longer tells you to open the coolFTP app.
+
 ## Claude Code plugin: coolftp 0.3.0 (2026-10-16)
 
 coolFTP is now one Claude Code plugin. One install gives Claude the MCP server, the deploy skill, slash commands and the live panel; before, that took an npm install, a `claude mcp add` (with a `cmd /c` wrapper on Windows), copying a skill folder by hand and a separate mod. Works with coolFTP 0.1.4 as it is; the app, CLI and MCP server are unchanged. Source in [plugins/coolftp](plugins/coolftp).

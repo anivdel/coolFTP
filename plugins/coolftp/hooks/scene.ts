@@ -121,7 +121,7 @@ export function words(op: Op): { title: string; detail: string } {
 /** An error, said the way a person would say it. */
 export function plainError(raw: string): string {
   const s = raw.replace(/^Error:\s*/, '')
-  if (/Unknown site/i.test(s)) return 'coolFTP could not find this site here. Open the coolFTP app and try again.'
+  if (/Unknown site/i.test(s)) return "coolFTP doesn't have this site saved on this computer. Add it in the coolFTP app or with coolftp site add."
   if (/Denied in the coolFTP app/i.test(s)) return 'You said no in the coolFTP app, so nothing changed.'
   if (/blocked:/i.test(s)) return 'This step was blocked before it ran.'
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|timed? ?out|connect/i.test(s)) return "Couldn't reach the server. It may be down or the address changed."
