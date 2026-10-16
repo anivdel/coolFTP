@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { checkedUrl, cliAction, liveFileName, loadMsOf, mcpAction, outcome, placeOf, progressOf } from '../hooks/parse'
-import { heroSvg, progressBar, progressWords, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
+import { heroSvg, moodOf, progressBar, progressWords, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
 
 const DEPLOY_TEXT = [
   '↑ /index.html (2.1 KB)',
@@ -238,5 +238,24 @@ test('each step lists the files it touched', async ($, on) => {
     expect(await ui.find({ type: 'Text', text: /− old\.html/ })).toBeDefined()
     await ui.press({ key: 'more-' + (await ui.find({ type: 'Button', props: { label: 'Fewer files' } }))!.key!.slice(5) })
     await ui.unmount()
+  }
+})
+
+test('the yeti works in the hero, in every mood, within the drawing budget', async () => {
+  const base = { id: 'x', via: 'mcp' as const, startedAt: 0, site: 'woodpeckerdig.com' }
+  const steps = [
+    undefined,
+    { ...base, action: 'deploy', status: 'running' as const },
+    { ...base, action: 'download', status: 'running' as const },
+    { ...base, action: 'verify', status: 'running' as const },
+    { ...base, action: 'deploy', status: 'ok' as const, live: 'live' as const },
+    { ...base, action: 'deploy', status: 'warn' as const },
+    { ...base, action: 'deploy', status: 'error' as const, error: 'ECONNREFUSED' },
+  ]
+  expect(steps.map(moodOf)).toEqual(['idle', 'send', 'fetch', 'scan', 'happy', 'worry', 'cross'])
+  for (const op of steps) {
+    const svg = heroSvg(op, 'woodpeckerdig.com')
+    expect(svg).toContain('<image href="data:image/png;base64,')
+    expect(svg.length).toBeLessThan(131072)
   }
 })

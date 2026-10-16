@@ -1,5 +1,6 @@
 import type { Op, Progress } from '../types'
 import { bytes } from './parse'
+import { YETI, type YetiLayer } from './yeti-art'
 
 /** Pictures for the panel: plain words and SVG drawn on surfaces that have it. */
 
@@ -218,6 +219,90 @@ const bin = (x: number, y: number) =>
   `<g><path d="M${x - 8},${y - 6} h16 l-2,16 h-12 z" fill="#0b1730" stroke="${SKY}" stroke-width="2.4" stroke-linejoin="round"/><path d="M${x - 11},${y - 7} h22 M${x - 4},${y - 10} h8" stroke="${SKY}" stroke-width="2.4" stroke-linecap="round"/>` +
   `<animateTransform attributeName="transform" type="rotate" values="-8 ${x} ${y};8 ${x} ${y};-8 ${x} ${y}" dur=".9s" repeatCount="indefinite"/></g>`
 
+/* ---------- the yeti, rigged from the logo (hooks/yeti-art.ts) ---------- */
+
+export type Mood = 'idle' | 'send' | 'fetch' | 'scan' | 'look' | 'worry' | 'happy' | 'cross'
+
+/** What the yeti is doing for a step. */
+export function moodOf(op: Op | undefined): Mood {
+  if (!op) return 'idle'
+  const kind = kindOf(op.action)
+  if (op.status === 'error') return 'cross'
+  if (op.status === 'warn') return 'worry'
+  if (op.status === 'ok') return 'happy'
+  if (op.isPreview || op.action === 'diff') return 'scan'
+  if (kind === 'publish' || kind === 'send' || kind === 'edit') return 'send'
+  if (kind === 'fetch') return 'fetch'
+  if (kind === 'check') return 'scan'
+  if (kind === 'restore' || kind === 'remove') return 'worry'
+  return 'look'
+}
+
+const img = (l: YetiLayer) => `<image href="${l.href}" x="${l.x}" y="${l.y}" width="${l.w}" height="${l.h}"/>`
+
+/** A looping SMIL transform; `values` in the attribute's own syntax. */
+const loop = (type: string, values: string, dur: number, extra = '') =>
+  `<animateTransform attributeName="transform" type="${type}" values="${values}" dur="${dur}s" repeatCount="indefinite"${extra}/>`
+
+/**
+ * The yeti's head, `h` tall with its top centre at (x, y). Moods: idle breathes and blinks, send
+ * nods along with the files and watches them go right, fetch watches them come left, scan reads
+ * side to side, happy beams and bounces, worry looks up wide-eyed, cross glares and shakes.
+ */
+export function yetiSvg(mood: Mood, x: number, y: number, h: number): string {
+  const k = h / 594
+  const busy = mood === 'send' || mood === 'fetch'
+  /* Whole head: a slow breath when idle, a nod per file when working, a hop when happy. */
+  const body =
+    mood === 'happy'
+      ? loop('translate', '0 0;0 -40;0 0;0 -16;0 0;0 0', 1.6, ' keyTimes="0;.18;.36;.5;.62;1" calcMode="spline" keySplines=".3 0 .7 1;.3 0 .7 1;.3 0 .7 1;.3 0 .7 1;0 0 1 1"')
+      : mood === 'cross'
+        ? loop('translate', '0 0;-14 0;14 0;-10 0;10 0;0 0;0 0', 1.8, ' keyTimes="0;.06;.12;.18;.24;.3;1"')
+        : busy
+          ? loop('translate', '0 0;0 10;0 0', 0.55)
+          : loop('translate', '0 0;0 -6;0 0', 3.2, ' calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" keyTimes="0;.5;1"')
+  const tilt =
+    mood === 'worry' ? loop('rotate', '-5 269 300;5 269 300;-5 269 300', 2.4) : mood === 'scan' ? loop('rotate', '-2 269 300;2 269 300;-2 269 300', 2) : loop('rotate', '-1.5 269 300;1.5 269 300;-1.5 269 300', 4)
+  /* Where the eyes look: right after the files, left as they come back, side to side reading. */
+  const gaze =
+    mood === 'send'
+      ? loop('translate', '4 -2;12 -6;4 -2', 0.55)
+      : mood === 'fetch'
+        ? loop('translate', '-12 -4;-4 0;-12 -4', 0.55)
+        : mood === 'scan'
+          ? loop('translate', '-12 2;12 2;-12 2', 1.6)
+          : mood === 'look'
+            ? loop('translate', '0 0;8 0;8 0;-8 0;-8 0;0 0', 4)
+            : ''
+  const eye = (l: YetiLayer) => {
+    const cx = l.x + l.w / 2
+    const cy = l.y + l.h / 2
+    /* Blink about each eye's own centre: move it to the origin, squash, move it back. */
+    return `<g transform="translate(${cx} ${cy})"><g>${loop('scale', '1 1;1 1;1 .1;1 1', 4.2, ' keyTimes="0;.9;.95;1"')}<g transform="translate(${-cx} ${-cy})">${img(l)}</g></g></g>`
+  }
+  const brow =
+    mood === 'cross'
+      ? `<g transform="translate(0 10)">${img(YETI.brow)}</g>`
+      : mood === 'worry' || mood === 'happy'
+        ? `<g transform="translate(0 -14)">${img(YETI.brow)}</g>`
+        : busy
+          ? `<g>${loop('translate', '0 0;0 -5;0 0', 0.55)}${img(YETI.brow)}</g>`
+          : img(YETI.brow)
+  const eyes =
+    mood === 'happy'
+      ? `<g fill="none" stroke="#000" stroke-width="12" stroke-linecap="round"><path d="M182 236 Q205 204 228 236"/><path d="M313 236 Q336 204 359 236"/></g>`
+      : mood === 'worry'
+        ? `<g><ellipse cx="205" cy="227" rx="25" ry="26" fill="#fff" stroke="#000" stroke-width="5"/><circle cx="206" cy="221" r="12"/><ellipse cx="336" cy="227" rx="25" ry="26" fill="#fff" stroke="#000" stroke-width="5"/><circle cx="335" cy="221" r="12"/></g>`
+        : `<g>${gaze}${eye(YETI.eyeL)}${eye(YETI.eyeR)}</g>`
+  /* Happy: the jaw drops a little into a grin. */
+  const teeth = mood === 'happy' ? `<g transform="translate(0 6)">${img(YETI.teeth)}</g>` : img(YETI.teeth)
+  const shadow = `<ellipse cx="269" cy="600" rx="190" ry="22" fill="#000" opacity=".28"/>`
+  return (
+    `<g transform="translate(${x - 269 * k} ${y}) scale(${k})">${shadow}` +
+    `<g>${body}<g>${tilt}${img(YETI.base)}${teeth}${brow}${eyes}</g></g></g>`
+  )
+}
+
 /**
  * The whole story in one picture. `op` is the step to show (the running one,
  * else the newest); undefined draws the idle scene.
@@ -262,6 +347,8 @@ export function heroSvg(op: Op | undefined, siteFallback?: string): string {
     glow +
     `<circle cx="${R.x}" cy="${R.y}" r="36" fill="${NODE}" stroke="${rightRing}" stroke-width="2.5"/>` +
     globe(R.x, R.y, SKY) +
+    /* The yeti does the work, under the path the files fly along. */
+    yetiSvg(moodOf(op), W / 2, 66, 88) +
     action +
     (tone ? badge(R.x + 27, R.y - 27, tone) : '') +
     `<text x="${L.x}" y="${L.y + 56}" text-anchor="middle" font-size="12" fill="${SOFT}">Your computer</text>` +

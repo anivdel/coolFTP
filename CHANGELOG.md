@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.5 (2026-10-16)
+
+- **The yeti is in the panel.** He sits under the path the files fly along and acts out each step: breathes and blinks while waiting, nods and watches files go right while uploading, watches them come back on downloads, reads side to side during previews and live checks, hops with a grin when a deploy is live, looks up wide-eyed on warnings, undos and deletes, and glares and shakes his head on errors. Drawn from the same rig as the videos (`scripts/plugin-yeti.py` embeds it), animated with SVG only.
+
 ## Claude Code plugin: coolftp 0.3.4 (2026-10-16)
 
 - **The panel lists the files each step touched.** Under every deploy, upload, download, undo and rollback: new (`+`), changed (`~`), removed (`−`), sent (`↑`) or fetched (`↓`), with sizes where coolFTP gives them. The first five show; **All N files** opens the rest. Paths are shown inside the web root (`index.html`, not `/domains/x.com/public_html/index.html`). Panel only: no server change.
