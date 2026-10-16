@@ -334,7 +334,8 @@ async function mcpSmoke({ PROJECT, env }) {
   console.log("\nMCP server over stdio");
   // Started away from the project, as the desktop app is: local paths must resolve against the call's cwd.
   const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-mcp-"));
-  const child = spawn("node", [CLI, "--direct", "mcp"], { cwd: elsewhere, env, stdio: ["pipe", "pipe", "pipe"] });
+  const liveDir = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-live-"));
+  const child = spawn("node", [CLI, "--direct", "mcp"], { cwd: elsewhere, env: { ...env, COOLFTP_LIVE_DIR: liveDir }, stdio: ["pipe", "pipe", "pipe"] });
   const pending = new Map();
   let buf = "";
   child.stdout.on("data", (chunk) => {
@@ -389,6 +390,25 @@ async function mcpSmoke({ PROJECT, env }) {
     check("mcp undo dry run describes the work", /"dryRun": true/.test(undoText) && /undoOf/.test(undoText), undoText.slice(0, 300));
     const up = await request("tools/call", { name: "coolftp_upload", arguments: { cwd: PROJECT, local: "app.js", remote: "app.js" } });
     check("mcp upload resolves a relative local path against cwd", !up.result?.isError && /"files": 1/.test(up.result?.content?.[0]?.text ?? ""), JSON.stringify(up).slice(0, 300));
+    // The plugin's panel follows a transfer through COOLFTP_LIVE_DIR while the call is still running.
+    const bigName = "big-live.bin";
+    fs.writeFileSync(path.join(PROJECT, bigName), Buffer.alloc(48 * 1024 * 1024, 7));
+    const liveFile = path.join(liveDir, PROJECT.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(-80) + ".json");
+    const seen = [];
+    const poll = setInterval(() => {
+      try {
+        seen.push(JSON.parse(fs.readFileSync(liveFile, "utf8")));
+      } catch {
+        /* not written yet, or mid-rename */
+      }
+    }, 10);
+    const bigUp = await request("tools/call", { name: "coolftp_upload", arguments: { cwd: PROJECT, local: bigName, remote: bigName } });
+    clearInterval(poll);
+    fs.rmSync(path.join(PROJECT, bigName), { force: true });
+    const midway = seen.find((s) => !s.finished && s.files.some((f) => f.remote.endsWith(bigName) && f.size === 48 * 1024 * 1024));
+    check("mcp upload names the file in flight in its live progress", !bigUp.result?.isError && !!midway, `${seen.length} snapshots: ${[...new Set(seen.map((s) => JSON.stringify(s.files)))].slice(0, 8).join(" ")}`);
+    const end = JSON.parse(fs.readFileSync(liveFile, "utf8"));
+    check("mcp live progress ends finished with nothing in flight", end.finished === true && end.files.length === 0 && end.last.endsWith(bigName), JSON.stringify(end));
     const dlDir = fs.mkdtempSync(path.join(os.tmpdir(), "coolftp-e2e-dl-"));
     const dl = await request("tools/call", { name: "coolftp_download", arguments: { cwd: dlDir, remote: "app.js", local: "fetched.js" } });
     check("mcp download lands relative to cwd", !dl.result?.isError && fs.existsSync(path.join(dlDir, "fetched.js")), JSON.stringify(dl).slice(0, 300));

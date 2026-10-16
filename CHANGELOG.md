@@ -1,5 +1,10 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.2 (2026-10-16)
+
+- **Live progress in the panel.** While files move, the panel names the file being sent with its bytes so far (`…/media/intro.mp4 · 12.0 MB of 48.0 MB`), draws a progress bar, and shows the whole job: files done, bytes, speed and time left. The terminal panel gets a text bar. The status line shows the percentage.
+- How: the MCP server writes a small live file to `COOLFTP_LIVE_DIR` (set by the plugin to its own `.live` folder) at most four times a second while a deploy, upload, download, undo or rollback runs, and the panel reads it every second. Needs the coolFTP CLI after 0.1.4; with 0.1.4 the panel looks as before.
+
 ## Claude Code plugin: coolftp 0.3.1 (2026-10-16)
 
 - **The panel names the site.** Every step says which site it went to, by the domain people know it by: "Publishing your site to coolftp.com", "about.html is on jledvina.com". The panel asks coolFTP once per project folder, so two projects in one session never borrow each other's name. Before, it said "your website" until a live check gave it an address, and could reuse another project's domain.

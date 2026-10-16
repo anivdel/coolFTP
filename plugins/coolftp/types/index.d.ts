@@ -33,6 +33,28 @@ export type Op = {
   error?: string
   /** true for ops restored from an earlier session */
   isEarlier?: boolean
+  /** while files move: what the coolFTP MCP server last wrote to its live file */
+  progress?: Progress
+}
+
+/** A transfer in flight, as the panel draws it. */
+export type Progress = {
+  /** the file moving now, its remote path */
+  file?: string
+  fileBytes?: number
+  fileSize?: number
+  /** other files moving at the same time */
+  alsoMoving: number
+  /** files finished so far, and of how many when the job knows */
+  done: number
+  totalFiles?: number
+  bytes?: number
+  totalBytes?: number
+  /** bytes per second */
+  rate?: number
+  etaMs?: number
+  /** 0..1 when there is a total to measure against */
+  fraction?: number
 }
 
 /** The site a project folder deploys to: its coolFTP name and the domain people know it by. */

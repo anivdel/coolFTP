@@ -1,3 +1,4 @@
+import nodeFs from "node:fs";
 import nodePath from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -10,6 +11,7 @@ import {
   type CoolEvent,
   type DeployResult,
   type DeployRecord,
+  type ProgressInfo,
   type ProjectConfig,
   type VerifyResult,
 } from "@coolftp/core";
@@ -36,7 +38,104 @@ function describeUndo(b: NonNullable<DeployRecord["backup"]>): string {
 /** The Claude Desktop app has no working directory of its own; its extension settings can name a project folder instead. */
 const defaultCwd = () => process.env.COOLFTP_PROJECT || process.cwd();
 
-/** Local paths go out absolute: when a call routes through the desktop app, its working directory is its install folder. */
+/** Calls that move file bytes: these report live progress. */
+const MOVES = new Set(["deploy", "upload", "download", "undo", "rollback"]);
+
+/** The live file's name for a project folder; the plugin's panel derives the same one. */
+export const liveFileName = (cwd: string) => cwd.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(-80) + ".json";
+
+/**
+ * Live progress for the Claude Code plugin's panel. An MCP tool call answers only when it ends, so
+ * while files move the server keeps `$COOLFTP_LIVE_DIR/<folder>.json` current: the files in flight
+ * with their bytes so far, and the whole job's counts. The plugin sets the folder; unset, nothing is
+ * written.
+ */
+function liveProgress(method: string, cwd: string) {
+  const dir = process.env.COOLFTP_LIVE_DIR;
+  if (!dir || !MOVES.has(method)) return undefined;
+  const file = nodePath.join(dir, liveFileName(nodePath.resolve(cwd)));
+  const active = new Map<string, { remote: string; size: number; transferred: number }>();
+  let job: ProgressInfo | undefined;
+  let last = "";
+  let done = 0;
+  let lastWrite = 0;
+  let timer: NodeJS.Timeout | undefined;
+  const startedAt = Date.now();
+  const write = (finished = false) => {
+    lastWrite = Date.now();
+    const body = {
+      v: 1,
+      method,
+      startedAt,
+      at: lastWrite,
+      finished,
+      files: [...active.values()].slice(0, 6),
+      last,
+      done: job?.files ?? done,
+      totalFiles: job?.totalFiles,
+      bytes: job?.bytes,
+      totalBytes: job?.totalBytes,
+      rate: job?.rate,
+      etaMs: job?.etaMs,
+    };
+    try {
+      nodeFs.mkdirSync(dir, { recursive: true });
+      nodeFs.writeFileSync(file + ".tmp", JSON.stringify(body));
+      nodeFs.renameSync(file + ".tmp", file);
+    } catch {
+      /* progress is a nicety: never fail a transfer over it */
+    }
+  };
+  /* At most four writes a second, and always the latest state. */
+  const soon = () => {
+    const wait = 250 - (Date.now() - lastWrite);
+    /* Due now: write in place, since a busy transfer may not yield to a timer for a while. */
+    if (wait <= 0) {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+      return write();
+    }
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = undefined;
+      write();
+    }, wait);
+  };
+  write();
+  return {
+    event(e: CoolEvent) {
+      if (e.type === "transfer") {
+        const t = e.transfer;
+        if (t.status === "queued") return;
+        /* A file starting or ending is news: written at once. Bytes along the way are throttled. */
+        const isNew = t.status === "active" && !active.has(t.id);
+        if (t.status === "active") active.set(t.id, { remote: t.remote, size: t.size, transferred: t.transferred });
+        else {
+          active.delete(t.id);
+          if (t.status === "done") {
+            done++;
+            last = t.remote;
+          }
+        }
+        if (isNew || t.status !== "active") {
+          if (timer) clearTimeout(timer);
+          timer = undefined;
+          write();
+        } else soon();
+      } else if (e.type === "progress") {
+        job = e.progress;
+        soon();
+      }
+    },
+    end() {
+      if (timer) clearTimeout(timer);
+      active.clear();
+      write(true);
+    },
+  };
+}
+
+/** Local paths go out absolute:when a call routes through the desktop app, its working directory is its install folder. */
 const localPath = (cwd: string | undefined, p: string) => nodePath.resolve(cwd || defaultCwd(), p);
 
 export async function startMcpServer(factory: { get(): Promise<Runner> }, version: string): Promise<void> {
@@ -64,7 +163,9 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
     const log: string[] = [];
     let fileLines = 0;
     let lastProgress = "";
+    const live = liveProgress(method, typeof args.cwd === "string" ? args.cwd : defaultCwd());
     const onEvent = (e: CoolEvent) => {
+      live?.event(e);
       if (e.type === "log") log.push(`${e.level === "error" ? "ERROR: " : e.level === "warn" ? "WARNING: " : ""}${e.message}`);
       else if (e.type === "transfer" && e.transfer.status === "done") {
         fileLines++;
@@ -75,7 +176,12 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
         lastProgress = `${p.files.toLocaleString()} files, ${formatBytes(p.bytes)} in ${p.connections > 1 ? `${p.connections} connections` : "one connection"}`;
       } else if (e.type === "created") log.push(`Created folder${e.dirs.length === 1 ? "" : "s"}: ${capList(e.dirs, 10).join(", ")}${e.topLevel.length ? ` (new top-level: ${e.topLevel.join(", ")})` : ""}`);
     };
-    const result = await runner.run(method, args, onEvent);
+    let result;
+    try {
+      result = await runner.run(method, args, onEvent);
+    } finally {
+      live?.end();
+    }
     if (fileLines > LOG_FILE_LINES) log.push(`… ${fileLines - LOG_FILE_LINES} more files${lastProgress ? ` (${lastProgress})` : ""}`);
     const warning =
       runner.mode === "hub" && runner.appVersion && runner.appVersion !== version

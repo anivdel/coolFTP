@@ -1,4 +1,45 @@
-import type { OpStatus, Place } from '../types'
+import type { OpStatus, Place, Progress } from '../types'
+
+/** The live file's name for a project folder: the same rule as coolFTP's MCP server (liveFileName). */
+export const liveFileName = (cwd: string) =>
+  cwd.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(-80) + '.json'
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+
+/**
+ * Reads the server's live file for a step that started at `since`. Undefined for a stale file
+ * (an earlier step's), a finished one, or one that does not parse.
+ */
+export function progressOf(text: string, since: number): Progress | undefined {
+  let j: Record<string, unknown>
+  try {
+    j = JSON.parse(text)
+  } catch {
+    return undefined
+  }
+  if (!j || j.v !== 1 || j.finished === true || (num(j.startedAt) ?? 0) < since - 5000) return undefined
+  const files = (Array.isArray(j.files) ? j.files : []) as Array<{ remote?: unknown; size?: unknown; transferred?: unknown }>
+  /* The biggest file in flight is the one worth naming. */
+  const main = [...files].sort((a, b) => (num(b.size) ?? 0) - (num(a.size) ?? 0))[0]
+  const fileSize = num(main?.size)
+  const fileBytes = num(main?.transferred)
+  const bytes = num(j.bytes)
+  const totalBytes = num(j.totalBytes)
+  const fraction = totalBytes ? (bytes ?? 0) / totalBytes : fileSize ? (fileBytes ?? 0) / fileSize : undefined
+  return {
+    file: typeof main?.remote === 'string' ? main.remote : typeof j.last === 'string' && j.last ? j.last : undefined,
+    fileBytes: main ? fileBytes : undefined,
+    fileSize: main ? fileSize : undefined,
+    alsoMoving: Math.max(0, files.length - 1),
+    done: num(j.done) ?? 0,
+    totalFiles: num(j.totalFiles),
+    bytes,
+    totalBytes,
+    rate: num(j.rate),
+    etaMs: num(j.etaMs),
+    fraction: fraction === undefined ? undefined : Math.max(0, Math.min(1, fraction)),
+  }
+}
 
 /** `mcp__coolftp__coolftp_deploy`, `mcp__plugin_x_coolftp__coolftp_undo`: the action, or undefined. */
 export function mcpAction(tool: string): string | undefined {

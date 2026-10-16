@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { checkedUrl, cliAction, loadMsOf, mcpAction, outcome, placeOf } from '../hooks/parse'
-import { heroSvg, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
+import { checkedUrl, cliAction, liveFileName, loadMsOf, mcpAction, outcome, placeOf, progressOf } from '../hooks/parse'
+import { heroSvg, progressBar, progressWords, tallyAlt, tallyOf, tallySvg, words } from '../hooks/scene'
 
 const DEPLOY_TEXT = [
   '↑ /index.html (2.1 KB)',
@@ -139,4 +139,73 @@ test('each step names the site it went to, across projects', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /about\.html is on jledvina\.com/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /index\.html is on coolftp\.com/ })).toBeDefined()
   await ui.unmount()
+})
+
+const LIVE = {
+  v: 1,
+  method: 'deploy',
+  startedAt: Number.MAX_SAFE_INTEGER,
+  finished: false,
+  files: [
+    { remote: '/public_html/media/intro-video.mp4', size: 48 * 1024 * 1024, transferred: 12 * 1024 * 1024 },
+    { remote: '/public_html/index.html', size: 4000, transferred: 1000 },
+  ],
+  done: 3,
+  totalFiles: 12,
+  bytes: 20 * 1024 * 1024,
+  totalBytes: 80 * 1024 * 1024,
+  rate: 2 * 1024 * 1024,
+  etaMs: 30_000,
+}
+
+test('reads the live progress file', async () => {
+  expect(liveFileName(String.raw`C:\Users\justi\Desktop\Woodpecker`)).toBe('c-users-justi-desktop-woodpecker.json')
+  const p = progressOf(JSON.stringify(LIVE), 0)!
+  expect(p.file).toBe('/public_html/media/intro-video.mp4')
+  expect(p.fraction).toBe(0.25)
+  expect(p.alsoMoving).toBe(1)
+  const w = progressWords(p)
+  expect(w.file).toBe('…/media/intro-video.mp4 · 12.0 MB of 48.0 MB · +1 more at once')
+  expect(w.job).toBe('3 of 12 files · 20.0 MB of 80.0 MB · 2.0 MB/s · about 30s left')
+  expect(progressBar(0.25, 8)).toBe('██░░░░░░ 25%')
+  expect(progressOf(JSON.stringify({ ...LIVE, finished: true }), 0)).toBeUndefined()
+  expect(progressOf(JSON.stringify({ ...LIVE, startedAt: 1000 }), 60_000)).toBeUndefined()
+  expect(progressOf('not json', 0)).toBeUndefined()
+})
+
+test('a running deploy shows the file moving and a progress bar', async ($, on) => {
+  mock.store(on)
+  const clock = mock.clock(on)
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('mcp.connect', () => ({ value: { isConnected: false as const, reason: 'missing' as never, message: '' } }))
+  const reads: string[] = []
+  on('fs.read', (_$, e) => {
+    reads.push(String((e as { path?: string }).path))
+    return { value: JSON.stringify(LIVE) }
+  })
+  let release: () => void = () => undefined
+  on('tool.call', { tool: 'mcp__coolftp__coolftp_deploy' }, () => new Promise(r => (release = () => r({ result: {}, text: DEPLOY_TEXT }))))
+
+  const running = $.tool.call({ tool: 'mcp__coolftp__coolftp_deploy', cwd: 'C:/work/woodpecker' })
+  await clock.advance(1100)
+  expect(reads.some(p => /[\\/]\.live[\\/]c-work-woodpecker\.json$/.test(p))).toBe(true)
+
+  const terminal = await $.ui.mount({ plugin: 'coolftp', surface: 'terminal', component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
+  expect(await terminal.find({ type: 'Text', text: /intro-video\.mp4 · 12\.0 MB of 48\.0 MB/ })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: /█+░+ 25%/ })).toBeDefined()
+  await terminal.unmount()
+
+  const ui = await $.ui.mount({ plugin: 'coolftp', surface: 'desktop', component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
+  const bar = (await ui.findAll({ type: 'Svg' }))[1]
+  expect(String(bar?.props.alt)).toContain('25% done')
+  expect(await ui.find({ type: 'Text', text: /3 of 12 files · 20\.0 MB of 80\.0 MB/ })).toBeDefined()
+  await ui.unmount()
+
+  release()
+  await running
+  const after = await $.ui.mount({ plugin: 'coolftp', surface: 'terminal', component: 'Pane', requestId: 'coolftp', props: PANE_PROPS })
+  expect(await after.find({ type: 'Text', text: /Your site is live/ })).toBeDefined()
+  await after.unmount()
 })

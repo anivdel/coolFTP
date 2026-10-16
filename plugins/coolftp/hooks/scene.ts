@@ -1,4 +1,4 @@
-import type { Op } from '../types'
+import type { Op, Progress } from '../types'
 import { bytes } from './parse'
 
 /** Pictures for the panel: plain words and SVG drawn on surfaces that have it. */
@@ -267,6 +267,49 @@ export function heroSvg(op: Op | undefined, siteFallback?: string): string {
     `<text x="${L.x}" y="${L.y + 56}" text-anchor="middle" font-size="12" fill="${SOFT}">Your computer</text>` +
     `<text x="${R.x}" y="${R.y + 56}" text-anchor="middle" font-size="12" fill="${SOFT}">${esc(site)}</text>` +
     `<text x="${W / 2}" y="${H - 18}" text-anchor="middle" font-size="18" font-weight="700" fill="${INK}">${esc(clip(headline, 44))}</text>` +
+    `</svg>`
+  )
+}
+
+/* ---------- a transfer in flight ---------- */
+
+const eta = (ms: number) => {
+  const s = Math.round(ms / 1000)
+  return s < 5 ? 'almost done' : s < 60 ? `about ${s}s left` : `about ${Math.round(s / 60)} min left`
+}
+
+/** The file moving now and how far the whole job is, in two short lines. */
+export function progressWords(p: Progress): { file: string; job: string } {
+  const name = p.file ? clip(p.file.replace(/^.*[\\/](?=[^\\/]+[\\/][^\\/]+$)/, '…/'), 48) : 'Starting'
+  const of = p.fileSize ? ` · ${bytes(p.fileBytes ?? 0)} of ${bytes(p.fileSize)}` : ''
+  const file = `${name}${of}${p.alsoMoving ? ` · +${p.alsoMoving} more at once` : ''}`
+  const parts = [
+    p.totalFiles ? `${p.done} of ${plural(p.totalFiles, 'file')}` : p.done ? `${plural(p.done, 'file')} done` : undefined,
+    p.totalBytes ? `${bytes(p.bytes ?? 0)} of ${bytes(p.totalBytes)}` : undefined,
+    p.rate ? `${bytes(p.rate)}/s` : undefined,
+    p.etaMs && p.fraction !== undefined && p.fraction < 1 ? eta(p.etaMs) : undefined,
+  ].filter(Boolean)
+  return { file, job: parts.join(' · ') || 'Connecting' }
+}
+
+/** A text bar for the terminal: `██████░░░░ 60%`. */
+export function progressBar(fraction: number, width = 20): string {
+  const filled = Math.round(Math.max(0, Math.min(1, fraction)) * width)
+  return '█'.repeat(filled) + '░'.repeat(width - filled) + ` ${Math.round(fraction * 100)}%`
+}
+
+export function progressSvg(p: Progress): string {
+  const f = p.fraction
+  const fill = f === undefined ? '' : `<rect x="0" y="0" width="${(W * f).toFixed(1)}" height="10" rx="5" fill="${BLUE}"/>`
+  /* No total yet: a moving sheen says bytes are flowing. */
+  const sheen =
+    f === undefined
+      ? `<rect x="-120" y="0" width="120" height="10" rx="5" fill="${SKY}" opacity=".7"><animate attributeName="x" values="-120;${W}" dur="1.4s" repeatCount="indefinite"/></rect>`
+      : ''
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 10" width="${W}" height="10">` +
+    `<defs><clipPath id="pb"><rect width="${W}" height="10" rx="5"/></clipPath></defs>` +
+    `<g clip-path="url(#pb)"><rect width="${W}" height="10" fill="#13305a"/>${fill}${sheen}</g>` +
     `</svg>`
   )
 }

@@ -2,8 +2,8 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { Op, OpStatus, Place } from '../types'
-import { clock, cliAction, doing, elapsed, mcpAction, outcome, placeOf, resultJson, targetOf } from './parse'
-import { QUIET, ago, heroSvg, iconSvg, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
+import { clock, cliAction, doing, elapsed, liveFileName, mcpAction, outcome, placeOf, progressOf, resultJson, targetOf } from './parse'
+import { QUIET, ago, heroSvg, iconSvg, progressBar, progressSvg, progressWords, tallyAlt, tallyOf, tallySvg, took, words } from './scene'
 
 const PANE = 'coolftp'
 const TITLE = 'coolFTP'
@@ -38,7 +38,33 @@ async function tick($: EngineInterface) {
   const list = await read($, ops)
   const last = await read($, now)
   const t = Date.now()
-  if (list.some(op => op.status === 'running') || t - last >= 30_000) await update($, now, () => t)
+  const running = list.filter(op => op.status === 'running')
+  if (running.length || t - last >= 30_000) await update($, now, () => t)
+  for (const op of running) if (MOVES.has(op.action) && op.cwd) await follow($, op)
+}
+
+/** Calls that move file bytes: the MCP server reports their progress in a live file. */
+const MOVES = new Set(['deploy', 'upload', 'download', 'undo', 'rollback'])
+
+/** Where the MCP server writes live files: COOLFTP_LIVE_DIR in .mcp.json, under the plugin's folder. */
+const liveDir = ($: EngineInterface) => `${$.plugin.root.replace(/[\\/]\.claude-plugin[\\/]?$/, '')}/.live`
+
+/** Reads how far a running step is. A missing or stale file leaves the step as it was. */
+async function follow($: EngineInterface, op: Op) {
+  const text = await $.fs.read(`${liveDir($)}/${liveFileName(op.cwd!)}`).catch(() => undefined)
+  const progress = typeof text === 'string' ? progressOf(text, op.startedAt) : undefined
+  if (!progress) return
+  await update($, ops, all => all.map(one => (one.id === op.id && one.status === 'running' ? { ...one, progress } : one)))
+  const pct = progress.fraction !== undefined ? ` ${Math.round(progress.fraction * 100)}%` : ''
+  $.ui.status(`coolFTP: ${doing(op.action)}${op.site ? ` ${op.site}` : ''}${pct}…`)
+}
+
+/** What the panel says about a step's transfer while it runs. */
+function movingOf(op: Op | undefined) {
+  if (!op || op.status !== 'running' || !op.progress) return undefined
+  const w = progressWords(op.progress)
+  const pct = op.progress.fraction !== undefined ? `${Math.round(op.progress.fraction * 100)}% done. ` : ''
+  return { ...w, alt: `${pct}${w.file}. ${w.job}` }
 }
 
 async function begin($: EngineInterface, op: Op) {
@@ -51,7 +77,7 @@ async function begin($: EngineInterface, op: Op) {
 
 async function finish($: EngineInterface, id: string, patch: Partial<Op>) {
   const endedAt = Date.now()
-  const list = await update($, ops, all => all.map(op => (op.id === id ? { ...op, ...patch, endedAt } : op)))
+  const list = await update($, ops, all => all.map(op => (op.id === id ? { ...op, ...patch, progress: undefined, endedAt } : op)))
   const op = list.find(one => one.id === id)
   const stillRunning = list.find(one => one.status === 'running')
   $.ui.status(stillRunning ? `coolFTP: ${doing(stillRunning.action)}…` : undefined)
@@ -215,10 +241,29 @@ export const register: Register = on => {
               </Text>
               <Text dimColor>{op.status === 'running' ? elapsed(at - op.startedAt) : clock(op.startedAt)}</Text>
             </Box>
-            <Text dimColor wrap="wrap">
-              {'  '}
-              {w.detail}
-            </Text>
+            {op.status === 'running' && op.progress ? (
+              <Box flexDirection="column">
+                <Text wrap="truncate">
+                  {'  '}
+                  {progressWords(op.progress).file}
+                </Text>
+                {op.progress.fraction !== undefined && (
+                  <Text color={BLUE}>
+                    {'  '}
+                    {progressBar(op.progress.fraction)}
+                  </Text>
+                )}
+                <Text dimColor wrap="wrap">
+                  {'  '}
+                  {progressWords(op.progress).job}
+                </Text>
+              </Box>
+            ) : (
+              <Text dimColor wrap="wrap">
+                {'  '}
+                {w.detail}
+              </Text>
+            )}
           </Box>
         )
       }
@@ -251,6 +296,7 @@ export const register: Register = on => {
     const focus = current.find(op => op.status === 'running') ?? current[0]
     const shown = focus ? named(focus) : undefined
     const story = shown ? words(shown) : undefined
+    const moving = movingOf(shown)
     const tally = tallyOf(list, at)
     const liveUrl = current.find(op => op.url && op.status !== 'error')?.url
 
@@ -281,10 +327,21 @@ export const register: Register = on => {
       <Box flexDirection="column" gap={1}>
         <Svg source={heroSvg(shown, idleSite)} alt={story?.title ?? 'Ready when Claude is'} width={width} height={Math.round((width * 200) / 440)} isInteractive />
         <Box flexDirection="column">
-          <Text color={shown?.status === 'error' ? 'error' : undefined} wrap="wrap">
-            {story ? story.detail : 'Ask Claude to publish your site. You will see your files travel to it, then a check that it is live.'}
-            {shown?.status === 'running' ? ` · ${took(at - shown.startedAt)}` : ''}
-          </Text>
+          {moving && (
+            <Box flexDirection="column" marginBottom={1}>
+              <Text bold wrap="truncate">{moving.file}</Text>
+              <Svg source={progressSvg(shown!.progress!)} alt={moving.alt} width={width} height={10} isInteractive={shown!.progress!.fraction === undefined} />
+              <Text dimColor wrap="wrap">
+                {moving.job} · {took(at - shown!.startedAt)}
+              </Text>
+            </Box>
+          )}
+          {!moving && (
+            <Text color={shown?.status === 'error' ? 'error' : undefined} wrap="wrap">
+              {story ? story.detail : 'Ask Claude to publish your site. You will see your files travel to it, then a check that it is live.'}
+              {shown?.status === 'running' ? ` · ${took(at - shown.startedAt)}` : ''}
+            </Text>
+          )}
           {liveUrl && shown?.status !== 'running' && (
             <Link href={liveUrl}>Open {hostOf(liveUrl) ?? 'your site'} ↗</Link>
           )}
