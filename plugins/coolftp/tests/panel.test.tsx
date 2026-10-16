@@ -255,7 +255,8 @@ test('the yeti works in the hero, in every mood, within the drawing budget', asy
   expect(steps.map(moodOf)).toEqual(['idle', 'send', 'fetch', 'scan', 'happy', 'worry', 'cross'])
   for (const op of steps) {
     const svg = heroSvg(op, 'woodpeckerdig.com')
-    expect(svg).toContain('<image href="data:image/png;base64,')
+    expect(svg).not.toContain('<image')
+    expect(svg).toContain('<path d=')
     expect(svg.length).toBeLessThan(131072)
   }
 })

@@ -1,5 +1,10 @@
 # Changelog
 
+## Claude Code plugin: coolftp 0.3.6 (2026-10-16)
+
+- **The yeti's face shows in Claude's panel.** 0.3.5 drew him from embedded PNGs, which the panel strips, so only his vector eyes showed. He is now all vector shapes, traced from the rig with vtracer (`scripts/plugin-yeti.py`), and half the size.
+
+
 ## Claude Code plugin: coolftp 0.3.5 (2026-10-16)
 
 - **The yeti is in the panel.** He sits under the path the files fly along and acts out each step: breathes and blinks while waiting, nods and watches files go right while uploading, watches them come back on downloads, reads side to side during previews and live checks, hops with a grin when a deploy is live, looks up wide-eyed on warnings, undos and deletes, and glares and shakes his head on errors. Drawn from the same rig as the videos (`scripts/plugin-yeti.py` embeds it), animated with SVG only.

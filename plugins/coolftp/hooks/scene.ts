@@ -238,7 +238,7 @@ export function moodOf(op: Op | undefined): Mood {
   return 'look'
 }
 
-const img = (l: YetiLayer) => `<image href="${l.href}" x="${l.x}" y="${l.y}" width="${l.w}" height="${l.h}"/>`
+const img = (l: YetiLayer) => `<g transform="translate(${l.x} ${l.y})">${l.svg}</g>`
 
 /** A looping SMIL transform; `values` in the attribute's own syntax. */
 const loop = (type: string, values: string, dur: number, extra = '') =>
