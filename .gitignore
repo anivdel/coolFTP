@@ -7,6 +7,8 @@ site/releases/
 site/demo.mp4
 site/social-4x5*.mp4
 site/yeti-4x5*
+site/plugin-4x5*
+scripts/demo/plugin-scene.js
 scripts/demo/stills/
 scripts/demo/audio/
 scripts/license/private/

@@ -97,11 +97,11 @@ export function words(op: Op): { title: string; detail: string } {
       return { title: 'Your site is up and answering', detail: op.checks ? `${plural(op.checks, 'page')} checked, all loaded` : 'Every page checked loaded' }
     case 'undo':
     case 'rollback':
-      if (running) return { title: 'Putting the previous version back', detail: 'If the coolFTP app asks, approve it there' }
+      if (running) return { title: 'Putting the previous version back', detail: 'Restoring the files from before the last change' }
       if (fail) return { title: "Couldn't put the previous version back", detail: fail }
       return { title: 'The previous version is back', detail: files ? `${plural(files, 'file')} restored` : 'Restored' }
     case 'delete':
-      if (running) return { title: `Removing ${name ?? 'a file'} from ${site}`, detail: 'If the coolFTP app asks, approve it there' }
+      if (running) return { title: `Removing ${name ?? 'a file'} from ${site}`, detail: 'Taking it off the server' }
       if (fail) return { title: `Didn't remove ${name ?? 'the file'}`, detail: fail }
       return { title: `Removed ${name ?? 'the file'}`, detail: `Gone from ${site}` }
     case 'write':

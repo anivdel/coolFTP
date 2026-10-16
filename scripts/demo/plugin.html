@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>coolFTP for Claude Code</title>
+<!--
+  A 30 s, 1080x1350 promo for the coolFTP Claude Code plugin, for people who already use Claude Code.
+  The panel, the yeti, the progress bar and the tiles are the plugin's own drawing code
+  (plugins/coolftp/hooks/scene.ts, bundled into plugin-scene.js by plugin-scene.mjs), so the video
+  shows exactly what the panel shows.
+    npm run plugin-video          -> site/plugin-4x5.mp4 (+ .sfx.json cue list)
+    npm run plugin-video:sound    -> site/plugin-4x5-sound.mp4 (scripts/demo/plugin-score.py)
+  Open with #play in a browser to watch it in real time.
+-->
+<style>
+  :root {
+    --night: #050b17; --navy: #0b1a33; --deep: #102849; --line: #1f3a66; --line2: #2b4f85;
+    --ink: #e6edf7; --soft: #8fb3e0; --muted: #6b84a8; --blue: #4fa3ff; --sky: #7dd3fc; --cyan: #38bdf8;
+    --good: #34d399; --warn: #fbbf24; --bad: #fb7185;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --heavy: "Segoe UI Black", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  }
+  html, body { margin: 0; background: var(--night); overflow: hidden; }
+  #stage { position: relative; width: 1080px; height: 1350px; overflow: hidden; color: var(--ink); font-family: var(--sans); transform-origin: 0 0;
+    background: radial-gradient(900px 700px at 50% 62%, #0f2a55 0%, #081429 55%, var(--night) 100%); }
+  #grid { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(125, 211, 252, .16) 1.4px, transparent 1.6px); background-size: 36px 36px; }
+  #drift { position: absolute; inset: 0; }
+  .paper { position: absolute; width: 22px; height: 28px; }
+
+  /* Captions */
+  .cap { position: absolute; left: 60px; right: 60px; top: 92px; font-family: var(--heavy); font-size: 78px; line-height: 1.04; letter-spacing: -1.5px; opacity: 0; }
+  .cap b { color: var(--cyan); font-weight: inherit; }
+  .cap .w { display: inline-block; }
+  .cap.small { font-size: 66px; }
+
+  /* The Claude Code window */
+  #win { position: absolute; left: 40px; top: 360px; width: 1000px; height: 790px; border-radius: 22px; background: #070d19; border: 2px solid var(--line2);
+    box-shadow: 0 40px 120px rgba(0, 0, 0, .65), 0 0 0 1px rgba(79, 163, 255, .08), 0 0 120px rgba(56, 189, 248, .10); overflow: hidden; }
+  #bar { height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 22px; background: #0b1528; border-bottom: 1px solid var(--line); font-size: 19px; color: var(--soft); }
+  #bar i { width: 13px; height: 13px; border-radius: 50%; background: #23395f; display: inline-block; }
+  #bar b { color: var(--ink); font-weight: 600; margin-left: 8px; }
+  #bar .tab { margin-left: auto; font-family: var(--mono); font-size: 16px; color: var(--muted); }
+  #chat { position: absolute; left: 0; top: 54px; bottom: 0; width: 420px; padding: 26px 24px; box-sizing: border-box; border-right: 1px solid var(--line); overflow: hidden; }
+  .msg { opacity: 0; margin-bottom: 20px; font-size: 21px; line-height: 1.38; }
+  .you { font-family: var(--mono); font-size: 20px; color: var(--ink); background: #0f1d36; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .you .p { color: var(--cyan); }
+  .you .caret { display: inline-block; width: 11px; height: 22px; background: var(--sky); vertical-align: -4px; margin-left: 2px; }
+  .ai { color: var(--soft); }
+  .ai .chip { display: inline-block; font-family: var(--mono); font-size: 16px; color: var(--sky); background: #0f2443; border: 1px solid var(--line2); border-radius: 8px; padding: 3px 9px; margin-top: 8px; }
+  .ai .ok { color: var(--good); font-weight: 700; }
+  #prompt { position: absolute; left: 24px; right: 24px; bottom: 24px; height: 58px; border-radius: 14px; border: 1px solid var(--line2); background: #0b1528; display: flex; align-items: center; padding: 0 16px; font-family: var(--mono); font-size: 19px; color: var(--muted); }
+
+  #panel { position: absolute; left: 420px; top: 54px; right: 0; bottom: 0; padding: 22px 24px; box-sizing: border-box; background: #070d19; }
+  #panelHead { display: flex; align-items: center; gap: 10px; font-size: 18px; color: var(--soft); margin-bottom: 14px; }
+  #panelHead .mark { font-weight: 800; font-size: 21px; } #panelHead .mark span { color: var(--blue); } #panelHead .mark em { color: #2b6cb0; font-style: normal; }
+  #panelHead .ver { margin-left: auto; font-family: var(--mono); font-size: 15px; color: var(--muted); }
+  #hero svg { display: block; width: 532px; height: 242px; }
+  #detail { margin-top: 14px; font-size: 20px; color: var(--soft); min-height: 30px; }
+  #moving { margin-top: 14px; opacity: 0; }
+  #moving .file { font-weight: 700; font-size: 20px; margin-bottom: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #moving svg { display: block; width: 532px; height: 12px; }
+  #moving .job { margin-top: 9px; font-size: 18px; color: var(--soft); }
+  #files { margin-top: 16px; font-family: var(--mono); font-size: 18px; line-height: 1.6; }
+  #files .row { opacity: 0; white-space: nowrap; }
+  #files .k { display: inline-block; width: 22px; font-weight: 700; }
+  #files .sz { color: var(--muted); margin-left: 10px; }
+  #files .more { color: var(--muted); font-family: var(--sans); font-size: 17px; }
+  #tally { margin-top: 18px; opacity: 0; } #tally svg { display: block; width: 532px; height: 77px; }
+  #toast { position: absolute; left: 710px; bottom: 40px; transform: translateX(-50%); padding: 14px 24px; border-radius: 14px; background: #0f2443; border: 1px solid var(--line2); color: var(--ink); font-size: 21px; font-weight: 600; opacity: 0; white-space: nowrap; box-shadow: 0 16px 40px rgba(0, 0, 0, .5); }
+  #toast .g { color: var(--good); }
+
+  /* Hosts: every place it works */
+  #hosts { position: absolute; inset: 0; opacity: 0; }
+  #hosts .hh { position: absolute; left: 0; right: 0; top: 110px; text-align: center; font-family: var(--heavy); font-size: 84px; letter-spacing: -2px; line-height: 1; }
+  #hosts .hh b { color: var(--cyan); font-weight: inherit; }
+  #hosts .hs { position: absolute; left: 0; right: 0; top: 222px; text-align: center; font-size: 36px; font-weight: 600; color: var(--soft); }
+  .tile { position: absolute; width: 440px; height: 150px; background: #fff; border-radius: 22px; display: grid; place-items: center; opacity: 0;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .45), 0 0 0 3px rgba(79, 163, 255, .35); }
+  .tile img { max-width: 370px; max-height: 100px; }
+  .tile img.tall { max-height: 136px; }
+  #peek { position: absolute; left: 380px; top: 1080px; width: 320px; height: 300px; }
+
+  /* End card */
+  #end { position: absolute; inset: 0; opacity: 0; display: flex; flex-direction: column; align-items: center; }
+  #endYeti { margin-top: 170px; width: 420px; height: 464px; overflow: visible; }
+  #endMark { margin-top: 18px; font-family: var(--heavy); font-size: 112px; letter-spacing: -3px; line-height: 1; }
+  #endMark span { color: var(--blue); } #endMark em { font-style: normal; color: #2b6cb0; }
+  #endFor { margin-top: 10px; font-size: 40px; font-weight: 600; color: var(--soft); }
+  #endPill { margin-top: 42px; font-family: var(--mono); font-size: 25px; color: var(--ink); background: #0b1528; border: 2px solid var(--line2); border-radius: 16px; padding: 18px 26px; }
+  #endPill b { color: var(--cyan); font-weight: 400; }
+  #endUrl { margin-top: 26px; font-size: 36px; font-weight: 700; color: var(--sky); }
+  #fx { position: absolute; inset: 0; pointer-events: none; }
+  /* Frost closing in from the edges after he blows. */
+  #frostV { position: absolute; inset: 0; opacity: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 54% at 50% 46%, transparent 52%, rgba(207, 230, 255, .55) 76%, #eaf6ff 100%),
+      repeating-linear-gradient(60deg, rgba(186, 230, 253, 0) 0 18px, rgba(186, 230, 253, .28) 18px 20px),
+      repeating-linear-gradient(-60deg, rgba(186, 230, 253, 0) 0 22px, rgba(186, 230, 253, .24) 22px 24px);
+    -webkit-mask-image: radial-gradient(ellipse 60% 54% at 50% 46%, transparent 48%, #000 84%); }
+  #stay { position: absolute; left: 0; right: 0; top: 1205px; text-align: center; font-family: var(--heavy); font-size: 92px; letter-spacing: -2px; opacity: 0; color: #0b1a33;
+    text-shadow: 0 0 24px rgba(234, 246, 255, .9); }
+  #flash { position: absolute; inset: 0; background: #cfe6ff; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="grid"></div>
+  <div id="drift"></div>
+
+  <div class="cap" id="c1">Ship your site from <b>Claude&nbsp;Code.</b></div>
+  <div class="cap" id="c2">One plugin. <b>No&nbsp;app.</b> No&nbsp;FTP&nbsp;client.</div>
+  <div class="cap" id="c3">Just say <b>“deploy.”</b></div>
+  <div class="cap" id="c4">Watch <b>every&nbsp;file</b> go&nbsp;up.</div>
+  <div class="cap" id="c5">Checked <b>live.</b> Every file&nbsp;listed.</div>
+  <div class="cap" id="c6">Bad deploy? <b>Undo</b>&nbsp;it.</div>
+
+  <div id="win">
+    <div id="bar"><i></i><i></i><i></i><b>Claude Code</b><span class="tab">~/woodpecker/site</span></div>
+    <div id="chat">
+      <div class="msg you" id="m1"><span class="p">&gt;</span> <span class="t"></span><span class="caret"></span></div>
+      <div class="msg ai" id="m2"><span class="ok">✓</span> Installed <b style="color:var(--ink)">coolftp</b>: deploy tools, skill and live panel.</div>
+      <div class="msg you" id="m3"><span class="p">&gt;</span> <span class="t"></span><span class="caret"></span></div>
+      <div class="msg ai" id="m4">Deploying to woodpeckerdig.com.<br /><span class="chip">coolftp_deploy</span></div>
+      <div class="msg ai" id="m5"><span class="ok">✓</span> Live at <b style="color:var(--ink)">woodpeckerdig.com</b>. 8 files, checked.</div>
+      <div class="msg you" id="m6"><span class="p">&gt;</span> <span class="t"></span><span class="caret"></span></div>
+      <div class="msg ai" id="m7">Putting the previous version back.<br /><span class="chip">coolftp_undo</span></div>
+      <div id="prompt">Message Claude…</div>
+    </div>
+    <div id="panel">
+      <div id="panelHead"><span class="mark"><span>cool</span><em>FTP</em></span> panel<span class="ver">0.3.7</span></div>
+      <div id="hero"></div>
+      <div id="detail"></div>
+      <div id="moving"><div class="file"></div><div class="barwrap"></div><div class="job"></div></div>
+      <div id="files"></div>
+      <div id="tally"></div>
+    </div>
+    <div id="toast"></div>
+  </div>
+
+  <div id="hosts">
+    <div class="hh">Works with <b>your&nbsp;host.</b></div>
+    <div class="hs">Any host with SFTP, FTPS or FTP. Your own VPS too.</div>
+    <div id="tiles"></div>
+    <svg id="peek" viewBox="0 0 320 300"></svg>
+  </div>
+
+  <div id="end">
+    <svg id="endYeti" viewBox="0 0 538 594"></svg>
+    <div id="endMark"><span>cool</span><em>FTP</em></div>
+    <div id="endFor">for Claude Code</div>
+    <div id="endPill"><b>/plugin install</b> coolftp --marketplace anivdel/coolFTP</div>
+    <div id="endUrl">coolftp.com</div>
+  </div>
+  <canvas id="fx" width="1080" height="1350"></canvas>
+  <div id="frostV"></div>
+  <div id="stay">Stay cool.</div>
+  <div id="flash"></div>
+</div>
+
+<script src="plugin-scene.js"></script>
+<script>
+const DURATION = 31;
+const SFX = [];
+const sfx = (t, name, vol = 1, opt = {}) => SFX.push({ t, name, vol, ...opt });
+const $ = s => document.querySelector(s);
+const stage = $('#stage');
+const ss = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const out3 = k => 1 - (1 - clamp(k, 0, 1)) ** 3;
+const back = k => { k = clamp(k, 0, 1); const c = 1.7; return 1 + (c + 1) * (k - 1) ** 3 + c * (k - 1) ** 2; };
+const env = (t, a, b, i = .3, o = .25) => Math.min(ss((t - a) / i), 1 - ss((t - b) / o));
+function rand(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+const MB = 1024 * 1024;
+const SITE = 'woodpeckerdig.com';
+
+/* ---------- Drifting files in the background: the job, in the backdrop ---------- */
+const papers = [];
+{
+  const r = rand(11);
+  for (let i = 0; i < 16; i++) {
+    const el = document.createElement('div');
+    el.className = 'paper';
+    el.innerHTML = '<svg viewBox="0 0 22 28" width="22" height="28"><path d="M1 1h13l7 7v19H1z" fill="#1d4f8f" opacity=".55"/><path d="M14 1v7h7" fill="#7dd3fc" opacity=".35"/></svg>';
+    $('#drift').appendChild(el);
+    papers.push({ el, x: r() * 1080, y: r() * 1350, v: 18 + r() * 34, s: .7 + r() * .9, w: r() * 6.28 });
+  }
+}
+const drift = t => papers.forEach(p => {
+  const y = ((p.y - t * p.v) % 1450 + 1450) % 1450 - 80;
+  p.el.style.transform = `translate(${p.x + Math.sin(t * .6 + p.w) * 18}px, ${y}px) scale(${p.s}) rotate(${Math.sin(t * .4 + p.w) * 14}deg)`;
+});
+
+/* ---------- Captions: words rise in one after another ---------- */
+const CAPS = [['#c1', .25, 3.5], ['#c2', 3.75, 6.6], ['#c3', 6.85, 8.7], ['#c4', 8.95, 12.4], ['#c5', 12.75, 16.2], ['#c6', 16.45, 20.5]];
+CAPS.forEach(([sel]) => {
+  const el = $(sel);
+  const walk = n => [...n.childNodes].forEach(c => {
+    if (c.nodeType === 3) {
+      const frag = document.createDocumentFragment();
+      c.textContent.split(/(\s+)/).forEach(w => {
+        if (!w) return;
+        if (/^\s+$/.test(w)) frag.appendChild(document.createTextNode(w));
+        else { const s = document.createElement('span'); s.className = 'w'; s.textContent = w; frag.appendChild(s); }
+      });
+      c.replaceWith(frag);
+    } else if (c.nodeType === 1 && !c.classList.contains('w')) walk(c);
+  });
+  walk(el);
+});
+CAPS.forEach(([, a]) => sfx(a, 'swish', .45, { short: true }));
+const captions = t => CAPS.forEach(([sel, a, b]) => {
+  const el = $(sel);
+  const on = t > a - .05 && t < b + .3;
+  el.style.opacity = on ? 1 : 0;
+  if (!on) return;
+  const k = 1 - ss((t - b) / .25);
+  [...el.querySelectorAll('.w')].forEach((w, i) => {
+    const e = out3((t - a - i * .06) / .32);
+    w.style.opacity = e * k;
+    w.style.transform = `translateY(${(1 - e) * 46 - (1 - k) * 30}px)`;
+  });
+});
+
+/* ---------- Typing in the chat ---------- */
+const TYPED = [['#m1', '/plugin install coolftp', .9, 2.3], ['#m3', 'deploy the site', 4.25, 5.15], ['#m6', 'oops, put the old version back', 16.35, 17.55]];
+TYPED.forEach(([, text, a, b]) => sfx(a, 'keys', .55, { len: b - a }));
+const typing = t => TYPED.forEach(([sel, text, a, b]) => {
+  const el = $(sel);
+  const n = Math.round(clamp((t - a) / (b - a), 0, 1) * text.length);
+  el.querySelector('.t').textContent = text.slice(0, n);
+  el.querySelector('.caret').style.opacity = t > a - .4 && t < b + .5 && Math.floor(t * 3) % 2 === 0 ? 1 : t >= a && t <= b ? 1 : 0;
+});
+const MSGS = [['#m1', .7], ['#m2', 2.75], ['#m3', 4.05], ['#m4', 5.55], ['#m5', 12.75], ['#m6', 16.15], ['#m7', 17.85]];
+sfx(2.75, 'pop', .6); sfx(5.55, 'pop', .5); sfx(12.75, 'pop', .5); sfx(17.85, 'pop', .5);
+/* The chat scrolls up as it fills, like a real one. */
+const chat = t => {
+  MSGS.forEach(([sel, a]) => { const e = out3((t - a) / .3); const el = $(sel); el.style.opacity = e; el.style.transform = `translateY(${(1 - e) * 16}px)`; });
+  const lift = ss((t - 15.9) / .5) * 300;
+  $('#m1').style.marginTop = `${-lift}px`;
+};
+
+/* ---------- The deploy: eight files, one big one ---------- */
+const FILES = [
+  ['index.html', 'changed', 33 * 1024], ['styles.css', 'changed', 21 * 1024], ['app.js', 'changed', 58 * 1024],
+  ['media/intro-video.mp4', 'new', 48 * MB], ['media/poster.jpg', 'new', 412 * 1024], ['download/setup.exe', 'changed', 22 * MB],
+  ['favicon.png', 'changed', 6 * 1024], ['old-banner.png', 'removed', 0],
+];
+const TOTAL = FILES.reduce((n, f) => n + f[2], 0);
+const D0 = 6.0, D1 = 12.4;               // the deploy runs between these
+const fmt = n => n < 1024 ? `${n} B` : n < MB ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB` : `${(n / MB).toFixed(1)} MB`;
+/* Bytes sent by time t: eased so it starts brisk, slows on the big file, finishes clean. */
+const sentAt = t => TOTAL * clamp(ss((t - D0 - .35) / (D1 - D0 - .7)) * .15 + clamp((t - D0 - .35) / (D1 - D0 - .7), 0, 1) * .85, 0, 1);
+function progressAt(t) {
+  const sent = sentAt(t);
+  let acc = 0, done = 0, cur;
+  for (const f of FILES) {
+    if (!f[2]) { if (sent >= acc) done++; continue; }
+    if (sent >= acc + f[2]) { acc += f[2]; done++; continue; }
+    cur = { file: f[0], fileBytes: sent - acc, fileSize: f[2] }; break;
+  }
+  const rate = 7.4 * MB + Math.sin(t * 3.1) * .6 * MB;
+  return { ...(cur ?? {}), alsoMoving: cur && cur.fileSize > 4 * MB ? 1 : 0, done, totalFiles: FILES.length, bytes: sent, totalBytes: TOTAL, rate, etaMs: Math.max(0, (TOTAL - sent) / rate * 1000), fraction: sent / TOTAL };
+}
+
+const U0 = 17.85, U1 = 19.7;            // the undo
+const base = { id: 'x', via: 'mcp', startedAt: 0, site: SITE };
+function opAt(t) {
+  if (t < 3.15) return { none: true };
+  if (t < D0) return undefined;
+  if (t < D1) return { ...base, action: 'deploy', status: 'running', start: D0 };
+  if (t < U0) return { ...base, action: 'deploy', status: 'ok', live: 'live', files: 8, bytes: TOTAL, start: D1 };
+  if (t < U1) return { ...base, action: 'undo', status: 'running', start: U0 };
+  return { ...base, action: 'undo', status: 'ok', files: 8, start: U1 };
+}
+sfx(D0, 'whoosh', .5); sfx(D1, 'stamp', .9); sfx(D1 + .05, 'sparkle', .7); sfx(D1 + .3, 'boing', .55);
+sfx(U0, 'swish', .6); sfx(U0 + .2, 'rewind', .6, { len: U1 - U0 - .2 }); sfx(U1, 'ding', .8); sfx(U1 + .2, 'boing', .5);
+/* Ticks as files land during the deploy. */
+{ let acc = 0; for (const f of FILES) { acc += f[2]; let lo = D0, hi = D1; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (sentAt(m) >= acc) hi = m; else lo = m; } sfx(hi, 'tick', .4); } }
+
+let heroKey = '', heroStart = 0;
+const MARK = { new: ['+', 'var(--good)'], changed: ['~', 'var(--blue)'], removed: ['−', 'var(--bad)'] };
+function panel(t) {
+  const P = $('#panel');
+  const show = out3((t - 3.15) / .45);
+  P.style.transform = `translateX(${(1 - show) * 600}px)`;
+  P.style.opacity = t < 3.1 ? 0 : 1;
+  const op = opAt(t);
+  if (op && op.none) return;
+  const key = op ? `${op.action}:${op.status}` : 'idle';
+  const hero = $('#hero');
+  if (key !== heroKey) {
+    heroKey = key;
+    heroStart = op ? op.start : 3.15;
+    hero.innerHTML = Scene.heroSvg(op, SITE);
+  }
+  const svg = hero.querySelector('svg');
+  if (svg && svg.pauseAnimations) { svg.pauseAnimations(); svg.setCurrentTime(Math.max(0, t - heroStart)); }
+
+  const words = op ? Scene.words(op) : { detail: 'Ask Claude to publish your site. You will see your files travel to it, then a check that it is live.' };
+  const running = op && op.status === 'running';
+  const mv = $('#moving');
+  if (running && op.action === 'deploy') {
+    const p = progressAt(t);
+    const w = Scene.progressWords(p);
+    mv.style.opacity = 1;
+    mv.querySelector('.file').textContent = w.file;
+    mv.querySelector('.barwrap').innerHTML = Scene.progressSvg(p);
+    mv.querySelector('.job').textContent = `${w.job} · ${Math.floor(t - D0)}s`;
+    $('#detail').style.display = 'none';
+  } else {
+    mv.style.opacity = 0;
+    $('#detail').style.display = '';
+    $('#detail').textContent = words.detail + (running ? ` · ${Math.floor(t - op.start)}s` : '');
+  }
+
+  /* The files the deploy touched, once it is done. */
+  const F = $('#files');
+  const listed = op && op.action === 'deploy' && op.status === 'ok';
+  if (listed && !F.children.length) {
+    F.innerHTML = FILES.slice(0, 6).map(([p, k, s]) => `<div class="row"><span class="k" style="color:${MARK[k][1]}">${MARK[k][0]}</span>${p}${s ? `<span class="sz">${fmt(s)}</span>` : ''}</div>`).join('') + '<div class="row more">All 8 files</div>';
+  }
+  if (!listed && F.children.length && !(op && op.action === 'undo')) F.innerHTML = '';
+  [...F.children].forEach((r, i) => {
+    const e = listed ? out3((t - D1 - .25 - i * .09) / .25) : 1 - ss((t - U0) / .3);
+    r.style.opacity = e; r.style.transform = `translateX(${(1 - e) * 24}px)`;
+  });
+
+  const T = $('#tally');
+  const tallied = op && !running && op.action === 'deploy';
+  if (tallied && !T.innerHTML) T.innerHTML = Scene.tallySvg({ sinceChange: 0, files: 8, siteUp: true, loadMs: 410 });
+  T.style.opacity = tallied ? out3((t - D1 - .9) / .3) : op && op.action === 'undo' ? 1 - ss((t - U0) / .3) : 0;
+  if (!op || (op.action === 'deploy' && running)) T.innerHTML = '';
+}
+FILES.slice(0, 7).forEach((_, i) => sfx(D1 + .25 + i * .09, 'blip', .25));
+
+/* ---------- Toasts ---------- */
+const TOASTS = [[D1 + .15, D1 + 2.6, '<span class="g">✓</span> coolFTP: Your site is live'], [U1 + .1, U1 + 2.2, '<span class="g">✓</span> coolFTP: The previous version is back']];
+function toast(t) {
+  const el = $('#toast');
+  const cur = TOASTS.find(([a, b]) => t >= a - .01 && t < b + .3);
+  if (!cur) { el.style.opacity = 0; return; }
+  el.innerHTML = cur[2];
+  const e = Math.min(back((t - cur[0]) / .35), 1 - ss((t - cur[1]) / .3));
+  el.style.opacity = clamp(e, 0, 1);
+  el.style.transform = `translateX(-50%) translateY(${(1 - e) * 30}px)`;
+}
+
+/* ---------- Hosts (20.6 to 24.6 s): logos pop in on eighth notes, the yeti peeks up to look ---------- */
+const HT = 20.6;
+const HOSTS = ['hostinger', 'bluehost', 'ionos', 'hostgator', 'dreamhost', 'godaddy', 'namecheap', 'cpanel'];
+const EIGHTH = 60 / 128 / 2;
+HOSTS.forEach((h, i) => {
+  const el = document.createElement('div'); el.className = 'tile';
+  el.style.left = `${i % 2 ? 560 : 80}px`; el.style.top = `${300 + Math.floor(i / 2) * 180}px`;
+  el.innerHTML = `<img src="yeti/hosts/${h}.png" alt="${h}"${h === 'dreamhost' || h === 'namecheap' ? ' class="tall"' : ''} />`;
+  $('#tiles').appendChild(el);
+  sfx(HT + .45 + i * EIGHTH, 'pop', .35);
+});
+sfx(HT, 'whoosh', .6); sfx(HT + .1, 'stamp', .8); sfx(HT + 2.6, 'boing', .5);
+$('#peek').innerHTML = Scene.yetiSvg('look', 160, 10, 280);
+function hosts(t) {
+  const H = $('#hosts');
+  const on = env(t, HT + .1, END - .1, .2, .2);
+  H.style.opacity = on;
+  if (on <= 0) return;
+  const hh = back((t - HT - .1) / .35);
+  H.querySelector('.hh').style.transform = `scale(${lerp(1.4, 1, hh)})`;
+  H.querySelector('.hh').style.opacity = clamp((t - HT - .1) / .12, 0, 1);
+  const hs = out3((t - HT - .3) / .3);
+  H.querySelector('.hs').style.opacity = hs;
+  H.querySelector('.hs').style.transform = `translateY(${(1 - hs) * 20}px)`;
+  [...$('#tiles').children].forEach((el, i) => {
+    const a = HT + .45 + i * EIGHTH;
+    const e = back((t - a) / .3);
+    const r = i % 2 ? 1.5 : -1.5;
+    el.style.opacity = clamp((t - a) / .08, 0, 1);
+    el.style.transform = `scale(${lerp(.4, 1, e)}) rotate(${r * (1 + (1 - e) * 4) + Math.sin((t - a) * 2.4 + i) * .6}deg)`;
+  });
+  /* The yeti rises from the bottom edge to look the logos over, then sinks as the card ends. */
+  const up = back((t - HT - 2.2) / .5) - ss((t - END + .45) / .35);
+  const P = $('#peek');
+  P.style.transform = `translateY(${(1 - clamp(up, -1, 2)) * 300}px)`;
+  if (P.pauseAnimations) { P.pauseAnimations(); P.setCurrentTime(Math.max(0, t - HT - 2.2)); }
+}
+
+/* ---------- The window, and the end card ---------- */
+const END = 24.7;
+sfx(.35, 'whoosh', .45); sfx(3.15, 'slide', .6);
+sfx(END + .35, 'stamp', 1); sfx(END + .5, 'boing', .7); sfx(END + 1.1, 'pop', .6); sfx(END + 1.6, 'pop', .6);
+
+/* The end-card yeti, posed frame by frame from the plugin's rig layers: he winks, breathes in, blows cold
+   air over the whole screen, frost closes in, and he grins. Rig coordinates are logo pixels (538x594). */
+const WINK = END + 1.9, INHALE = END + 2.85, BLOW = [END + 3.15, END + 4.35], GRIN = END + 4.45, STAY = END + 4.65;
+sfx(WINK, 'sparkle', .7); sfx(INHALE, 'inhale', .7); sfx(BLOW[0], 'frost', 1, { len: 1.2 }); sfx(BLOW[0] + .3, 'freeze', .8);
+sfx(GRIN, 'boing', .6); sfx(STAY, 'stamp', .9); sfx(STAY + .05, 'ding', .7);
+{
+  const Y = Scene.YETI;
+  const layer = (id, l) => `<g id="${id}" transform="translate(${l.x} ${l.y})">${l.svg}</g>`;
+  $('#endYeti').innerHTML =
+    `<ellipse cx="269" cy="604" rx="190" ry="20" fill="#000" opacity=".35"/>` +
+    `<g id="eh">${layer('ebase', Y.base)}<path id="ecav" fill="#0a1626"/><path id="eupper" fill="#fff"/>${layer('eteeth', Y.teeth)}${layer('ebrow', Y.brow)}` +
+    `${layer('eeyeL', Y.eyeL)}${layer('eeyeR', Y.eyeR)}` +
+    `<g id="ehappy" opacity="0" fill="none" stroke="#000" stroke-width="12" stroke-linecap="round"><path d="M182 236 Q205 204 228 236"/><path d="M313 236 Q336 204 359 236"/></g></g>`;
+}
+/* The mouth: the teeth strip is the lower jaw and drops as the cavity opens under the upper lip. */
+function mouth(m) {
+  const u = 14 * m;
+  const top = `M188 321 Q269 ${272 - 2 * u} 350 321`;
+  const d = `${top} L350 ${325 + u} Q269 ${295 + u} 188 ${325 + u} Z`;
+  $('#ecav').setAttribute('d', m > .01 ? d : '');
+  $('#eteeth').setAttribute('transform', `translate(${Scene.YETI.teeth.x} ${Scene.YETI.teeth.y + u})`);
+  const cy = 272 - 2 * u, yAt = x => { const k = (x - 188) / 162; return (1 - k) ** 2 * 321 + 2 * k * (1 - k) * cy + k * k * 321; };
+  const fang = x => { const y = yAt(x); return `M${x - 7} ${y} L${x + 7} ${y} L${x} ${y + 6 + 9 * m} Z`; };
+  $('#eupper').setAttribute('d', m > .01 ? `${top} L350 323 Q269 ${cy + 10} 188 323 Z ${fang(222)} ${fang(316)}` : '');
+}
+const pulse = (t, at, up = .06, down = .11) => t < at ? 0 : t < at + up ? (t - at) / up : Math.max(0, 1 - (t - at - up) / down);
+const hop = (t, at, dur = .26) => Math.sin(Math.PI * clamp((t - at) / dur, 0, 1));
+const K_END = 420 / 538, EX = (1080 - 420) / 2, EY = 170;     // where the end yeti sits on the stage
+const toStage = (rx, ry) => [EX + rx * K_END, EY + ry * K_END];
+const BREATH = (() => { const r = rand(31); const n = 110; return Array.from({ length: n }, (_, i) => ({ b: BLOW[0] + (BLOW[1] - BLOW[0] - .15) * i / n, life: .6 + r() * .25, tx: -80 + r() * 1240, ty: -80 + r() * 1510, wob: (r() - .5) * 80, r: 40 + r() * 34, spark: r() < .3 })); })();
+const fxc = $('#fx').getContext('2d');
+function puff(x, y, r, a) {
+  const g = fxc.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(240,249,255,${a})`); g.addColorStop(.6, `rgba(186,230,253,${a * .55})`); g.addColorStop(1, 'rgba(186,230,253,0)');
+  fxc.fillStyle = g; fxc.beginPath(); fxc.arc(x, y, r, 0, 6.283); fxc.fill();
+}
+function star(x, y, s, a) {
+  fxc.save(); fxc.translate(x, y); fxc.globalAlpha = a; fxc.fillStyle = '#fff';
+  fxc.beginPath(); fxc.moveTo(0, -s); fxc.lineTo(s * .22, -s * .22); fxc.lineTo(s, 0); fxc.lineTo(s * .22, s * .22); fxc.lineTo(0, s); fxc.lineTo(-s * .22, s * .22); fxc.lineTo(-s, 0); fxc.lineTo(-s * .22, -s * .22); fxc.closePath(); fxc.fill(); fxc.restore();
+}
+function endYeti(t) {
+  /* Head: a slow bob, a swell on the breath in, a shiver while blowing, a hop when he grins. */
+  let y = -6 * Math.sin(t * 2 * Math.PI / 3.2), sc = 1, rot = 1.2 * Math.sin(t * 2 * Math.PI / 4), browY = 0;
+  const inh = env(t, INHALE, BLOW[0], .22, .06);
+  sc += .07 * inh; browY -= 5 * inh; y -= 8 * inh;
+  const blow = env(t, BLOW[0], BLOW[1], .08, .25);
+  sc += .02 * blow; rot += 1.5 * Math.sin(t * 40) * blow;
+  y -= 30 * hop(t, GRIN) + 12 * hop(t, GRIN + .26, .2);
+  $('#eh').setAttribute('transform', `translate(269 300) rotate(${rot}) scale(${sc}) translate(-269 -300) translate(0 ${y})`);
+  const joy = ss((t - GRIN) / .12);
+  $('#ebrow').setAttribute('transform', `translate(${Scene.YETI.brow.x} ${Scene.YETI.brow.y + browY - 12 * joy})`);
+  mouth(.55 * blow * (1 - joy) + .35 * joy);
+  /* Eyes: a few blinks, the wink on the eye at screen right, both shut in a grin at the end. */
+  let lid = 0;
+  for (const b of [END + .9, END + 3.95, END + 5.6]) lid = Math.max(lid, pulse(t, b));
+  const wink = env(t, WINK, WINK + .42, .07, .14);
+  const eye = (id, l, s) => {
+    const cx = l.x + l.w / 2, cy = l.y + l.h / 2;
+    const el = $(id);
+    el.setAttribute('transform', `translate(${cx} ${cy}) scale(1 ${Math.max(.08, 1 - .9 * s)}) translate(${-cx} ${-cy}) translate(${l.x} ${l.y})`);
+    el.setAttribute('opacity', 1 - joy);
+  };
+  eye('#eeyeL', Scene.YETI.eyeL, lid);
+  eye('#eeyeR', Scene.YETI.eyeR, Math.max(lid, wink));
+  $('#ehappy').setAttribute('opacity', joy);
+
+  /* Cold air from his mouth to every corner, sparkles in it, and a glint on the wink. */
+  fxc.clearRect(0, 0, 1080, 1350);
+  const [mx, my] = toStage(269, 318);
+  for (const p of BREATH) {
+    const k = (t - p.b) / p.life; if (k < 0 || k > 1) continue;
+    const e = 1 - (1 - k) ** 2;
+    const x = lerp(mx, p.tx, e) + p.wob * Math.sin(k * Math.PI), yy = lerp(my, p.ty, e);
+    puff(x, yy, p.r * (.5 + k), .7 * Math.sin(Math.PI * k));
+    if (p.spark) star(x, yy, 8 + 6 * k, Math.sin(Math.PI * k));
+  }
+  const g = env(t, WINK + .05, WINK + .5, .08, .2);
+  if (g > 0) { const [gx, gy] = toStage(372, 196); star(gx, gy, 16 + 10 * g, g); star(gx + 30, gy - 26, 8 * g, g); }
+
+  const fr = ss((t - BLOW[0] - .2) / .9);
+  $('#frostV').style.opacity = fr;
+  $('#frostV').style.transform = `scale(${lerp(1.25, 1, fr)})`;
+  const st = back((t - STAY) / .35);
+  $('#stay').style.opacity = clamp((t - STAY) / .1, 0, 1);
+  $('#stay').style.transform = `scale(${lerp(1.8, 1, st)})`;
+}
+
+function frame(t) {
+  const w = $('#win');
+  const rise = out3((t - .3) / .6);
+  const leave = ss((t - HT) / .45);
+  w.style.transform = `translateY(${(1 - rise) * 900 + leave * 1500}px) rotate(${(1 - rise) * 3 - leave * 4}deg)`;
+  w.style.opacity = t < .3 ? 0 : 1;
+
+  const E = $('#end');
+  E.style.opacity = ss((t - END - .25) / .3);
+  const pop = back((t - END - .3) / .5);
+  $('#endYeti').style.transform = `scale(${lerp(.4, 1, pop)})`;
+  endYeti(t);
+  [['#endMark', END + .35], ['#endFor', END + .6], ['#endPill', END + 1.1], ['#endUrl', END + 1.6]].forEach(([s, a]) => {
+    const e = back((t - a) / .4); const el = $(s); el.style.opacity = clamp((t - a) / .15, 0, 1); el.style.transform = `translateY(${(1 - e) * 40}px) scale(${lerp(.85, 1, e)})`;
+  });
+  $('#flash').style.opacity = .55 * Math.max(0, 1 - Math.abs(t - D1) / .12) + .5 * Math.max(0, 1 - Math.abs(t - END - .35) / .12);
+}
+
+window.DURATION = DURATION * 1000;
+window.WIDTH = 1080;
+window.HEIGHT = 1350;
+window.SFX = SFX;
+window.seek = ms => {
+  const t = ms / 1000;
+  drift(t); captions(t); typing(t); chat(t); panel(t); toast(t); hosts(t); frame(t);
+};
+seek(0);
+if (location.hash === '#play') {
+  const fit = () => { const k = Math.min(innerWidth / 1080, innerHeight / 1350); stage.style.transform = `scale(${k})`; };
+  fit(); addEventListener('resize', fit);
+  const t0 = performance.now();
+  const loop = now => { seek((now - t0) % (DURATION * 1000)); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
