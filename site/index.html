@@ -452,6 +452,13 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
           <p class="note" style="margin-top:12px">Secure checkout by Stripe. Your key arrives by email from licenses@coolftp.com within a minute.</p>
         </div>
       </div>
+      <div id="bundle" style="margin-top:20px;max-width:920px;background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+        <div style="flex:1 1 420px">
+          <h3 style="margin:0 0 6px;font-size:19px">All four for $99 <small style="font-weight:400;color:var(--muted);font-size:15px">&nbsp;<s>$196</s>, one-time payment</small></h3>
+          <p style="margin:0;color:var(--muted);font-size:14px">The Claude Code Toolkit: Pro for every app, one key that unlocks all four, updates for life. <b>coolFTP</b> deploys your site · <a href="https://owlsql.com">OwlSQL</a> works on your database · <a href="https://magpiesnap.com">magpieSnap</a> sees your screen · <a href="https://woodpeckerdig.com">woodpeckerDig</a> reads your errors.</p>
+        </div>
+        <a class="btn primary" href="https://buy.stripe.com/7sY5kl9e94rGc3g3Rk1VK07">Get the Toolkit <small>$99</small></a>
+      </div>
       <details style="margin-top:18px"><summary>Lost your license key?</summary>
         <form id="resendForm" style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap" onsubmit="event.preventDefault();const f=this;fetch('api/resend.php',{method:'POST',body:new FormData(f)}).then(r=>r.json()).then(j=>{f.querySelector('span').textContent=j.message||j.error||'Sent.'}).catch(()=>{f.querySelector('span').textContent='Could not reach the server.'})">
           <input name="email" type="email" required placeholder="the email you bought with" style="flex:1;min-width:240px;padding:10px 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--bg-2);color:var(--text)" />

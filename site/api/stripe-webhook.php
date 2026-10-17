@@ -30,6 +30,8 @@ if (!$products) {
         $items = cf_stripe_get('checkout/sessions/' . rawurlencode($session['id']) . '/line_items');
         foreach ($items['data'] ?? [] as $li) {
             $name = strtolower((string)($li['description'] ?? ''));
+            // The Toolkit is every app; its product name names none of them.
+            if (strpos($name, 'toolkit') !== false || strpos($name, 'bundle') !== false) $products = array_merge($products, array_keys(LS_PRODUCTS));
             foreach (array_keys(LS_PRODUCTS) as $p) if ($p !== 'coolftp' && strpos($name, $p) !== false) $products[] = $p;
         }
     } catch (Throwable $e) {
