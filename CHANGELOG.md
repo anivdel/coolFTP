@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## Claude Code plugin: coolftp 0.4.0 (2026-10-17)
+
+- **`/coolftp:license <key>`** activates coolFTP Pro from Claude Code, or paste the key and ask Claude. With no key it shows which plan this machine is on. The `coolftp_license` tool does the work.
+- Ships coolFTP 0.2.0 below.
+
+## coolFTP 0.2.0 (2026-10-17)
+
+- **Free covers one site, Pro is unlimited.** Every feature stays in Free for one saved site. Saving a second needs coolFTP Pro, a one-time $49 with updates for life, at https://coolftp.com/#pro. Editing or renaming the site you have always works, and sites saved before this release are kept.
+- **Pro is updates for life.** A genuine key unlocks Pro in every build; nothing turns it back into Free after a date.
+- **One key format for every Ledvina Software app.** coolFTP also accepts `LS1.` keys, which list the apps they unlock, so a bundle key works in coolFTP and OwlSQL alike. Existing `CFP1.` keys keep working.
+- The app's Pro dialog opens when you try to add a site past the limit, and the limit error names all three ways in: the app's Pro button, `/coolftp:license`, `coolftp license activate`.
 
 - **Fixed:** inside the Claude desktop app on Windows, the plugin, CLI and MCP server could miss sites saved in the coolFTP app and fail with `Unknown site "coolFTP"`. Claude Desktop is a packaged (MSIX) app, so Windows gives it a private copy of `%APPDATA%`: once anything coolFTP wrote there from inside Claude Desktop, that stale copy hid the real `sites.json` for good. coolFTP now keeps its config in `%USERPROFILE%\.coolftp`, which Windows does not redirect, so the app, the CLI and the plugin all read the same sites, and the app does not need to be open.
 - **Moving your config.** The first run of the new app or CLI copies `%APPDATA%\coolftp` (sites, deploy history, known hosts, license) into `%USERPROFILE%\.coolftp`. Sandboxed copies are renamed to `coolftp.sandbox-bak-<date>` first so the real files win, and any site that only existed in a sandboxed copy is added. The old folder is left in place. macOS, Linux and `COOLFTP_HOME` are unchanged.

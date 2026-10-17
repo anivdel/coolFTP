@@ -466,7 +466,24 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <p class="sub">Every release, dated, with what changed and why. The full notes live in the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>; releases are built from tagged commits on GitHub.</p>
       <div class="releases">
         <article class="release latest">
-          <div class="when"><span class="ver">plugin 0.3.0</span><span>2026-10-16</span><span class="latest-tag">new</span></div>
+          <div class="when"><span class="ver">0.2.0 · plugin 0.4.0</span><span>2026-10-17</span><span class="latest-tag">new</span></div>
+          <div>
+            <h3>coolFTP Pro, and your config moves somewhere Claude Desktop can see it</h3>
+            <p class="what">Free keeps every feature for one site. Pro is a one-time $49 for unlimited sites, with updates for life. And on Windows the app, the CLI and the plugin now all read the same sites, even inside the Claude desktop app.</p>
+            <div class="groups">
+              <div class="group new"><b>New</b><ul>
+                <li><b>Pro: unlimited sites.</b> Free covers one saved site; the second one asks for a key. Sites you already had are kept.</li>
+                <li><b><code>/coolftp:license &lt;key&gt;</code></b> in Claude Code, the Pro button in the app, or <code>coolftp license activate</code>.</li>
+              </ul></div>
+              <div class="group"><b>Fixed</b><ul>
+                <li>Inside Claude Desktop on Windows, coolFTP could miss the sites saved in the app. Config now lives in <code>%USERPROFILE%\.coolftp</code> and moves over on first run. Update the app and the CLI together.</li>
+              </ul></div>
+            </div>
+            <div class="links"><a href="#pro">Pricing</a><a href="#download">Download 0.2.0</a><a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">Changelog</a></div>
+          </div>
+        </article>
+        <article class="release">
+          <div class="when"><span class="ver">plugin 0.3.0</span><span>2026-10-16</span></div>
           <div>
             <h3>coolFTP is one Claude Code plugin</h3>
             <p class="what">One install now gives Claude everything: the coolFTP tools, the deploy know-how, slash commands and the live panel. Before, that took an npm install, a <code>claude mcp add</code> line (a different one on Windows), copying a skill folder by hand and a separate mod. Works with coolFTP 0.1.4; nothing to change in the app or the CLI.</p>
@@ -508,7 +525,7 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
           </div>
         </article>
         <article class="release">
-          <div class="when"><span class="ver">0.1.4</span><span>2026-10-12</span><span class="latest-tag">latest</span></div>
+          <div class="when"><span class="ver">0.1.4</span><span>2026-10-12</span></div>
           <div>
             <h3>Single-file uploads from your agent work while the app is open</h3>
             <p class="what">A fix to the MCP server; the app and the CLI are the same as 0.1.3. Update if your agent uploads or downloads single files with coolFTP.</p>
@@ -603,14 +620,14 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
       <h2>Download</h2>
       <p class="sub">The desktop app is optional: the plugin, CLI and MCP server work without it on any OS. It adds a live feed of every agent call and a click to approve deletes, undos and rollbacks. Windows installer and portable build below; macOS and Linux builds come from the same Electron source; run <code>npm run dist</code> to build them yourself until signed builds are published.</p>
       <div class="cta">
-        <a class="btn primary" href="releases/coolFTP-0.1.4-x64.exe">coolFTP Setup for Windows <small>x64, 0.1.4</small></a>
+        <a class="btn primary" href="releases/coolFTP-0.2.0-x64.exe">coolFTP Setup for Windows <small>x64, 0.2.0</small></a>
         <a class="btn" href="releases/coolFTP-portable.exe">Portable .exe</a>
-        <a class="btn" href="releases/coolFTP-0.1.4.mcpb">Claude Desktop extension <small>.mcpb</small></a>
+        <a class="btn" href="releases/coolFTP-0.2.0.mcpb">Claude Desktop extension <small>.mcpb</small></a>
         <a class="btn" href="https://github.com/anivdel/coolFTP">Source on GitHub</a>
       </div>
-      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.1.4-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.3-x64.exe">0.1.3</a>, <a href="releases/coolFTP-0.1.2-x64.exe">0.1.2</a>, <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
-      <p class="note" style="margin-top:8px">Using the Claude Desktop app rather than Claude Code? Open <code>coolFTP-0.1.4.mcpb</code> in Claude Desktop and hit Install. The chat gets the same coolftp tools, deploys still show up in the coolFTP app, and deletes, undos and rollbacks still wait for your click there. It is not code-signed yet, which the install dialog points out.</p>
-      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.1.4-x64.exe</code> 41ab74d9858d8594f8784339fdd228f0594f5d6847b6b16698cd9312781f9ca9<br /><code>coolFTP-portable.exe</code> 7e91d2e86e9f8c4a34f761bcf22348351d7dcdba79de279e13fa1e2fa7c1a9c6<br /><code>coolFTP-0.1.4.mcpb</code> 829d4dc6906b31b4dbc3ae9c4a2556a04f3d7860fe0141731edbb9699ed9c1fc</p>
+      <p class="note" style="margin-top:14px">Not signed yet, so SmartScreen will ask twice. If that matters to you (it should), check the SHA-256 after downloading with <code>certutil -hashfile coolFTP-0.2.0-x64.exe SHA256</code>. What's new is in the <a href="#news">news</a> and the <a href="https://github.com/anivdel/coolFTP/blob/main/CHANGELOG.md">changelog</a>. Previous builds: <a href="releases/coolFTP-0.1.4-x64.exe">0.1.4</a>, <a href="releases/coolFTP-0.1.3-x64.exe">0.1.3</a>, <a href="releases/coolFTP-0.1.2-x64.exe">0.1.2</a>, <a href="releases/coolFTP-0.1.1-x64.exe">0.1.1</a>, <a href="releases/coolFTP-0.1.0-x64.exe">0.1.0</a>.</p>
+      <p class="note" style="margin-top:8px">Using the Claude Desktop app rather than Claude Code? Open <code>coolFTP-0.2.0.mcpb</code> in Claude Desktop and hit Install. The chat gets the same coolftp tools, deploys still show up in the coolFTP app, and deletes, undos and rollbacks still wait for your click there. It is not code-signed yet, which the install dialog points out.</p>
+      <p class="note" style="margin-top:8px;word-break:break-all"><code>coolFTP-0.2.0-x64.exe</code> e28784f3a90243d49d367196ef268801339d7742ad70797e3f0d1bba1145e480<br /><code>coolFTP-portable.exe</code> 8b0a0f792069ecc10cc3320c4e14d7e149b8c37d92ee7b00fa3ac6ba7d861765<br /><code>coolFTP-0.2.0.mcpb</code> c8c8dfb30d3f95c06cd7b70110a826450c47742c1e1bf183523be9dbad2d8b21</p>
     </section>
 
     <section id="faq">

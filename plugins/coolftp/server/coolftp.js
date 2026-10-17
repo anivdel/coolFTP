@@ -38410,10 +38410,94 @@ var {
 var import_node_os = __toESM(require("node:os"));
 var import_node_path = __toESM(require("node:path"));
 var import_node_fs = __toESM(require("node:fs"));
+var migrated = false;
 function configDir() {
-  const base = process.env.COOLFTP_HOME || (process.platform === "win32" ? import_node_path.default.join(process.env.APPDATA || import_node_path.default.join(import_node_os.default.homedir(), "AppData", "Roaming"), "coolftp") : import_node_path.default.join(process.env.XDG_CONFIG_HOME || import_node_path.default.join(import_node_os.default.homedir(), ".config"), "coolftp"));
+  if (process.env.COOLFTP_HOME) {
+    import_node_fs.default.mkdirSync(process.env.COOLFTP_HOME, { recursive: true });
+    return process.env.COOLFTP_HOME;
+  }
+  if (process.platform !== "win32") {
+    const base2 = import_node_path.default.join(process.env.XDG_CONFIG_HOME || import_node_path.default.join(import_node_os.default.homedir(), ".config"), "coolftp");
+    import_node_fs.default.mkdirSync(base2, { recursive: true });
+    return base2;
+  }
+  const base = import_node_path.default.join(import_node_os.default.homedir(), ".coolftp");
   import_node_fs.default.mkdirSync(base, { recursive: true });
+  if (!migrated) {
+    migrated = true;
+    try {
+      migrateLegacyConfig(base);
+    } catch {
+    }
+  }
   return base;
+}
+function legacyConfigDir() {
+  if (process.platform !== "win32" || process.env.COOLFTP_HOME) return void 0;
+  return import_node_path.default.join(process.env.APPDATA || import_node_path.default.join(import_node_os.default.homedir(), "AppData", "Roaming"), "coolftp");
+}
+function sandboxShadowDirs() {
+  if (process.platform !== "win32" || !process.env.LOCALAPPDATA) return [];
+  const packages = import_node_path.default.join(process.env.LOCALAPPDATA, "Packages");
+  const out = [];
+  try {
+    for (const name of import_node_fs.default.readdirSync(packages)) {
+      const dir = import_node_path.default.join(packages, name, "LocalCache", "Roaming", "coolftp");
+      if (import_node_fs.default.existsSync(dir)) out.push(dir);
+    }
+  } catch {
+  }
+  return out;
+}
+var MIGRATED_MARKER = "migrated.json";
+var SKIP = /* @__PURE__ */ new Set(["hub.json", MIGRATED_MARKER]);
+function migrateLegacyConfig(target) {
+  if (import_node_fs.default.existsSync(import_node_path.default.join(target, MIGRATED_MARKER)) || import_node_fs.default.existsSync(import_node_path.default.join(target, "sites.json"))) return;
+  const legacy = legacyConfigDir();
+  if (!legacy) return;
+  const stamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const shadows = [];
+  for (const dir of sandboxShadowDirs()) {
+    let dest = `${dir}.sandbox-bak-${stamp}`;
+    for (let i = 2; import_node_fs.default.existsSync(dest); i++) dest = `${dir}.sandbox-bak-${stamp}-${i}`;
+    try {
+      import_node_fs.default.renameSync(dir, dest);
+      shadows.push(dest);
+    } catch {
+      shadows.push(dir);
+    }
+  }
+  const copied = [];
+  if (import_node_fs.default.existsSync(legacy)) copyMissing(legacy, target, copied);
+  for (const dir of shadows) {
+    mergeSites(import_node_path.default.join(dir, "sites.json"), import_node_path.default.join(target, "sites.json"), copied);
+    copyMissing(dir, target, copied);
+  }
+  writeJson(import_node_path.default.join(target, MIGRATED_MARKER), { from: legacy, sandboxCopies: shadows, files: copied.length, at: (/* @__PURE__ */ new Date()).toISOString() });
+}
+function copyMissing(from, to, copied) {
+  for (const entry of import_node_fs.default.readdirSync(from, { withFileTypes: true })) {
+    if (SKIP.has(entry.name) || entry.name.endsWith(".tmp")) continue;
+    const src = import_node_path.default.join(from, entry.name);
+    const dest = import_node_path.default.join(to, entry.name);
+    if (entry.isDirectory()) {
+      import_node_fs.default.mkdirSync(dest, { recursive: true });
+      copyMissing(src, dest, copied);
+    } else if (entry.isFile() && !import_node_fs.default.existsSync(dest)) {
+      import_node_fs.default.copyFileSync(src, dest);
+      copied.push(dest);
+    }
+  }
+}
+function mergeSites(from, to, copied) {
+  if (!import_node_fs.default.existsSync(from) || !import_node_fs.default.existsSync(to)) return;
+  const extra = readJson(from, {}).sites ?? [];
+  const current = readJson(to, {}).sites ?? [];
+  const have = new Set(current.map((s) => s.name.toLowerCase()));
+  const add = extra.filter((s) => s?.name && !have.has(s.name.toLowerCase()));
+  if (!add.length) return;
+  writeJson(to, { sites: [...current, ...add] });
+  copied.push(to);
 }
 function readJson(file, fallback) {
   try {
@@ -38458,8 +38542,8 @@ function shortId() {
 }
 
 // packages/core/src/sites.ts
-var import_node_path2 = __toESM(require("node:path"));
-var import_node_fs2 = __toESM(require("node:fs"));
+var import_node_path3 = __toESM(require("node:path"));
+var import_node_fs3 = __toESM(require("node:fs"));
 var import_node_os2 = __toESM(require("node:os"));
 
 // packages/core/src/secrets.ts
@@ -38503,8 +38587,87 @@ function revealSecret(stored) {
   }
 }
 
+// packages/core/src/license.ts
+var import_node_crypto = __toESM(require("node:crypto"));
+var import_node_path2 = __toESM(require("node:path"));
+var import_node_fs2 = __toESM(require("node:fs"));
+
+// packages/core/src/license-pubkey.ts
+var LICENSE_PUBLIC_KEY_B64 = "AoAh8p0HpqGRTJCuaNUHdxfJmQ05lwBqFj/qyazs/x8=";
+
+// packages/core/src/license.ts
+var BUY_URL = "https://coolftp.com/#pro";
+var PREFIX2 = "CFP1";
+var LS_PREFIX = "LS1";
+var PRODUCT = "coolftp";
+var PRODUCT_NAMES = { coolftp: "coolFTP", owlsql: "OwlSQL", woodpecker: "woodpeckerDig", magpie: "magpieSnap" };
+var SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+function buildDate() {
+  return true ? "2026-10-17" : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function unb64url(s) {
+  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+function normaliseLicenseKey(input) {
+  return input.replace(/\s+/g, "").trim();
+}
+function parseLicenseKey(key) {
+  const parts = normaliseLicenseKey(key).split(".");
+  if (parts.length !== 3 || parts[0] !== PREFIX2 && parts[0] !== LS_PREFIX) throw new Error("That is not a coolFTP license key.");
+  const [prefix, body, sig] = parts;
+  let payload;
+  try {
+    payload = JSON.parse(unb64url(body).toString("utf8"));
+  } catch {
+    throw new Error("License key is damaged (payload).");
+  }
+  const fieldsOk = prefix === PREFIX2 ? payload.v === 1 && Boolean(payload.email) && Boolean(payload.updatesUntil) && payload.tier === "pro" : payload.v === 2 && Boolean(payload.email) && Array.isArray(payload.products);
+  if (!fieldsOk) throw new Error("License key is damaged (fields).");
+  const pub = import_node_crypto.default.createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, Buffer.from(LICENSE_PUBLIC_KEY_B64, "base64")]), format: "der", type: "spki" });
+  const signatureOk = import_node_crypto.default.verify(null, Buffer.from(`${prefix}.${body}`), pub, unb64url(sig));
+  return { payload, signatureOk };
+}
+function evaluateLicense(key, build = buildDate()) {
+  const base = { installed: false, valid: false, pro: false, buildDate: build, buyUrl: BUY_URL };
+  if (!key) return { ...base, reason: "No license installed. coolFTP runs as Free." };
+  let parsed;
+  try {
+    parsed = parseLicenseKey(key);
+  } catch (e) {
+    return { ...base, installed: true, reason: e.message };
+  }
+  if (!parsed.signatureOk) return { ...base, installed: true, reason: "License signature does not match. The key was altered or is not from coolftp.com." };
+  const lic = parsed.payload;
+  if (lic.v === 2 && !lic.products.includes(PRODUCT)) {
+    const names = lic.products.map((p) => PRODUCT_NAMES[p] ?? p).join(", ") || "no apps";
+    return { ...base, installed: true, reason: `That key is for ${names}, not coolFTP. Get coolFTP Pro at ${BUY_URL}.` };
+  }
+  return { ...base, installed: true, valid: true, pro: true, license: lic };
+}
+function licenseFile() {
+  return import_node_path2.default.join(configDir(), "license.json");
+}
+function getLicenseStatus(build = buildDate()) {
+  const stored = readJson(licenseFile(), {});
+  return evaluateLicense(stored.key, build);
+}
+function activateLicense(rawKey, build = buildDate()) {
+  const key = normaliseLicenseKey(rawKey);
+  const status = evaluateLicense(key, build);
+  if (!status.valid) throw new Error(status.reason || "Invalid license key.");
+  writeJson(licenseFile(), { key, activatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  return status;
+}
+function removeLicense() {
+  const f = licenseFile();
+  if (!import_node_fs2.default.existsSync(f)) return false;
+  import_node_fs2.default.unlinkSync(f);
+  return true;
+}
+
 // packages/core/src/sites.ts
-var FILE = () => import_node_path2.default.join(configDir(), "sites.json");
+var FREE_SITE_LIMIT = 1;
+var FILE = () => import_node_path3.default.join(configDir(), "sites.json");
 function loadSites() {
   const data = readJson(FILE(), { sites: [] });
   return data.sites ?? [];
@@ -38518,10 +38681,16 @@ function getSite(name) {
   return { ...s, password: revealSecret(s.password), passphrase: revealSecret(s.passphrase) };
 }
 var KEEP_SECRET = "__KEEP__";
-function upsertSite(site2) {
+function upsertSite(site2, replaces) {
   const sites = loadSites();
   const i = sites.findIndex((x) => x.name.toLowerCase() === site2.name.toLowerCase());
   const existing = i >= 0 ? sites[i] : void 0;
+  const renaming = Boolean(replaces && sites.some((x) => x.name.toLowerCase() === replaces.toLowerCase()));
+  if (!existing && !renaming && sites.length >= FREE_SITE_LIMIT && !getLicenseStatus().pro) {
+    throw new Error(
+      `coolFTP Free covers ${FREE_SITE_LIMIT} site and you have ${sites.length}. Unlimited sites come with coolFTP Pro ($49 once): ${BUY_URL}. Then paste the key into the app's Pro button, type /coolftp:license <key> in Claude Code, or run: coolftp license activate <key>`
+    );
+  }
   if (site2.password === KEEP_SECRET) site2.password = existing?.password;
   if (site2.passphrase === KEEP_SECRET || site2.passphrase === void 0 && existing?.passphrase) site2.passphrase = existing?.passphrase;
   const normalised = normaliseSite(site2);
@@ -38549,7 +38718,7 @@ function normaliseSite(site2) {
   if (!s.remoteRoot.startsWith("/") && !/^~/.test(s.remoteRoot)) s.remoteRoot = "/" + s.remoteRoot;
   if (s.remoteRoot.length > 1) s.remoteRoot = s.remoteRoot.replace(/\/+$/, "");
   if (s.privateKeyPath) s.privateKeyPath = expandHome(s.privateKeyPath);
-  if (s.localRoot) s.localRoot = import_node_path2.default.resolve(expandHome(s.localRoot));
+  if (s.localRoot) s.localRoot = import_node_path3.default.resolve(expandHome(s.localRoot));
   if (s.url && s.url.trim()) {
     s.url = s.url.trim().replace(/\/+$/, "");
     if (!/^https?:\/\//i.test(s.url)) s.url = "https://" + s.url;
@@ -38560,10 +38729,10 @@ function normaliseSite(site2) {
   return s;
 }
 function defaultPrivateKey() {
-  const dir = import_node_path2.default.join(import_node_os2.default.homedir(), ".ssh");
+  const dir = import_node_path3.default.join(import_node_os2.default.homedir(), ".ssh");
   for (const n of ["id_ed25519", "id_ecdsa", "id_rsa"]) {
-    const p = import_node_path2.default.join(dir, n);
-    if (import_node_fs2.default.existsSync(p)) return p;
+    const p = import_node_path3.default.join(dir, n);
+    if (import_node_fs3.default.existsSync(p)) return p;
   }
   return void 0;
 }
@@ -38573,22 +38742,22 @@ function publicSite(site2) {
 }
 
 // packages/core/src/project.ts
-var import_node_fs3 = __toESM(require("node:fs"));
-var import_node_path3 = __toESM(require("node:path"));
+var import_node_fs4 = __toESM(require("node:fs"));
+var import_node_path4 = __toESM(require("node:path"));
 var PROJECT_FILE = ".coolftp.json";
 function findProjectFile(cwd) {
-  let dir = import_node_path3.default.resolve(cwd);
+  let dir = import_node_path4.default.resolve(cwd);
   for (; ; ) {
-    const candidate = import_node_path3.default.join(dir, PROJECT_FILE);
-    if (import_node_fs3.default.existsSync(candidate)) return candidate;
-    const parent = import_node_path3.default.dirname(dir);
+    const candidate = import_node_path4.default.join(dir, PROJECT_FILE);
+    if (import_node_fs4.default.existsSync(candidate)) return candidate;
+    const parent = import_node_path4.default.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
   }
 }
 function resolveProject(cwd, siteOverride) {
   const configPath = findProjectFile(cwd);
-  const root = configPath ? import_node_path3.default.dirname(configPath) : import_node_path3.default.resolve(cwd);
+  const root = configPath ? import_node_path4.default.dirname(configPath) : import_node_path4.default.resolve(cwd);
   const config2 = configPath ? readJson(configPath, { site: "" }) : { site: "" };
   if (siteOverride) config2.site = siteOverride;
   if (!config2.site) {
@@ -38596,11 +38765,11 @@ function resolveProject(cwd, siteOverride) {
       `No site configured for ${root}. Run "coolftp init <site>" in the project, or pass --site <name>.`
     );
   }
-  const localDir = config2.localDir ? import_node_path3.default.resolve(root, config2.localDir) : root;
+  const localDir = config2.localDir ? import_node_path4.default.resolve(root, config2.localDir) : root;
   return { root, localDir, configPath, config: config2 };
 }
 function writeProjectConfig(dir, config2) {
-  const file = import_node_path3.default.join(dir, PROJECT_FILE);
+  const file = import_node_path4.default.join(dir, PROJECT_FILE);
   writeJson(file, config2);
   return file;
 }
@@ -38627,9 +38796,9 @@ function projectRemotePath(cwd, site2, p) {
 }
 
 // packages/core/src/scan.ts
-var import_node_fs4 = __toESM(require("node:fs"));
-var import_node_path4 = __toESM(require("node:path"));
-var import_node_crypto = __toESM(require("node:crypto"));
+var import_node_fs5 = __toESM(require("node:fs"));
+var import_node_path5 = __toESM(require("node:path"));
+var import_node_crypto2 = __toESM(require("node:crypto"));
 var import_ignore = __toESM(require_ignore());
 var ALWAYS_IGNORE = [
   ".git/",
@@ -38650,20 +38819,20 @@ function buildIgnore(root, extra = []) {
   const ig = (0, import_ignore.default)();
   ig.add(ALWAYS_IGNORE);
   for (const f of [".coolftpignore", ".deployignore"]) {
-    const p = import_node_path4.default.join(root, f);
-    if (import_node_fs4.default.existsSync(p)) ig.add(import_node_fs4.default.readFileSync(p, "utf8"));
+    const p = import_node_path5.default.join(root, f);
+    if (import_node_fs5.default.existsSync(p)) ig.add(import_node_fs5.default.readFileSync(p, "utf8"));
   }
   ig.add(extra.filter(Boolean));
   return ig;
 }
 function cacheFile(root) {
-  const key = import_node_crypto.default.createHash("sha1").update(import_node_path4.default.resolve(root).toLowerCase()).digest("hex").slice(0, 16);
-  return import_node_path4.default.join(configDir(), "cache", `${key}.json`);
+  const key = import_node_crypto2.default.createHash("sha1").update(import_node_path5.default.resolve(root).toLowerCase()).digest("hex").slice(0, 16);
+  return import_node_path5.default.join(configDir(), "cache", `${key}.json`);
 }
 async function hashFile(file) {
   return new Promise((resolve, reject) => {
-    const h = import_node_crypto.default.createHash("sha256");
-    import_node_fs4.default.createReadStream(file).on("data", (d) => h.update(d)).on("end", () => resolve(h.digest("hex"))).on("error", reject);
+    const h = import_node_crypto2.default.createHash("sha256");
+    import_node_fs5.default.createReadStream(file).on("data", (d) => h.update(d)).on("end", () => resolve(h.digest("hex"))).on("error", reject);
   });
 }
 async function scanLocal(root, extraIgnore = [], onFile) {
@@ -38675,20 +38844,20 @@ async function scanLocal(root, extraIgnore = [], onFile) {
   const walk = async (dir, relDir) => {
     let entries;
     try {
-      entries = import_node_fs4.default.readdirSync(dir, { withFileTypes: true });
+      entries = import_node_fs5.default.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const e of entries) {
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
-      const abs = import_node_path4.default.join(dir, e.name);
+      const abs = import_node_path5.default.join(dir, e.name);
       if (e.isDirectory()) {
         if (ig.ignores(rel + "/")) continue;
         await walk(abs, rel);
       } else if (e.isFile()) {
         if (ig.ignores(rel)) continue;
-        const st = import_node_fs4.default.statSync(abs);
+        const st = import_node_fs5.default.statSync(abs);
         const mtime = Math.floor(st.mtimeMs);
         const cached2 = cache[rel];
         let hash;
@@ -38710,15 +38879,15 @@ async function scanLocal(root, extraIgnore = [], onFile) {
 function walkLocalFiles(root) {
   const out = [];
   const walk = (dir, relDir) => {
-    for (const e of import_node_fs4.default.readdirSync(dir, { withFileTypes: true })) {
-      const abs = import_node_path4.default.join(dir, e.name);
+    for (const e of import_node_fs5.default.readdirSync(dir, { withFileTypes: true })) {
+      const abs = import_node_path5.default.join(dir, e.name);
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
       if (e.isDirectory()) walk(abs, rel);
-      else if (e.isFile()) out.push({ abs, rel: toPosix(rel), size: import_node_fs4.default.statSync(abs).size });
+      else if (e.isFile()) out.push({ abs, rel: toPosix(rel), size: import_node_fs5.default.statSync(abs).size });
     }
   };
-  const st = import_node_fs4.default.statSync(root);
-  if (st.isFile()) return [{ abs: root, rel: import_node_path4.default.basename(root), size: st.size }];
+  const st = import_node_fs5.default.statSync(root);
+  if (st.isFile()) return [{ abs: root, rel: import_node_path5.default.basename(root), size: st.size }];
   walk(root, "");
   return out;
 }
@@ -38757,16 +38926,16 @@ var silentEvents = () => new Events({ agent: "internal", op: "none" });
 var CANCELLED_MESSAGE = "Cancelled in the coolFTP app";
 
 // packages/core/src/sftp.ts
-var import_node_fs5 = __toESM(require("node:fs"));
-var import_node_path6 = __toESM(require("node:path"));
+var import_node_fs6 = __toESM(require("node:fs"));
+var import_node_path7 = __toESM(require("node:path"));
 var import_ssh2 = __toESM(require_lib2());
 
 // packages/core/src/knownhosts.ts
-var import_node_crypto2 = __toESM(require("node:crypto"));
-var import_node_path5 = __toESM(require("node:path"));
-var FILE2 = () => import_node_path5.default.join(configDir(), "known_hosts.json");
+var import_node_crypto3 = __toESM(require("node:crypto"));
+var import_node_path6 = __toESM(require("node:path"));
+var FILE2 = () => import_node_path6.default.join(configDir(), "known_hosts.json");
 function fingerprintOf(key) {
-  return "SHA256:" + import_node_crypto2.default.createHash("sha256").update(key).digest("base64").replace(/=+$/, "");
+  return "SHA256:" + import_node_crypto3.default.createHash("sha256").update(key).digest("base64").replace(/=+$/, "");
 }
 function checkHostKey(host, port, keyType, key) {
   const id = `${host.toLowerCase()}:${port}`;
@@ -38833,8 +39002,8 @@ var SftpTransport = class {
       keepaliveInterval: 15e3
     };
     const keyPath = s.privateKeyPath || (!s.password ? defaultPrivateKey() : void 0);
-    if (keyPath && import_node_fs5.default.existsSync(keyPath)) {
-      cfg.privateKey = import_node_fs5.default.readFileSync(keyPath);
+    if (keyPath && import_node_fs6.default.existsSync(keyPath)) {
+      cfg.privateKey = import_node_fs6.default.readFileSync(keyPath);
       if (s.passphrase) cfg.passphrase = s.passphrase;
     }
     if (s.password) cfg.password = s.password;
@@ -38917,7 +39086,7 @@ var SftpTransport = class {
           return reject(err);
         }
         resolve({
-          name: import_node_path6.default.posix.basename(p),
+          name: import_node_path7.default.posix.basename(p),
           path: p,
           type: attrs.isDirectory() ? "dir" : attrs.isSymbolicLink() ? "link" : "file",
           size: attrs.size,
@@ -38964,7 +39133,7 @@ var SftpTransport = class {
     });
   }
   download(remote, local, onProgress) {
-    import_node_fs5.default.mkdirSync(import_node_path6.default.dirname(local), { recursive: true });
+    import_node_fs6.default.mkdirSync(import_node_path7.default.dirname(local), { recursive: true });
     return new Promise((resolve, reject) => {
       this.s().fastGet(
         remote,
@@ -39005,8 +39174,8 @@ var SftpTransport = class {
 };
 
 // packages/core/src/ftp.ts
-var import_node_fs6 = __toESM(require("node:fs"));
-var import_node_path7 = __toESM(require("node:path"));
+var import_node_fs7 = __toESM(require("node:fs"));
+var import_node_path8 = __toESM(require("node:path"));
 var import_basic_ftp = __toESM(require_dist());
 var FtpTransport = class {
   constructor(site2) {
@@ -39072,8 +39241,8 @@ var FtpTransport = class {
   }
   stat(p) {
     return this.run(async () => {
-      const dir = import_node_path7.default.posix.dirname(p);
-      const name = import_node_path7.default.posix.basename(p);
+      const dir = import_node_path8.default.posix.dirname(p);
+      const name = import_node_path8.default.posix.basename(p);
       try {
         const items = await this.client.list(dir);
         const f = items.find((x) => x.name === name);
@@ -39135,7 +39304,7 @@ var FtpTransport = class {
   }
   upload(local, remote, onProgress) {
     return this.run(async () => {
-      const total = import_node_fs6.default.statSync(local).size;
+      const total = import_node_fs7.default.statSync(local).size;
       if (onProgress) this.client.trackProgress((info) => onProgress(info.bytes, total));
       try {
         await this.client.uploadFrom(local, remote);
@@ -39147,7 +39316,7 @@ var FtpTransport = class {
   }
   download(remote, local, onProgress) {
     return this.run(async () => {
-      import_node_fs6.default.mkdirSync(import_node_path7.default.dirname(local), { recursive: true });
+      import_node_fs7.default.mkdirSync(import_node_path8.default.dirname(local), { recursive: true });
       let total = 0;
       try {
         total = await this.client.size(remote);
@@ -39322,10 +39491,10 @@ var ConnectionPool = class {
 };
 
 // packages/core/src/commands.ts
-var import_node_fs7 = __toESM(require("node:fs"));
+var import_node_fs8 = __toESM(require("node:fs"));
 var import_node_os3 = __toESM(require("node:os"));
-var import_node_path8 = __toESM(require("node:path"));
-var import_node_crypto3 = __toESM(require("node:crypto"));
+var import_node_path9 = __toESM(require("node:path"));
+var import_node_crypto4 = __toESM(require("node:crypto"));
 var import_node_child_process3 = require("node:child_process");
 
 // packages/core/src/git.ts
@@ -39441,8 +39610,8 @@ var CoolFtp = class {
   sites() {
     return loadSites().map(publicSite);
   }
-  addSite(site2) {
-    return publicSite(upsertSite(site2));
+  addSite(site2, replaces) {
+    return publicSite(upsertSite(site2, replaces));
   }
   removeSite(name) {
     return removeSite(name);
@@ -39635,7 +39804,7 @@ var CoolFtp = class {
           if (direction === "upload") {
             await t.upload(local, remote, onProgress);
             if (opts.verifySize) {
-              const want = import_node_fs7.default.statSync(local).size;
+              const want = import_node_fs8.default.statSync(local).size;
               const got = await t.size(remote);
               if (got !== null && got !== want) throw new Error(`size check failed: the server has ${got} bytes, the local file has ${want}`);
               verified = got !== null;
@@ -39737,9 +39906,9 @@ var CoolFtp = class {
     const site2 = getSite(siteName);
     const t = await this.pool.acquire(site2, events);
     const remote = await this.resolveRemote(site2, t, remotePath);
-    const abs = import_node_path8.default.resolve(localPath2);
-    if (!import_node_fs7.default.existsSync(abs)) throw new Error(`Local path not found: ${abs}`);
-    const st = import_node_fs7.default.statSync(abs);
+    const abs = import_node_path9.default.resolve(localPath2);
+    if (!import_node_fs8.default.existsSync(abs)) throw new Error(`Local path not found: ${abs}`);
+    const st = import_node_fs8.default.statSync(abs);
     const projectRoot = await this.projectRootFor(opts.cwd, site2, t);
     const base = projectRoot ?? await this.resolveRemote(site2, t, site2.remoteRoot);
     const createdDirs = [];
@@ -39749,7 +39918,7 @@ var CoolFtp = class {
     let verified = 0;
     if (st.isFile()) {
       const rst = await t.stat(remote);
-      const target = rst?.type === "dir" ? rjoin(remote, import_node_path8.default.basename(abs)) : remote;
+      const target = rst?.type === "dir" ? rjoin(remote, import_node_path9.default.basename(abs)) : remote;
       createdDirs.push(...await t.mkdirp(rdirname(target)));
       const r = await this.transfer(t, "upload", abs, target, st.size, events, { verifySize: true });
       if (r.verified) verified++;
@@ -39801,10 +39970,10 @@ var CoolFtp = class {
     const base = projectRoot ?? await this.resolveRemote(site2, t, site2.remoteRoot);
     const list = [];
     for (const p of localPaths) {
-      const abs = import_node_path8.default.resolve(p);
-      if (!import_node_fs7.default.existsSync(abs)) throw new Error(`Local path not found: ${abs}`);
-      const st = import_node_fs7.default.statSync(abs);
-      const name = import_node_path8.default.basename(abs);
+      const abs = import_node_path9.default.resolve(p);
+      if (!import_node_fs8.default.existsSync(abs)) throw new Error(`Local path not found: ${abs}`);
+      const st = import_node_fs8.default.statSync(abs);
+      const name = import_node_path9.default.basename(abs);
       if (st.isFile()) list.push({ abs, target: rjoin(remote, name), size: st.size });
       else for (const f of walkLocalFiles(abs)) list.push({ abs: f.abs, target: rjoin(rjoin(remote, name), f.rel), size: f.size });
     }
@@ -39842,7 +40011,7 @@ var CoolFtp = class {
   async downloadMany(siteName, remotePaths, localDir, events = silentEvents()) {
     const site2 = getSite(siteName);
     const t = await this.pool.acquire(site2, events);
-    const local = import_node_path8.default.resolve(localDir);
+    const local = import_node_path9.default.resolve(localDir);
     const all = [];
     const roots = [];
     for (const p of remotePaths) roots.push(await this.resolveRemote(site2, t, p));
@@ -39851,14 +40020,14 @@ var CoolFtp = class {
       const st = known.get(remote);
       if (!st) throw new Error(`Remote path not found: ${remote}`);
       if (st.type !== "dir") {
-        all.push({ remote, local: import_node_path8.default.join(local, st.name), size: st.size });
+        all.push({ remote, local: import_node_path9.default.join(local, st.name), size: st.size });
         continue;
       }
-      const root = import_node_path8.default.join(local, st.name);
+      const root = import_node_path9.default.join(local, st.name);
       const walk = async (dir) => {
         for (const e of await t.list(dir)) {
           if (e.type === "dir") await walk(e.path);
-          else if (e.type === "file") all.push({ remote: e.path, local: import_node_path8.default.join(root, e.path.slice(remote.length).replace(/^\//, "")), size: e.size });
+          else if (e.type === "file") all.push({ remote: e.path, local: import_node_path9.default.join(root, e.path.slice(remote.length).replace(/^\//, "")), size: e.size });
         }
       };
       await walk(remote);
@@ -39889,7 +40058,7 @@ var CoolFtp = class {
     if (!manifest) return 0;
     for (const u of inside) {
       const rel = u.remote.slice(projectRoot.replace(/\/+$/, "").length + 1);
-      const st = import_node_fs7.default.statSync(u.abs);
+      const st = import_node_fs8.default.statSync(u.abs);
       manifest.files[rel] = { size: st.size, mtime: Math.floor(st.mtimeMs), hash: await hashFile(u.abs) };
     }
     manifest.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -39916,11 +40085,11 @@ var CoolFtp = class {
     const remote = await this.resolveRemote(site2, t, remotePath);
     const st = await t.stat(remote);
     if (!st) throw new Error(`Remote path not found: ${remote}`);
-    let local = import_node_path8.default.resolve(localPath2);
+    let local = import_node_path9.default.resolve(localPath2);
     let files = 0;
     let bytes = 0;
     if (st.type !== "dir") {
-      if (import_node_fs7.default.existsSync(local) && import_node_fs7.default.statSync(local).isDirectory()) local = import_node_path8.default.join(local, st.name);
+      if (import_node_fs8.default.existsSync(local) && import_node_fs8.default.statSync(local).isDirectory()) local = import_node_path9.default.join(local, st.name);
       await this.transfer(t, "download", local, remote, st.size, events);
       files = 1;
       bytes = st.size;
@@ -39937,7 +40106,7 @@ var CoolFtp = class {
       try {
         await this.withWorkers(site2, t, all, events, progress, async (w, e) => {
           const rel = e.path.slice(remote.length).replace(/^\//, "");
-          await this.transfer(w, "download", import_node_path8.default.join(local, rel), e.path, e.size, events, { progress });
+          await this.transfer(w, "download", import_node_path9.default.join(local, rel), e.path, e.size, events, { progress });
           files++;
           bytes += e.size;
         });
@@ -40113,7 +40282,7 @@ var CoolFtp = class {
       try {
         connections = await this.withWorkers(site2, t, uploads, events, progress, async (w, rel) => {
           const live = rjoin(remoteRoot, rel);
-          const localFile = import_node_path8.default.join(project.localDir, rel);
+          const localFile = import_node_path9.default.join(project.localDir, rel);
           if (backup && changeSet.has(rel)) {
             const tmp = live + TMP_SUFFIX;
             await this.transfer(w, "upload", localFile, tmp, local[rel].size, events, { progress, verifySize, as: live });
@@ -40392,8 +40561,8 @@ var CoolFtp = class {
     for (const rel of rels) {
       const url = this.publicUrlFor(site2, project, remoteRoot, rel);
       if (!url) continue;
-      const local = import_node_path8.default.join(project.localDir, rel);
-      out.push({ url, rel, local: import_node_fs7.default.existsSync(local) ? local : void 0 });
+      const local = import_node_path9.default.join(project.localDir, rel);
+      out.push({ url, rel, local: import_node_fs8.default.existsSync(local) ? local : void 0 });
     }
     return out;
   }
@@ -40419,7 +40588,7 @@ var CoolFtp = class {
         const check2 = { url: target.url, status: res.status, ok: res.ok, ms: 0 };
         if (compare && res.ok) {
           const body = Buffer.from(await res.arrayBuffer());
-          const live = import_node_crypto3.default.createHash("sha256").update(body).digest("hex");
+          const live = import_node_crypto4.default.createHash("sha256").update(body).digest("hex");
           check2.content = live === await hashFile(target.local) ? "match" : "stale";
         } else await res.body?.cancel().catch(() => void 0);
         clearTimeout(timer);
@@ -40485,16 +40654,16 @@ var CoolFtp = class {
       events.log(`This project has a build step. Rollback deploys the committed files of ${commit.slice(0, 7)} as they are; pass --build to run "${project.config.build}" in the checkout first.`, "warn");
     }
     events.log(`Rolling back ${site2.name} to ${label}`);
-    const tmp = import_node_fs7.default.mkdtempSync(import_node_path8.default.join(import_node_os3.default.tmpdir(), "coolftp-rollback-"));
+    const tmp = import_node_fs8.default.mkdtempSync(import_node_path9.default.join(import_node_os3.default.tmpdir(), "coolftp-rollback-"));
     gitWorktreeAdd(project.root, tmp, commit);
     try {
       const snapshot = {
         root: tmp,
-        localDir: import_node_path8.default.join(tmp, import_node_path8.default.relative(project.root, project.localDir)),
+        localDir: import_node_path9.default.join(tmp, import_node_path9.default.relative(project.root, project.localDir)),
         configPath: null,
         config: project.config
       };
-      if (!import_node_fs7.default.existsSync(snapshot.localDir)) throw new Error(`Commit ${commit.slice(0, 7)} has no "${project.config.localDir}" folder to deploy.`);
+      if (!import_node_fs8.default.existsSync(snapshot.localDir)) throw new Error(`Commit ${commit.slice(0, 7)} has no "${project.config.localDir}" folder to deploy.`);
       const result = await this.deployFrom(
         snapshot,
         { delete: true, skipBuild: !opts.build, message: opts.message ?? `rollback to ${commit.slice(0, 7)}`, rollbackOf: commit },
@@ -40504,7 +40673,7 @@ var CoolFtp = class {
       return { ...result, commit };
     } finally {
       gitWorktreeRemove(project.root, tmp);
-      import_node_fs7.default.rmSync(tmp, { recursive: true, force: true });
+      import_node_fs8.default.rmSync(tmp, { recursive: true, force: true });
     }
   }
   // ---------- host keys ----------
@@ -40517,7 +40686,7 @@ var CoolFtp = class {
     return { site: site2.name, forgot: forgetHostKey(site2.host, site2.port) };
   }
   historyFile(siteName) {
-    return import_node_path8.default.join(configDir(), "history", `${siteName.toLowerCase().replace(/[^a-z0-9_-]/g, "_")}.json`);
+    return import_node_path9.default.join(configDir(), "history", `${siteName.toLowerCase().replace(/[^a-z0-9_-]/g, "_")}.json`);
   }
   recordLocalHistory(siteName, record2, projectRoot) {
     const file = this.historyFile(siteName);
@@ -40571,89 +40740,10 @@ function runShell(cmd, cwd, onLine) {
   });
 }
 
-// packages/core/src/license.ts
-var import_node_crypto4 = __toESM(require("node:crypto"));
-var import_node_path9 = __toESM(require("node:path"));
-var import_node_fs8 = __toESM(require("node:fs"));
-
-// packages/core/src/license-pubkey.ts
-var LICENSE_PUBLIC_KEY_B64 = "AoAh8p0HpqGRTJCuaNUHdxfJmQ05lwBqFj/qyazs/x8=";
-
-// packages/core/src/license.ts
-var BUY_URL = "https://coolftp.com/#pro";
-var PREFIX2 = "CFP1";
-var SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
-function buildDate() {
-  return true ? "2026-10-16" : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-}
-function unb64url(s) {
-  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
-}
-function normaliseLicenseKey(input) {
-  return input.replace(/\s+/g, "").trim();
-}
-function parseLicenseKey(key) {
-  const parts = normaliseLicenseKey(key).split(".");
-  if (parts.length !== 3 || parts[0] !== PREFIX2) throw new Error("That is not a coolFTP license key.");
-  const [, body, sig] = parts;
-  let payload;
-  try {
-    payload = JSON.parse(unb64url(body).toString("utf8"));
-  } catch {
-    throw new Error("License key is damaged (payload).");
-  }
-  if (payload.v !== 1 || !payload.email || !payload.updatesUntil || payload.tier !== "pro") throw new Error("License key is damaged (fields).");
-  const pub = import_node_crypto4.default.createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, Buffer.from(LICENSE_PUBLIC_KEY_B64, "base64")]), format: "der", type: "spki" });
-  const signatureOk = import_node_crypto4.default.verify(null, Buffer.from(`${PREFIX2}.${body}`), pub, unb64url(sig));
-  return { payload, signatureOk };
-}
-function evaluateLicense(key, build = buildDate()) {
-  const base = { installed: false, valid: false, pro: false, buildDate: build, buyUrl: BUY_URL };
-  if (!key) return { ...base, reason: "No license installed. coolFTP runs as Free." };
-  let parsed;
-  try {
-    parsed = parseLicenseKey(key);
-  } catch (e) {
-    return { ...base, installed: true, reason: e.message };
-  }
-  if (!parsed.signatureOk) return { ...base, installed: true, reason: "License signature does not match. The key was altered or is not from coolftp.com." };
-  const lic = parsed.payload;
-  if (build > lic.updatesUntil) {
-    return {
-      ...base,
-      installed: true,
-      valid: true,
-      license: lic,
-      reason: `Your year of updates ended on ${lic.updatesUntil}. This build is from ${build}, so it runs as Free. Renew at ${BUY_URL} or keep using a build from before that date.`
-    };
-  }
-  return { ...base, installed: true, valid: true, pro: true, license: lic };
-}
-function licenseFile() {
-  return import_node_path9.default.join(configDir(), "license.json");
-}
-function getLicenseStatus(build = buildDate()) {
-  const stored = readJson(licenseFile(), {});
-  return evaluateLicense(stored.key, build);
-}
-function activateLicense(rawKey, build = buildDate()) {
-  const key = normaliseLicenseKey(rawKey);
-  const status = evaluateLicense(key, build);
-  if (!status.valid) throw new Error(status.reason || "Invalid license key.");
-  writeJson(licenseFile(), { key, activatedAt: (/* @__PURE__ */ new Date()).toISOString() });
-  return status;
-}
-function removeLicense() {
-  const f = licenseFile();
-  if (!import_node_fs8.default.existsSync(f)) return false;
-  import_node_fs8.default.unlinkSync(f);
-  return true;
-}
-
 // packages/core/src/rpc.ts
 var RPC_METHODS = {
   sites: (cf) => cf.sites(),
-  addSite: (cf, a) => cf.addSite(a.site),
+  addSite: (cf, a) => cf.addSite(a.site, a.replaces),
   removeSite: (cf, a) => cf.removeSite(a.name),
   test: (cf, a, ev) => cf.test(a.site, ev),
   ls: (cf, a, ev) => cf.ls(a.site, a.path, ev),
@@ -40697,13 +40787,15 @@ function hubFile() {
   return import_node_path10.default.join(configDir(), "hub.json");
 }
 function readHubInfo() {
-  try {
-    const info = JSON.parse(import_node_fs9.default.readFileSync(hubFile(), "utf8"));
-    if (!info.port || !info.token) return null;
-    return info;
-  } catch {
-    return null;
+  const legacy = legacyConfigDir();
+  for (const file of [hubFile(), ...legacy ? [import_node_path10.default.join(legacy, "hub.json")] : []]) {
+    try {
+      const info = JSON.parse(import_node_fs9.default.readFileSync(file, "utf8"));
+      if (info.port && info.token) return info;
+    } catch {
+    }
   }
+  return null;
 }
 async function pingHub(info) {
   try {
@@ -40821,15 +40913,10 @@ function detectAgent(explicit) {
 }
 function sandboxNote() {
   if (process.platform !== "win32" || process.env.COOLFTP_HOME) return void 0;
-  const packages = import_node_path10.default.join(process.env.LOCALAPPDATA || "", "Packages");
-  try {
-    for (const name of import_node_fs9.default.readdirSync(packages)) {
-      const shadow = import_node_path10.default.join(packages, name, "LocalCache", "Roaming", "coolftp", "sites.json");
-      if (import_node_fs9.default.existsSync(shadow)) {
-        return `A sandboxed copy of the coolFTP config exists at ${import_node_path10.default.dirname(shadow)}. If sites saved in the desktop app are missing here, open the app so commands route through it.`;
-      }
+  for (const dir of sandboxShadowDirs()) {
+    if (import_node_fs9.default.existsSync(import_node_path10.default.join(dir, "sites.json"))) {
+      return `An older coolFTP left a sandboxed copy of its config at ${dir}. It is not used: sites are read from ${configDir()}. If a site is missing, add it again with "coolftp site add", and update any older coolFTP app or CLI so they share that folder.`;
     }
-  } catch {
   }
   return void 0;
 }
@@ -55322,6 +55409,22 @@ async function startMcpServer(factory, version2) {
     }
   );
   server.tool(
+    "coolftp_license",
+    "Show the coolFTP Pro license status, or activate a Pro key the user pasted (it starts with CFP1.). Free covers one site; Pro unlocks unlimited sites. The key is checked offline and saved on this machine for the app, the CLI and this plugin.",
+    { key: external_exports.string().optional().describe("The Pro key from the license email, to activate it. Omit to just show the status.") },
+    async ({ key }) => {
+      try {
+        const { result } = await call(key ? "activateLicense" : "license", key ? { key } : {});
+        const s = result;
+        return text(
+          s.pro && s.license ? { plan: "Pro", activated: Boolean(key), licensedTo: s.license.email, machines: s.license.seats, sites: "unlimited", updates: "for life" } : { plan: "Free", sites: "1", note: s.reason, buy: s.buyUrl }
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    }
+  );
+  server.tool(
     "coolftp_status",
     "Show which site the current project deploys to, whether the coolFTP desktop app is running (calls route through it when it is), and live connections.",
     { cwd: cwdArg },
@@ -55646,7 +55749,7 @@ ${r.content}`);
 }
 
 // packages/cli/src/coolftp.ts
-var VERSION = true ? "0.1.4" : "0.0.0";
+var VERSION = true ? "0.2.0" : "0.0.0";
 var EXIT_VERIFY_FAILED = 3;
 var useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 var c = {
@@ -56115,10 +56218,7 @@ program2.command("history").description("recent deploys for a site").option("-s,
 );
 function printLicense(s) {
   if (s.pro && s.license) {
-    process.stdout.write(`${c.green("\u2714 coolFTP Pro")} licensed to ${c.bold(s.license.email)}, updates until ${s.license.updatesUntil} (this build: ${s.buildDate})
-`);
-  } else if (s.installed && s.valid) {
-    process.stdout.write(`${c.yellow("! coolFTP Pro, updates ended")} ${s.reason}
+    process.stdout.write(`${c.green("\u2714 coolFTP Pro")} licensed to ${c.bold(s.license.email)}: unlimited sites, updates for life
 `);
   } else {
     process.stdout.write(`${c.dim("coolFTP Free")}  ${s.reason ?? ""}
