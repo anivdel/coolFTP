@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Get the Claude Code Toolkit</title>
+  <link rel="icon" href="favicon.png" />
+  <style>
+    :root { --bg: #0b0d12; --bg-2: #12151d; --line: #232836; --text: #eef1f6; --muted: #9aa3b5; --accent: #38bdf8; --green: #4ade80; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 56px; }
+    .steps { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 14px; margin-bottom: 26px; flex-wrap: wrap; }
+    .steps b { color: var(--green); }
+    .steps i { font-style: normal; color: var(--text); background: var(--bg-2); border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px; }
+    .wait { color: var(--accent); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 14px; margin: 0 0 8px; }
+    h1 { font-size: clamp(30px, 5.4vw, 48px); line-height: 1.08; margin: 0 0 14px; letter-spacing: -0.02em; }
+    h1 em { font-style: normal; color: var(--accent); }
+    .lead { color: var(--muted); font-size: 18px; margin: 0 0 28px; max-width: 680px; }
+    .tk-apps { display: grid; gap: 12px; margin: 0 0 22px; }
+    .tk-app { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; }
+    .tk-app.tk-here { border-color: var(--a); box-shadow: 0 0 0 1px var(--a) inset; }
+    .tk-app img { border-radius: 14px; display: block; }
+    .tk-app b { font-size: 18px; color: var(--a); }
+    .tk-app p { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; }
+    .tk-app s { color: var(--muted); font-size: 18px; }
+    .tk-tag { margin-left: 8px; font-size: 12px; color: var(--bg); background: var(--a); border-radius: 99px; padding: 1px 8px; vertical-align: 2px; font-weight: 700; }
+    .deal { background: linear-gradient(135deg, rgba(74,222,128,.10), rgba(74,222,128,.02)); border: 1px solid rgba(74,222,128,.45); border-radius: 18px; padding: 22px 22px 24px; }
+    .price { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+    .price .was { color: var(--muted); font-size: 22px; text-decoration: line-through; }
+    .price .now { font-size: 54px; font-weight: 900; line-height: 1; }
+    .price .save { background: var(--green); color: #052e14; font-weight: 800; border-radius: 99px; padding: 4px 12px; font-size: 15px; }
+    .deal ul { list-style: none; padding: 0; margin: 14px 0 20px; display: grid; gap: 6px 22px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .deal li { padding-left: 26px; position: relative; }
+    .deal li::before { content: "✓"; position: absolute; left: 2px; color: var(--green); font-weight: 900; }
+    .yes { display: block; text-align: center; text-decoration: none; background: linear-gradient(135deg, #4ade80, #16a34a); color: #04210f; font-weight: 900; font-size: 20px; border-radius: 14px; padding: 18px 20px; box-shadow: 0 14px 40px rgba(34,197,94,.30); }
+    .yes small { display: block; font-weight: 600; font-size: 14px; opacity: .85; }
+    .yes:hover { filter: brightness(1.07); }
+    .fine { text-align: center; color: var(--muted); font-size: 13.5px; margin: 12px 0 0; }
+    .no { display: block; text-align: center; margin: 26px auto 0; color: var(--muted); font-size: 15px; }
+    .no:hover { color: var(--text); }
+    @media (max-width: 620px) {
+      .tk-app { grid-template-columns: auto 1fr; }
+      .tk-app s { display: none; }
+      .deal ul { grid-template-columns: 1fr; }
+      .price .now { font-size: 46px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="steps"><b>✓ coolFTP Pro picked</b> <span>→</span> <i>One last thing before checkout</i></div>
+    <p class="wait">Wait, a one-time offer</p>
+    <h1>Get <em>all four apps</em> for $99.<br />Save $97 today.</h1>
+    <p class="lead">coolFTP Pro is $49. For $50 more you get Pro for every app in the Claude Code Toolkit: one payment, lifetime licenses, never pay again.</p>
+    <div class="tk-apps">
+        <div class="tk-app tk-here" style="--a:#38bdf8">
+          <img src="https://coolftp.com/logo.png" alt="" width="72" height="72" loading="lazy" />
+          <div><b>coolFTP</b><span class="tk-tag">you picked this</span><p>Claude deploys your site to any SFTP or FTP host, checks it is live, and undoes a bad deploy.</p></div>
+          <s>$49</s>
+        </div>
+        <div class="tk-app" style="--a:#f5a524">
+          <img src="https://owlsql.com/logo.png" alt="" width="72" height="72" loading="lazy" />
+          <div><b>OwlSQL</b><p>Claude works on your MySQL database: read-only until you say so, and every write can be undone.</p></div>
+          <s>$49</s>
+        </div>
+        <div class="tk-app" style="--a:#2ee0c4">
+          <img src="https://magpiesnap.com/logo.png" alt="" width="72" height="72" loading="lazy" />
+          <div><b>magpieSnap</b><p>Press Print Screen, box the problem, type a note: Claude sees exactly what you see.</p></div>
+          <s>$49</s>
+        </div>
+        <div class="tk-app" style="--a:#ef2b35">
+          <img src="https://woodpeckerdig.com/logo.png" alt="" width="72" height="72" loading="lazy" />
+          <div><b>woodpeckerDig</b><p>Hands Claude the crashes, stack traces and console errors from your running programs.</p></div>
+          <s>$49</s>
+        </div>
+    </div>
+    <div class="deal">
+      <div class="price"><span class="was">$196</span><span class="now">$99</span><span class="save">You save $97</span></div>
+      <ul>
+        <li><b>Lifetime licenses</b> for all four apps</li>
+        <li><b>Updates for life</b>, never pay again</li>
+        <li>One key unlocks every app</li>
+        <li>Unlimited sites, databases and projects</li>
+        <li>Up to three machines</li>
+        <li>Priority support from the person who wrote them</li>
+      </ul>
+      <a class="yes" href="https://buy.stripe.com/7sY5kl9e94rGc3g3Rk1VK07">Yes! Give me the full Toolkit for $99<small>All four apps, lifetime, one payment</small></a>
+      <p class="fine">Secure checkout by Stripe. Your key arrives by email within a minute.</p>
+    </div>
+    <a class="no" href="https://buy.stripe.com/7sY5kl2PLcYcgjwfA21VK03">No thanks, I'll just get coolFTP Pro for $49</a>
+  </div>
+</body>
+</html>

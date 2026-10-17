@@ -447,17 +447,33 @@ Nothing listens outside 127.0.0.1. Each call carries the agent name.</span></pre
             <li><b>Updates for life</b>, no renewals, no subscription</li>
           </ul>
           <div style="margin-top:22px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <a class="btn primary" id="buyPro" href="https://buy.stripe.com/7sY5kl2PLcYcgjwfA21VK03">Buy Pro <small>$49</small></a>
+            <a class="btn primary" id="buyPro" href="upgrade.html">Buy Pro <small>$49</small></a>
           </div>
           <p class="note" style="margin-top:12px">Secure checkout by Stripe. Your key arrives by email from licenses@coolftp.com within a minute.</p>
         </div>
       </div>
-      <div id="bundle" style="margin-top:20px;max-width:920px;background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:22px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between">
-        <div style="flex:1 1 420px">
-          <h3 style="margin:0 0 6px;font-size:19px">All four for $99 <small style="font-weight:400;color:var(--muted);font-size:15px">&nbsp;<s>$196</s>, one-time payment</small></h3>
-          <p style="margin:0;color:var(--muted);font-size:14px">The Claude Code Toolkit: Pro for every app, one key that unlocks all four, updates for life. <b>coolFTP</b> deploys your site · <a href="https://owlsql.com">OwlSQL</a> works on your database · <a href="https://magpiesnap.com">magpieSnap</a> sees your screen · <a href="https://woodpeckerdig.com">woodpeckerDig</a> reads your errors.</p>
+      <div id="bundle" class="tk-box">
+        <style>
+          .tk-box { margin-top: 22px; max-width: 920px; background: linear-gradient(135deg, rgba(74,222,128,.09), rgba(74,222,128,.02)); border: 1px solid rgba(74,222,128,.45); border-radius: 18px; padding: 22px 22px 24px; }
+          .tk-box h3 { margin: 0 0 4px; font-size: 24px; }
+          .tk-box h3 s { color: var(--muted); font-weight: 400; font-size: 18px; margin-left: 6px; }
+          .tk-box .tk-save { display: inline-block; background: #4ade80; color: #052e14; font-weight: 800; border-radius: 99px; padding: 2px 10px; font-size: 13px; margin-left: 8px; vertical-align: 3px; }
+          .tk-box > p { margin: 0 0 16px; color: var(--muted); }
+          .tk-logos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; }
+          .tk-logos a { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 8px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 15px; }
+          .tk-logos a:hover { border-color: #4ade80; }
+          .tk-logos img { width: 64px; height: 64px; border-radius: 14px; }
+          .tk-logos small { color: var(--muted); font-weight: 400; font-size: 12.5px; line-height: 1.35; }
+          .tk-go { display: inline-block; background: linear-gradient(135deg, #4ade80, #16a34a); color: #04210f !important; font-weight: 900; font-size: 18px; border-radius: 12px; padding: 14px 22px; text-decoration: none; }
+          .tk-go:hover { filter: brightness(1.07); text-decoration: none; }
+          @media (max-width: 700px) { .tk-logos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        </style>
+        <h3>All four apps for $99 <s>$196</s><span class="tk-save">Save $97</span></h3>
+        <p>The Claude Code Toolkit: lifetime Pro licenses for every app, one key, updates for life. Never pay again.</p>
+        <div class="tk-logos">
+          <a href="https://coolftp.com"><img src="https://coolftp.com/logo.png" alt="" loading="lazy" />coolFTP<small>Deploys your site</small></a><a href="https://owlsql.com"><img src="https://owlsql.com/logo.png" alt="" loading="lazy" />OwlSQL<small>Works on your database</small></a><a href="https://magpiesnap.com"><img src="https://magpiesnap.com/logo.png" alt="" loading="lazy" />magpieSnap<small>Shows Claude your screen</small></a><a href="https://woodpeckerdig.com"><img src="https://woodpeckerdig.com/logo.png" alt="" loading="lazy" />woodpeckerDig<small>Reads your errors</small></a>
         </div>
-        <a class="btn primary" href="https://buy.stripe.com/7sY5kl9e94rGc3g3Rk1VK07">Get the Toolkit <small>$99</small></a>
+        <a class="tk-go" href="https://buy.stripe.com/7sY5kl9e94rGc3g3Rk1VK07">Get the full Toolkit for $99</a>
       </div>
       <details style="margin-top:18px"><summary>Lost your license key?</summary>
         <form id="resendForm" style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap" onsubmit="event.preventDefault();const f=this;fetch('api/resend.php',{method:'POST',body:new FormData(f)}).then(r=>r.json()).then(j=>{f.querySelector('span').textContent=j.message||j.error||'Sent.'}).catch(()=>{f.querySelector('span').textContent='Could not reach the server.'})">
