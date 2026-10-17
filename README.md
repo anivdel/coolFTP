@@ -6,7 +6,7 @@
 /plugin install coolftp --marketplace anivdel/coolFTP
 ```
 
-Then say "set up coolFTP for this project" and "deploy this". Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and "undo that" puts the previous version back, no git needed. Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS. Free and MIT. Website: [coolftp.com](https://coolftp.com).
+Then say "set up coolFTP for this project" and "deploy this". Only files whose content changed go up, the git commit is recorded next to the deploy, the site is fetched afterward to prove it answers, and "undo that" puts the previous version back, no git needed. Works with any host that speaks SFTP or FTP: Hostinger, HostGator, Bluehost, GoDaddy, any cPanel box, your own VPS. Free for 1 site and MIT; [Pro](https://coolftp.com/#pro) ($49 once) unlocks unlimited sites. Website: [coolftp.com](https://coolftp.com).
 
 The plugin, the `coolftp` CLI and the MCP server run on macOS, Linux and Windows with Node 18 or newer, and Cursor, Codex or any agent with a shell can drive them too. The Windows desktop app is an optional companion: with it open, you watch every agent call live and click to approve deletes, undos and rollbacks.
 

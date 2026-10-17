@@ -11,7 +11,7 @@ type Handler = (cf: CoolFtp, args: Record<string, any>, events: Events) => Promi
 
 export const RPC_METHODS: Record<string, Handler> = {
   sites: (cf) => cf.sites(),
-  addSite: (cf, a) => cf.addSite(a.site as Site),
+  addSite: (cf, a) => cf.addSite(a.site as Site, a.replaces as string | undefined),
   removeSite: (cf, a) => cf.removeSite(a.name),
   test: (cf, a, ev) => cf.test(a.site, ev),
   ls: (cf, a, ev) => cf.ls(a.site, a.path, ev),

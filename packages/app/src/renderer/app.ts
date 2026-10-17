@@ -1118,7 +1118,13 @@ async function saveSite(): Promise<Site | undefined> {
     delete form.keepPassword;
     form.password = "__KEEP__";
   }
-  const saved = await guard(rpc<Site>("addSite", { site: form }));
+  const saved = await rpc<Site>("addSite", { site: form, replaces: state.editingSite }).catch((e) => {
+    const msg = (e as Error).message;
+    // Over the Free site limit: show the Pro dialog rather than a bare error.
+    if (/coolFTP Free covers/.test(msg)) $("proBtn").click();
+    toast(msg, "error", 8000);
+    return undefined;
+  });
   if (!saved) return;
   if (state.editingSite && state.editingSite !== saved.name) await rpc("removeSite", { name: state.editingSite });
   state.editingSite = saved.name;
@@ -1559,7 +1565,7 @@ async function main() {
       ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, updates until ${esc(s.license.updatesUntil)}, up to ${s.license.seats} machines. This build: ${esc(s.buildDate)}.`
       : s.installed && s.valid
         ? `<b style="color:var(--yellow)">Updates ended.</b> ${esc(s.reason ?? "")}`
-        : `<b>coolFTP Free</b>, for personal projects. Using it for client or commercial work? A Pro license is $49 once, per person, and funds the project. Paste your key below.`;
+        : `<b>coolFTP Free</b> covers 1 site. Pro is $49 once, per person: unlimited sites and a license for client or commercial work. Paste your key below.`;
     ($("proBuy") as HTMLAnchorElement).onclick = (e) => {
       e.preventDefault();
       window.coolftp.shell.external(s.buyUrl);

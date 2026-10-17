@@ -3,7 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import { configDir, readJson, writeJson, expandHome } from "./paths.js";
 import { protectSecret, revealSecret } from "./secrets.js";
+import { BUY_URL, getLicenseStatus } from "./license.js";
 import type { Site } from "./types.js";
+
+/** Sites coolFTP Free can hold; Pro is unlimited. */
+export const FREE_SITE_LIMIT = 1;
 
 const FILE = () => path.join(configDir(), "sites.json");
 
@@ -26,10 +30,18 @@ export function getSite(name: string): Site {
 /** Sentinel the desktop app sends to keep a stored password without ever reading it back. */
 export const KEEP_SECRET = "__KEEP__";
 
-export function upsertSite(site: Site): Site {
+/** `replaces` names a site this one is being renamed from, so a rename never counts as a new site. */
+export function upsertSite(site: Site, replaces?: string): Site {
   const sites = loadSites();
   const i = sites.findIndex((x) => x.name.toLowerCase() === site.name.toLowerCase());
   const existing = i >= 0 ? sites[i] : undefined;
+  // Free covers FREE_SITE_LIMIT sites. Editing a site, or keeping sites saved before the limit existed, always works.
+  const renaming = Boolean(replaces && sites.some((x) => x.name.toLowerCase() === replaces.toLowerCase()));
+  if (!existing && !renaming && sites.length >= FREE_SITE_LIMIT && !getLicenseStatus().pro) {
+    throw new Error(
+      `coolFTP Free covers ${FREE_SITE_LIMIT} site and you have ${sites.length}. Unlimited sites come with coolFTP Pro ($49 once): ${BUY_URL}, then run: coolftp license activate <key>`,
+    );
+  }
   if (site.password === KEEP_SECRET) site.password = existing?.password;
   if (site.passphrase === KEEP_SECRET || (site.passphrase === undefined && existing?.passphrase)) site.passphrase = existing?.passphrase;
   const normalised = normaliseSite(site);

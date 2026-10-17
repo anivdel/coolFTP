@@ -183,8 +183,8 @@ export class CoolFtp {
     return loadSites().map(publicSite);
   }
 
-  addSite(site: Site): PublicSite {
-    return publicSite(upsertSite(site));
+  addSite(site: Site, replaces?: string): PublicSite {
+    return publicSite(upsertSite(site, replaces));
   }
 
   removeSite(name: string): boolean {
