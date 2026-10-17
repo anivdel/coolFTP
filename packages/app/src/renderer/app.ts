@@ -1565,7 +1565,7 @@ async function main() {
       ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, updates until ${esc(s.license.updatesUntil)}, up to ${s.license.seats} machines. This build: ${esc(s.buildDate)}.`
       : s.installed && s.valid
         ? `<b style="color:var(--yellow)">Updates ended.</b> ${esc(s.reason ?? "")}`
-        : `<b>coolFTP Free</b> covers 1 site. Pro is $49 once, per person: unlimited sites and a license for client or commercial work. Paste your key below.`;
+        : `<b>coolFTP Free</b> covers 1 site, with every feature. Pro is $49 once, per person, for unlimited sites. Paste your key below.`;
     ($("proBuy") as HTMLAnchorElement).onclick = (e) => {
       e.preventDefault();
       window.coolftp.shell.external(s.buyUrl);
