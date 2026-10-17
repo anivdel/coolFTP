@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CoolFtp, Events, configDir, dispatch, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, configDir, dispatch, legacyConfigDir, sandboxShadowDirs, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 
 export type OnEvent = (event: CoolEvent, meta: EventMeta) => void;
 
@@ -25,14 +25,18 @@ export function hubFile(): string {
   return path.join(configDir(), "hub.json");
 }
 
+/** The app's hub file, or the one a coolFTP app up to 0.1.4 writes under %APPDATA%. */
 export function readHubInfo(): HubInfo | null {
-  try {
-    const info = JSON.parse(fs.readFileSync(hubFile(), "utf8")) as HubInfo;
-    if (!info.port || !info.token) return null;
-    return info;
-  } catch {
-    return null;
+  const legacy = legacyConfigDir();
+  for (const file of [hubFile(), ...(legacy ? [path.join(legacy, "hub.json")] : [])]) {
+    try {
+      const info = JSON.parse(fs.readFileSync(file, "utf8")) as HubInfo;
+      if (info.port && info.token) return info;
+    } catch {
+      /* try the next one */
+    }
   }
+  return null;
 }
 
 async function pingHub(info: HubInfo): Promise<{ version?: string } | null> {
@@ -167,23 +171,17 @@ export function detectAgent(explicit?: string): string {
 }
 
 /**
- * Inside a packaged app's sandbox (the Claude desktop app is one), Windows redirects writes to
- * %APPDATA% into the package's own LocalCache folder, and reads follow. A coolFTP config that
- * exists there is frozen at whatever was written from inside the sandbox: sites saved in the
- * desktop app since then are invisible here until the app is open and commands route through it.
+ * Up to 0.1.4 coolFTP kept its config in %APPDATA%, which packaged apps (the Claude desktop app
+ * is one) redirect into their own LocalCache folder. The config now lives in the home folder and
+ * the first run moves those sandboxed copies aside. One that exists now was written since, by an
+ * older coolFTP running inside a package; it is not read, so say where sites are actually kept.
  */
 export function sandboxNote(): string | undefined {
   if (process.platform !== "win32" || process.env.COOLFTP_HOME) return undefined;
-  const packages = path.join(process.env.LOCALAPPDATA || "", "Packages");
-  try {
-    for (const name of fs.readdirSync(packages)) {
-      const shadow = path.join(packages, name, "LocalCache", "Roaming", "coolftp", "sites.json");
-      if (fs.existsSync(shadow)) {
-        return `A sandboxed copy of the coolFTP config exists at ${path.dirname(shadow)}. If sites saved in the desktop app are missing here, open the app so commands route through it.`;
-      }
+  for (const dir of sandboxShadowDirs()) {
+    if (fs.existsSync(path.join(dir, "sites.json"))) {
+      return `An older coolFTP left a sandboxed copy of its config at ${dir}. It is not used: sites are read from ${configDir()}. If a site is missing, add it again with "coolftp site add", and update any older coolFTP app or CLI so they share that folder.`;
     }
-  } catch {
-    /* no Packages folder */
   }
   return undefined;
 }

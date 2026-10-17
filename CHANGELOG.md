@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Fixed:** inside the Claude desktop app on Windows, the plugin, CLI and MCP server could miss sites saved in the coolFTP app and fail with `Unknown site "coolFTP"`. Claude Desktop is a packaged (MSIX) app, so Windows gives it a private copy of `%APPDATA%`: once anything coolFTP wrote there from inside Claude Desktop, that stale copy hid the real `sites.json` for good. coolFTP now keeps its config in `%USERPROFILE%\.coolftp`, which Windows does not redirect, so the app, the CLI and the plugin all read the same sites, and the app does not need to be open.
+- **Moving your config.** The first run of the new app or CLI copies `%APPDATA%\coolftp` (sites, deploy history, known hosts, license) into `%USERPROFILE%\.coolftp`. Sandboxed copies are renamed to `coolftp.sandbox-bak-<date>` first so the real files win, and any site that only existed in a sandboxed copy is added. The old folder is left in place. macOS, Linux and `COOLFTP_HOME` are unchanged.
+- **Update the app and the CLI together.** After the move, sites added in an app or CLI up to 0.1.4 go to the old folder and are not seen by the new one. The new app also writes its hub file to the old folder, and the new CLI looks there, so either still routes through the other while the app is open.
+- `coolftp status` and `coolftp_status` no longer tell you to open the app when they find a sandboxed config. If an older coolFTP writes one again, the note says it is not used and where sites are read from.
+- New test: `npm run test:config` (Windows) covers the move, a stale sandboxed copy, a sandbox-only setup and `COOLFTP_HOME`.
+
 ## Claude Code plugin: coolftp 0.3.8 (2026-10-16)
 
 - Undo and delete steps in the panel say what they do ("Restoring the files from before the last change", "Taking it off the server") instead of asking you to approve them in the coolFTP app, which the plugin does not need.

@@ -72,7 +72,7 @@ coolftp site add oldhost --host ftp.oldhost.net --user me --protocol ftps --pass
 coolftp site test coolftp.com
 ```
 
-Or use the **Sites** button in the app. Sites live in `%APPDATA%\coolftp\sites.json` on Windows and `~/.config/coolftp/sites.json` elsewhere. On Windows, passwords in that file are encrypted with DPAPI under your account; on macOS and Linux they are stored as-is until a keychain backend lands, so prefer keys for SFTP there.
+Or use the **Sites** button in the app. Sites live in `%USERPROFILE%\.coolftp\sites.json` on Windows and `~/.config/coolftp/sites.json` elsewhere. (Up to 0.1.4 the Windows folder was `%APPDATA%\coolftp`; the first run of a newer version copies it over. `COOLFTP_HOME` overrides the folder.) On Windows, passwords in that file are encrypted with DPAPI under your account; on macOS and Linux they are stored as-is until a keychain backend lands, so prefer keys for SFTP there.
 
 ## Link a project and deploy
 
@@ -174,7 +174,7 @@ The deploy skill Claude follows ships in the plugin, in [plugins/coolftp/skills/
 
 ## How agent calls reach the app
 
-When the desktop app is running it listens on a random `127.0.0.1` port and writes `%APPDATA%\coolftp\hub.json` with the port and a per-session token. The CLI and MCP server look for that file, and if the app answers, they send the command to the app instead of running it themselves. Events stream back as NDJSON, so the terminal still shows progress, and the app shows the same call in its **Agents** panel, its transfer queue, and its deploy history. If the app is closed, the CLI runs everything in-process. `--direct` forces that.
+When the desktop app is running it listens on a random `127.0.0.1` port and writes `hub.json` in that same folder with the port and a per-session token. The CLI and MCP server look for that file, and if the app answers, they send the command to the app instead of running it themselves. Events stream back as NDJSON, so the terminal still shows progress, and the app shows the same call in its **Agents** panel, its transfer queue, and its deploy history. If the app is closed, the CLI runs everything in-process. `--direct` forces that.
 
 ## How deploys decide what to upload
 

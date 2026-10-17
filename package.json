@@ -29,7 +29,8 @@
     "plugin-video": "node scripts/demo/plugin-scene.mjs && electron scripts/demo/render.cjs scripts/demo/plugin.html site/plugin-4x5.mp4",
     "plugin-video:sound": "python scripts/demo/plugin-score.py site/plugin-4x5.mp4",
     "social": "electron scripts/social/render.cjs",
-    "test:license": "node scripts/license/test.cjs"
+    "test:license": "node scripts/license/test.cjs",
+    "test:config": "node scripts/config/test.cjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

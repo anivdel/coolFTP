@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { CoolFtp, Events, OpControl, configDir, dispatch, formatBytes, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
+import { CoolFtp, Events, OpControl, configDir, dispatch, legacyConfigDir, formatBytes, shortId, type CoolEvent, type EventMeta } from "@coolftp/core";
 
 export interface AgentCall {
   op: string;
@@ -58,6 +58,10 @@ function destructiveDetail(method: string, args: Record<string, any> = {}): stri
 export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, version: string): Promise<{ port: number; token: string; close: () => void }> {
   const token = crypto.randomBytes(24).toString("hex");
   const file = path.join(configDir(), "hub.json");
+  // A CLI or MCP server up to 0.1.4 looks for the hub under %APPDATA%; write it there too while
+  // that folder exists, so they keep routing through the app.
+  const legacy = legacyConfigDir();
+  const files = [file, ...(legacy && fs.existsSync(legacy) ? [path.join(legacy, "hub.json")] : [])];
 
   const server = http.createServer(async (req, res) => {
     if (req.headers.authorization !== `Bearer ${token}`) {
@@ -133,13 +137,22 @@ export function startHub(cf: CoolFtp, events: Events, handlers: HubHandlers, ver
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
       const port = typeof addr === "object" && addr ? addr.port : 0;
-      fs.writeFileSync(file, JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }, null, 2));
-      const close = () => {
+      const body = JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }, null, 2);
+      for (const f of files) {
         try {
-          const cur = JSON.parse(fs.readFileSync(file, "utf8"));
-          if (cur.pid === process.pid) fs.unlinkSync(file);
-        } catch {
-          /* already gone */
+          fs.writeFileSync(f, body);
+        } catch (e) {
+          if (f === file) throw e;
+        }
+      }
+      const close = () => {
+        for (const f of files) {
+          try {
+            const cur = JSON.parse(fs.readFileSync(f, "utf8"));
+            if (cur.pid === process.pid) fs.unlinkSync(f);
+          } catch {
+            /* already gone */
+          }
         }
         server.close();
       };
