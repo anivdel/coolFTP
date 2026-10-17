@@ -58,6 +58,12 @@ const st2 = cli(["license"]);
 check("a past updatesUntil still unlocks Pro: updates are for life", st2.valid === true && st2.pro === true, JSON.stringify(st2));
 
 const rm = cli(["license", "remove"]);
+const owlKey = issue(["--products", "owlsql"]);
+check("an LS1 key for another app has the expected shape", /^LS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(owlKey));
+const owlFails = cliFails(["license", "activate", owlKey]);
+check("an OwlSQL-only key does not unlock coolFTP", owlFails !== null && /not coolFTP/.test(owlFails), String(owlFails));
+const bundle = cli(["license", "activate", issue(["--products", "coolftp,owlsql"])]);
+check("a bundle key that lists coolftp unlocks Pro", bundle.pro === true && bundle.license.products.includes("owlsql"), JSON.stringify(bundle));
 check("remove", rm.removed === true && rm.status.installed === false);
 
 // The stored key must not be sent to agents in plain form through 'sites' etc.; just sanity check the file exists after activate.

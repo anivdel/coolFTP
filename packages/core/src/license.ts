@@ -16,13 +16,16 @@ import { LICENSE_PUBLIC_KEY_B64 } from "./license-pubkey.js";
  * only unlocked Pro up to that date.
  */
 export interface LicensePayload {
-  v: 1;
+  /** 1: a CFP1 coolFTP Pro key. 2: an LS1 Ledvina Software key naming the products it unlocks. */
+  v: 1 | 2;
   id: string;
   email: string;
-  tier: "pro";
+  tier?: "pro";
+  /** v2 keys only: which apps this key unlocks, e.g. ["owlsql"] or a bundle's whole list. */
+  products?: string[];
   seats: number;
   issued: string;
-  updatesUntil: string;
+  updatesUntil?: string;
 }
 
 export interface LicenseStatus {
@@ -38,6 +41,11 @@ export interface LicenseStatus {
 
 export const BUY_URL = "https://coolftp.com/#pro";
 const PREFIX = "CFP1";
+/** Keys for any Ledvina Software app or bundle, signed with the same key pair. Builds before 0.2 reject them. */
+const LS_PREFIX = "LS1";
+/** This app's id in an LS1 key's products list. */
+export const PRODUCT = "coolftp";
+const PRODUCT_NAMES: Record<string, string> = { coolftp: "coolFTP", owlsql: "OwlSQL", woodpecker: "woodpeckerDig", magpie: "magpieSnap" };
 const SPKI_ED25519_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
 
 declare const __BUILD_DATE__: string | undefined;
@@ -60,25 +68,30 @@ export function normaliseLicenseKey(input: string): string {
 
 export function parseLicenseKey(key: string): { payload: LicensePayload; signatureOk: boolean } {
   const parts = normaliseLicenseKey(key).split(".");
-  if (parts.length !== 3 || parts[0] !== PREFIX) throw new Error("That is not a coolFTP license key.");
-  const [, body, sig] = parts;
+  if (parts.length !== 3 || (parts[0] !== PREFIX && parts[0] !== LS_PREFIX)) throw new Error("That is not a coolFTP license key.");
+  const [prefix, body, sig] = parts;
   let payload: LicensePayload;
   try {
     payload = JSON.parse(unb64url(body).toString("utf8"));
   } catch {
     throw new Error("License key is damaged (payload).");
   }
-  if (payload.v !== 1 || !payload.email || !payload.updatesUntil || payload.tier !== "pro") throw new Error("License key is damaged (fields).");
+  const fieldsOk =
+    prefix === PREFIX
+      ? payload.v === 1 && Boolean(payload.email) && Boolean(payload.updatesUntil) && payload.tier === "pro"
+      : payload.v === 2 && Boolean(payload.email) && Array.isArray(payload.products);
+  if (!fieldsOk) throw new Error("License key is damaged (fields).");
   const pub = crypto.createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, Buffer.from(LICENSE_PUBLIC_KEY_B64, "base64")]), format: "der", type: "spki" });
-  const signatureOk = crypto.verify(null, Buffer.from(`${PREFIX}.${body}`), pub, unb64url(sig));
+  const signatureOk = crypto.verify(null, Buffer.from(`${prefix}.${body}`), pub, unb64url(sig));
   return { payload, signatureOk };
 }
 
 /** Sign a payload. Used by the issuing tool and tests; needs the private key. */
 export function signLicense(payload: LicensePayload, privateKeyPem: string): string {
+  const prefix = payload.v === 2 ? LS_PREFIX : PREFIX;
   const body = b64url(Buffer.from(JSON.stringify(payload)));
-  const sig = crypto.sign(null, Buffer.from(`${PREFIX}.${body}`), crypto.createPrivateKey(privateKeyPem));
-  return `${PREFIX}.${body}.${b64url(sig)}`;
+  const sig = crypto.sign(null, Buffer.from(`${prefix}.${body}`), crypto.createPrivateKey(privateKeyPem));
+  return `${prefix}.${body}.${b64url(sig)}`;
 }
 
 export function evaluateLicense(key: string | undefined, build = buildDate()): LicenseStatus {
@@ -92,6 +105,10 @@ export function evaluateLicense(key: string | undefined, build = buildDate()): L
   }
   if (!parsed.signatureOk) return { ...base, installed: true, reason: "License signature does not match. The key was altered or is not from coolftp.com." };
   const lic = parsed.payload;
+  if (lic.v === 2 && !lic.products!.includes(PRODUCT)) {
+    const names = lic.products!.map((p) => PRODUCT_NAMES[p] ?? p).join(", ") || "no apps";
+    return { ...base, installed: true, reason: `That key is for ${names}, not coolFTP. Get coolFTP Pro at ${BUY_URL}.` };
+  }
   return { ...base, installed: true, valid: true, pro: true, license: lic };
 }
 

@@ -1,5 +1,5 @@
 <?php
-// "Lost my key" form: re-emails the newest license for an address. Always answers the same
+// "Lost my key" form: re-emails every license key for an address (coolFTP, OwlSQL, bundles). Always answers the same
 // way so it cannot be used to check whether an address bought anything.
 declare(strict_types=1);
 require_once __DIR__ . '/lib.php';
@@ -12,8 +12,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) cf_json(400, ['error' => 'Enter 
 
 $records = cf_find_licenses($email);
 if ($records) {
-    $latest = end($records);
-    $payload = ['seats' => 3, 'updatesUntil' => $latest['updatesUntil']];
-    cf_send_mail($email, 'Your coolFTP Pro license key', cf_license_email_body($latest['key'], $payload, false));
+    $keys = [];
+    foreach ($records as $r) $keys[$r['key']] = ['key' => $r['key'], 'products' => cf_record_products($r), 'seats' => 3];
+    cf_send_mail($email, 'Your license keys', cf_license_email_body(array_values($keys), true));
 }
 cf_json(200, ['ok' => true, 'message' => 'If we have a license for that address, it has been sent.']);

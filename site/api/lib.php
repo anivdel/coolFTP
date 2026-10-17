@@ -38,6 +38,42 @@ function cf_make_license(string $email, string $issued, string $updatesUntil, in
     return ['key' => 'CFP1.' . $body . '.' . cf_b64url($sig), 'payload' => $payload];
 }
 
+/** Apps an LS1 key can unlock: id => [name, site, how to activate]. */
+const LS_PRODUCTS = [
+    'coolftp' => ['coolFTP', 'https://coolftp.com', "In the app: click Pro, paste the key, Activate.\n  In Claude Code: /coolftp:license <key>\n  Or: coolftp license activate <key>"],
+    'owlsql' => ['OwlSQL', 'https://owlsql.com', "In the app: click Pro, paste the key, Activate.\n  In Claude Code: ask Claude to activate your OwlSQL license and paste the key.\n  Or: owlsql license activate <key>"],
+];
+
+/** Build and sign an LS1 key for one or more apps (a bundle lists several). Mirrors license.ts in each app. */
+function cf_make_ls_license(string $email, array $products, string $issued, int $seats = 3): array {
+    $payload = [
+        'v' => 2,
+        'id' => bin2hex(random_bytes(5)),
+        'email' => strtolower(trim($email)),
+        'products' => array_values($products),
+        'seats' => $seats,
+        'issued' => $issued,
+    ];
+    $body = cf_b64url(json_encode($payload, JSON_UNESCAPED_SLASHES));
+    $secret = base64_decode(LICENSE_SODIUM_SECRET_B64, true);
+    if ($secret === false || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
+        throw new RuntimeException('LICENSE_SODIUM_SECRET_B64 is not a valid 64-byte libsodium secret key');
+    }
+    $sig = sodium_crypto_sign_detached('LS1.' . $body, $secret);
+    return ['key' => 'LS1.' . $body . '.' . cf_b64url($sig), 'payload' => $payload];
+}
+
+/** Product ids a stored license record unlocks. Records from before LS1 keys are coolFTP. */
+function cf_record_products(array $r): array {
+    return isset($r['products']) && is_array($r['products']) ? $r['products'] : ['coolftp'];
+}
+
+/** "coolFTP Pro", "OwlSQL Pro", "coolFTP and OwlSQL Pro". */
+function cf_products_label(array $products): string {
+    $names = array_map(fn($p) => LS_PRODUCTS[$p][0] ?? $p, $products);
+    return (count($names) > 1 ? implode(', ', array_slice($names, 0, -1)) . ' and ' . end($names) : ($names[0] ?? 'Pro')) . ' Pro';
+}
+
 function cf_license_dir(): string {
     $dir = LICENSE_DIR;
     if (!is_dir($dir)) mkdir($dir, 0700, true);
@@ -169,26 +205,31 @@ function cf_smtp_send(string $to, string $subject, string $body, string $from, s
     return true;
 }
 
-function cf_license_email_body(string $key, array $payload, bool $renewal): string {
-    $what = 'Thanks for buying coolFTP Pro.';
+/** One block per key: which apps it unlocks, the key, and how to activate it in each app. */
+function cf_license_key_block(string $key, array $products, int $seats): string {
+    $how = '';
+    foreach ($products as $p) {
+        if (!isset(LS_PRODUCTS[$p])) continue;
+        $how .= "\n" . LS_PRODUCTS[$p][0] . " (" . LS_PRODUCTS[$p][1] . "):\n  " . LS_PRODUCTS[$p][2] . "\n";
+    }
+    $label = cf_products_label($products);
+    return "$label license key:\n\n$key\n\nActivate it once per machine (up to $seats):\n$how";
+}
+
+/** $keys: list of ['key' => ..., 'products' => [...], 'seats' => n]. */
+function cf_license_email_body(array $keys, bool $resend = false): string {
+    $products = array_values(array_unique(array_merge(...array_map(fn($k) => $k['products'], $keys))));
+    $what = $resend ? 'Here are your license keys.' : 'Thanks for buying ' . cf_products_label($products) . '.';
+    $blocks = implode("\n----\n\n", array_map(fn($k) => cf_license_key_block($k['key'], $k['products'], $k['seats'] ?? 3), $keys));
     return <<<TXT
 $what
 
-Your license key:
+$blocks
+Pro is yours for life: every release, now and later. Nothing to renew.
 
-$key
-
-Activate it once per machine (up to {$payload['seats']}):
-  In the app: click Pro in the top bar, paste the key, Activate.
-  In Claude Code: /coolftp:license <key>
-  Or:         coolftp license activate <key>
-
-Pro is yours for life: unlimited sites in every coolFTP release, now and later. Nothing to renew.
-
-Lost this email? Get the key re-sent at https://coolftp.com/#pro
+Lost this email? Get your keys re-sent at https://coolftp.com/#pro
 Questions: reply to this message.
 
 Justin Ledvina
-coolFTP · https://coolftp.com
 TXT;
 }

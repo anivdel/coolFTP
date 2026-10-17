@@ -7,7 +7,6 @@ declare(strict_types=1);
 define('STRIPE_WEBHOOK_SECRET', 'whsec_REPLACE_ME');            // Webhooks > your endpoint > Signing secret
 define('STRIPE_RESTRICTED_KEY', 'rk_live_REPLACE_ME');           // API keys > Create restricted key: Checkout Sessions read, Customers read
 define('STRIPE_PRICE_PRO', 'price_REPLACE_ME');                  // Product "coolFTP Pro" > the $49 price id
-define('STRIPE_PRICE_RENEW', 'price_REPLACE_ME');                // Product "coolFTP Pro" > the renewal price id
 
 // ---- License signing (from scripts/license/private/sodium-secret.txt on your PC) ----
 define('LICENSE_SODIUM_SECRET_B64', 'REPLACE_ME');
