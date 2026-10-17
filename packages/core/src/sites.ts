@@ -39,7 +39,7 @@ export function upsertSite(site: Site, replaces?: string): Site {
   const renaming = Boolean(replaces && sites.some((x) => x.name.toLowerCase() === replaces.toLowerCase()));
   if (!existing && !renaming && sites.length >= FREE_SITE_LIMIT && !getLicenseStatus().pro) {
     throw new Error(
-      `coolFTP Free covers ${FREE_SITE_LIMIT} site and you have ${sites.length}. Unlimited sites come with coolFTP Pro ($49 once): ${BUY_URL}, then run: coolftp license activate <key>`,
+      `coolFTP Free covers ${FREE_SITE_LIMIT} site and you have ${sites.length}. Unlimited sites come with coolFTP Pro ($49 once): ${BUY_URL}. Then paste the key into the app's Pro button, type /coolftp:license <key> in Claude Code, or run: coolftp license activate <key>`,
     );
   }
   if (site.password === KEEP_SECRET) site.password = existing?.password;

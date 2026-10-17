@@ -148,7 +148,7 @@ From a source checkout instead of npm, point at the built file:
 claude mcp add coolftp -- node "C:\path\to\cool FTP\packages\cli\dist\coolftp.js" mcp
 ```
 
-Tools exposed: `coolftp_sites`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
+Tools exposed: `coolftp_sites`, `coolftp_license`, `coolftp_status`, `coolftp_init`, `coolftp_diff`, `coolftp_deploy`, `coolftp_undo`, `coolftp_verify`, `coolftp_rollback`, `coolftp_history`, `coolftp_ls`, `coolftp_stat`, `coolftp_read`, `coolftp_write`, `coolftp_upload`, `coolftp_download`, `coolftp_mkdir`, `coolftp_delete`, `coolftp_rename`. Results are summarised for an agent: counts and a folder breakdown instead of thousands of paths, a `live` verdict on every deploy, and the transfer log collapsed after 20 files. The server checks on every call whether the desktop app is running, so the app can be opened and closed during a session.
 
 ## Use it from the Claude Desktop app
 

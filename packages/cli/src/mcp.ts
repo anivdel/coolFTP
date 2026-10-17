@@ -258,6 +258,25 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
   );
 
   server.tool(
+    "coolftp_license",
+    "Show the coolFTP Pro license status, or activate a Pro key the user pasted (it starts with CFP1.). Free covers one site; Pro unlocks unlimited sites. The key is checked offline and saved on this machine for the app, the CLI and this plugin.",
+    { key: z.string().optional().describe("The Pro key from the license email, to activate it. Omit to just show the status.") },
+    async ({ key }) => {
+      try {
+        const { result } = await call(key ? "activateLicense" : "license", key ? { key } : {});
+        const s = result as { pro: boolean; installed: boolean; reason?: string; license?: { email: string; updatesUntil: string; seats: number }; buyUrl: string };
+        return text(
+          s.pro && s.license
+            ? { plan: "Pro", activated: Boolean(key), licensedTo: s.license.email, updatesUntil: s.license.updatesUntil, machines: s.license.seats, sites: "unlimited" }
+            : { plan: "Free", sites: "1", note: s.reason, buy: s.buyUrl },
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.tool(
     "coolftp_status",
     "Show which site the current project deploys to, whether the coolFTP desktop app is running (calls route through it when it is), and live connections.",
     { cwd: cwdArg },

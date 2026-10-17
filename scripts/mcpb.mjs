@@ -19,6 +19,7 @@ if (!fs.existsSync(server)) throw new Error("packages/cli/dist/coolftp.js is mis
 const tools = [
   ["coolftp_status", "Which site the current project deploys to, whether the coolFTP desktop app is running, and live connections."],
   ["coolftp_sites", "List the saved sites."],
+  ["coolftp_license", "Show the Pro license status, or activate a Pro key."],
   ["coolftp_init", "Link a project folder to a site by writing its .coolftp.json."],
   ["coolftp_diff", "Preview a deploy: which files would be added, changed, or are stale on the server. Uploads nothing."],
   ["coolftp_deploy", "Upload the project's changed files, keep the previous versions on the server for undo, then check that the site is live."],
