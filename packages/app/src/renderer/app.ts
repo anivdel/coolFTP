@@ -1562,10 +1562,10 @@ async function main() {
     $("proBtn").textContent = s.pro ? "Pro ✔" : "Pro";
     $("proBtn").classList.toggle("primary", s.pro);
     $("proStatus").innerHTML = s.pro && s.license
-      ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, updates until ${esc(s.license.updatesUntil)}, up to ${s.license.seats} machines. This build: ${esc(s.buildDate)}.`
-      : s.installed && s.valid
-        ? `<b style="color:var(--yellow)">Updates ended.</b> ${esc(s.reason ?? "")}`
-        : `<b>coolFTP Free</b> covers 1 site, with every feature. Pro is $49 once, per person, for unlimited sites. Paste your key below.`;
+      ? `<b style="color:var(--green)">Pro is active.</b> Licensed to ${esc(s.license.email)}, unlimited sites and updates for life, up to ${s.license.seats} machines.`
+      : s.installed
+        ? `<b style="color:var(--yellow)">This key did not activate.</b> ${esc(s.reason ?? "")}`
+        : `<b>coolFTP Free</b> covers 1 site, with every feature. Pro is a one-time $49 for unlimited sites and updates for life. Paste your key below.`;
     ($("proBuy") as HTMLAnchorElement).onclick = (e) => {
       e.preventDefault();
       window.coolftp.shell.external(s.buyUrl);
@@ -1590,7 +1590,7 @@ async function main() {
     const s = await guard(rpc<LicenseStatus>("activateLicense", { key }));
     if (!s) return;
     renderLicense(s);
-    toast(s.pro ? "Pro activated. Thank you!" : "Key accepted, but this build is newer than your updates period.", s.pro ? "success" : "error", 5000);
+    toast(s.pro ? "Pro activated. Thank you!" : s.reason || "This key did not activate.", s.pro ? "success" : "error", 5000);
     if (s.pro) $("proModal").classList.add("hidden");
   };
   $("proRemove").onclick = async () => {

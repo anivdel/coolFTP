@@ -206,9 +206,9 @@ Both seed a temp folder with a few files. Add a site pointing at one, connect in
 
 ## Free and Pro
 
-All of the code is MIT. coolFTP is free for personal projects. **coolFTP Pro** is a 49 dollar one-time license for commercial use, with priority support and a year of updates, sold at [coolftp.com](https://coolftp.com/#pro). Buying it is how the project gets funded; there is no feature wall in this repository.
+All of the code is MIT. coolFTP Free has every feature for one site. **coolFTP Pro** is a one-time $49 payment for unlimited sites, with updates for life and priority support, sold at [coolftp.com](https://coolftp.com/#pro).
 
-Keys are `CFP1.<payload>.<signature>`, Ed25519-signed, verified offline against the public key in `packages/core/src/license-pubkey.ts`. A key is valid for every build dated on or before its `updatesUntil` date.
+Keys are `CFP1.<payload>.<signature>`, Ed25519-signed, verified offline against the public key in `packages/core/src/license-pubkey.ts`. A genuine key unlocks Pro in every build. Keys are issued with `updatesUntil` 9999-12-31 so they also work in older builds, which still check that date.
 
 - `node scripts/license/keygen.cjs` creates the signing key pair once. The private half lives in `scripts/license/private/` (git-ignored). Back it up; losing it invalidates every key ever issued.
 - `node scripts/license/issue.cjs --email x@y.z` issues a key by hand.

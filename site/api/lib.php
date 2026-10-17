@@ -15,6 +15,9 @@ function cf_b64url(string $bin): string {
     return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
 }
 
+/** updatesUntil on every key: Pro includes updates for life. */
+const LIFETIME_UPDATES_UNTIL = '9999-12-31';
+
 /** Build and sign a license key. Mirrors packages/core/src/license.ts. */
 function cf_make_license(string $email, string $issued, string $updatesUntil, int $seats = 3): array {
     $payload = [
@@ -167,7 +170,7 @@ function cf_smtp_send(string $to, string $subject, string $body, string $from, s
 }
 
 function cf_license_email_body(string $key, array $payload, bool $renewal): string {
-    $what = $renewal ? 'Your coolFTP Pro renewal is done.' : 'Thanks for buying coolFTP Pro.';
+    $what = 'Thanks for buying coolFTP Pro.';
     return <<<TXT
 $what
 
@@ -177,9 +180,10 @@ $key
 
 Activate it once per machine (up to {$payload['seats']}):
   In the app: click Pro in the top bar, paste the key, Activate.
+  In Claude Code: /coolftp:license <key>
   Or:         coolftp license activate <key>
 
-Pro features unlock in every coolFTP build released on or before {$payload['updatesUntil']}, and keep working in those builds forever. Builds released after that date run as Free until you renew.
+Pro is yours for life: unlimited sites in every coolFTP release, now and later. Nothing to renew.
 
 Lost this email? Get the key re-sent at https://coolftp.com/#pro
 Questions: reply to this message.

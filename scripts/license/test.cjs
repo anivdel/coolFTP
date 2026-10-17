@@ -53,9 +53,9 @@ check("garbage is rejected", garbage !== null && /not a coolFTP license key/i.te
 // A key whose updates window ended before this build's date.
 const old = issue(["--from", "2020-01-01", "--days", "30"]);
 const expired = cliFails(["license", "activate", old]);
-check("activate accepts an expired-updates key (still valid, runs as Free)", expired === null);
+check("activate accepts a key with a past updatesUntil", expired === null);
 const st2 = cli(["license"]);
-check("expired-updates key: valid but not pro, with a renew hint", st2.valid === true && st2.pro === false && /Renew/.test(st2.reason), JSON.stringify(st2));
+check("a past updatesUntil still unlocks Pro: updates are for life", st2.valid === true && st2.pro === true, JSON.stringify(st2));
 
 const rm = cli(["license", "remove"]);
 check("remove", rm.removed === true && rm.status.installed === false);

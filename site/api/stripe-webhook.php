@@ -22,31 +22,11 @@ if (!cf_mark_event($event['id'])) cf_json(200, ['ignored' => 'duplicate']);
 $email = strtolower(trim((string)($session['customer_details']['email'] ?? $session['customer_email'] ?? '')));
 if ($email === '') cf_json(200, ['ignored' => 'no email on session']);
 
-// Which product? Prefer metadata set on the Payment Link (plan=pro | plan=renewal); else look at the price ids.
-$plan = strtolower((string)($session['metadata']['plan'] ?? ''));
-if ($plan === '') {
-    try {
-        $items = cf_stripe_get('checkout/sessions/' . rawurlencode($session['id']) . '/line_items');
-        foreach ($items['data'] ?? [] as $li) {
-            $price = $li['price']['id'] ?? '';
-            if ($price === STRIPE_PRICE_RENEW) $plan = 'renewal';
-            elseif ($price === STRIPE_PRICE_PRO) $plan = 'pro';
-        }
-    } catch (Throwable $e) {
-        error_log('line_items lookup failed: ' . $e->getMessage());
-    }
-}
-if ($plan === '') $plan = 'pro';
-
+// Pro is one payment with updates for life. The far-future updatesUntil keeps keys valid in
+// builds released before updates stopped being time-limited, which still check the date.
+$plan = 'pro';
 $today = gmdate('Y-m-d');
-$start = $today;
-if ($plan === 'renewal') {
-    // Extend from the current updatesUntil when it is still in the future, never from before today.
-    foreach (cf_find_licenses($email) as $r) {
-        if (!empty($r['updatesUntil']) && $r['updatesUntil'] > $start) $start = $r['updatesUntil'];
-    }
-}
-$until = gmdate('Y-m-d', strtotime($start . ' +365 days'));
+$until = LIFETIME_UPDATES_UNTIL;
 
 try {
     $lic = cf_make_license($email, $today, $until, 3);
@@ -70,7 +50,7 @@ cf_store_license([
     'at' => gmdate('c'),
 ]);
 
-$sent = cf_send_mail($email, $plan === 'renewal' ? 'Your coolFTP Pro renewal' : 'Your coolFTP Pro license key', cf_license_email_body($lic['key'], $lic['payload'], $plan === 'renewal'));
+$sent = cf_send_mail($email, 'Your coolFTP Pro license key', cf_license_email_body($lic['key'], $lic['payload'], false));
 if (!$sent) error_log("license email to $email failed; key stored, resend from https://coolftp.com/#pro");
 
 cf_json(200, ['ok' => true, 'plan' => $plan, 'emailed' => $sent]);

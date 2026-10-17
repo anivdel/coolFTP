@@ -267,7 +267,7 @@ export async function startMcpServer(factory: { get(): Promise<Runner> }, versio
         const s = result as { pro: boolean; installed: boolean; reason?: string; license?: { email: string; updatesUntil: string; seats: number }; buyUrl: string };
         return text(
           s.pro && s.license
-            ? { plan: "Pro", activated: Boolean(key), licensedTo: s.license.email, updatesUntil: s.license.updatesUntil, machines: s.license.seats, sites: "unlimited" }
+            ? { plan: "Pro", activated: Boolean(key), licensedTo: s.license.email, machines: s.license.seats, sites: "unlimited", updates: "for life" }
             : { plan: "Free", sites: "1", note: s.reason, buy: s.buyUrl },
         );
       } catch (e) {

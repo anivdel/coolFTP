@@ -11,8 +11,9 @@ import { LICENSE_PUBLIC_KEY_B64 } from "./license-pubkey.js";
  * The signature covers the string "CFP1.<payload>". Verification is offline with the
  * public key baked into the build; the private key lives only on the license server.
  *
- * "Year of updates": a key unlocks Pro in any build dated on or before its updatesUntil
- * date, forever. A newer build runs as Free until the key is renewed.
+ * Pro is one payment with updates for life: a genuine key unlocks Pro in every build.
+ * Keys still carry updatesUntil (issued as 9999-12-31) because builds before this change
+ * only unlocked Pro up to that date.
  */
 export interface LicensePayload {
   v: 1;
@@ -91,15 +92,6 @@ export function evaluateLicense(key: string | undefined, build = buildDate()): L
   }
   if (!parsed.signatureOk) return { ...base, installed: true, reason: "License signature does not match. The key was altered or is not from coolftp.com." };
   const lic = parsed.payload;
-  if (build > lic.updatesUntil) {
-    return {
-      ...base,
-      installed: true,
-      valid: true,
-      license: lic,
-      reason: `Your year of updates ended on ${lic.updatesUntil}. This build is from ${build}, so it runs as Free. Renew at ${BUY_URL} or keep using a build from before that date.`,
-    };
-  }
   return { ...base, installed: true, valid: true, pro: true, license: lic };
 }
 

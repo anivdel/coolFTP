@@ -673,9 +673,7 @@ interface LicenseStatusLike {
 
 function printLicense(s: LicenseStatusLike) {
   if (s.pro && s.license) {
-    process.stdout.write(`${c.green("✔ coolFTP Pro")} licensed to ${c.bold(s.license.email)}, updates until ${s.license.updatesUntil} (this build: ${s.buildDate})\n`);
-  } else if (s.installed && s.valid) {
-    process.stdout.write(`${c.yellow("! coolFTP Pro, updates ended")} ${s.reason}\n`);
+    process.stdout.write(`${c.green("✔ coolFTP Pro")} licensed to ${c.bold(s.license.email)}: unlimited sites, updates for life\n`);
   } else {
     process.stdout.write(`${c.dim("coolFTP Free")}  ${s.reason ?? ""}\n${c.dim(`Pro: ${s.buyUrl}`)}\n`);
   }
