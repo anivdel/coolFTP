@@ -42,6 +42,8 @@ function cf_make_license(string $email, string $issued, string $updatesUntil, in
 const LS_PRODUCTS = [
     'coolftp' => ['coolFTP', 'https://coolftp.com', "In the app: click Pro, paste the key, Activate.\n  In Claude Code: /coolftp:license <key>\n  Or: coolftp license activate <key>"],
     'owlsql' => ['OwlSQL', 'https://owlsql.com', "In the app: click Pro, paste the key, Activate.\n  In Claude Code: ask Claude to activate your OwlSQL license and paste the key.\n  Or: owlsql license activate <key>"],
+    'magpie' => ['magpieSnap', 'https://magpiesnap.com', "Copy the key, then in the magpieSnap tray menu: Paste Pro key from clipboard.\n  In Claude Code: ask Claude to activate your magpieSnap license and paste the key.\n  Or: magpie license activate <key>"],
+    'woodpecker' => ['woodpeckerDig', 'https://woodpeckerdig.com', "Copy the key, then in the woodpeckerDig tray menu: Paste Pro key from clipboard.\n  In Claude Code: ask Claude to activate your woodpeckerDig license and paste the key.\n  Or: woodpecker license activate <key>"],
 ];
 
 /** Build and sign an LS1 key for one or more apps (a bundle lists several). Mirrors license.ts in each app. */
