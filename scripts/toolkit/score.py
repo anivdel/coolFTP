@@ -2,8 +2,11 @@
 Music for the Claude Code Toolkit promo, synthesized with numpy: a 100 bpm bed (C G Am F) with a pluck
 arpeggio, swooshes on each scene change and a chime when the price lands, ducked under the narration.
 Reads the narrated video and writes the final one with voice and music.
-    python scripts/toolkit/score.py [narrated.mp4] [out.mp4]     default site/toolkit.mp4 -> site/toolkit-promo.mp4
+    python scripts/toolkit/score.py [narrated.mp4] [out.mp4] [timing.json]
+Defaults to the 48s promo (site/toolkit.mp4 -> site/toolkit-promo.mp4). For the long upsell pass a timing
+file with {"len": seconds, "cuts": [scene starts], "chimes": [[at, base_midi, gain], ...]}.
 """
+import json
 import os
 import subprocess
 import sys
@@ -17,16 +20,16 @@ OUT = os.path.join(ROOT, sys.argv[2]) if len(sys.argv) > 2 else os.path.join(ROO
 WORK = os.path.join(ROOT, "scripts", "toolkit", "audio")
 os.makedirs(WORK, exist_ok=True)
 
+TIMING = json.load(open(os.path.join(ROOT, sys.argv[3]))) if len(sys.argv) > 3 else None
 SR = 44100
-LEN = 48.0
+LEN = float(TIMING["len"]) if TIMING else 48.0
 N = int(SR * LEN)
 BPM = 100.0
 BEAT = 60.0 / BPM
 BAR = BEAT * 4
 # Scene starts in toolkit.html's SCENES table, and the finale's price and button moments.
-CUTS = [4.6, 13.1, 21.8, 30.3, 38.4]
-PRICE = 38.4 + 4.2
-CTA = 38.4 + 6.0
+CUTS = TIMING["cuts"] if TIMING else [4.6, 13.1, 21.8, 30.3, 38.4]
+CHIMES = TIMING["chimes"] if TIMING else [[38.4 + 4.2, 84, 0.12], [38.4 + 6.0, 79, 0.07]]
 rng = np.random.default_rng(11)
 
 
@@ -43,13 +46,12 @@ def env(n, a, r):
 
 
 def lowpass(x, fc):
+    """One-pole low-pass, applied in the frequency domain (same response as the sample loop, much faster)."""
     k = 1 - np.exp(-2 * np.pi * fc / SR)
-    y = np.zeros_like(x)
-    acc = 0.0
-    for i in range(len(x)):
-        acc += k * (x[i] - acc)
-        y[i] = acc
-    return y
+    n = 1 << int(np.ceil(np.log2(len(x) * 2)))
+    w = 2 * np.pi * np.fft.rfftfreq(n) 
+    h = k / (1 - (1 - k) * np.exp(-1j * w))
+    return np.fft.irfft(np.fft.rfft(x, n) * h, n)[: len(x)]
 
 
 def add(buf, at, sig, gain=1.0):
@@ -113,7 +115,7 @@ for c in CUTS:
     add(L, c - 0.45, sw, 0.10); add(R, c - 0.45, sw, 0.10)
 
 # chime when the price lands, and a soft one for the button
-for at, base, g in ((PRICE, 84, 0.12), (CTA, 79, 0.07)):
+for at, base, g in CHIMES:
     for j, m in enumerate((base, base + 4, base + 7)):
         nc = int(SR * 1.4); tc = np.arange(nc) / SR
         s = (np.sin(2 * np.pi * midi(m) * tc) + 0.25 * np.sin(4 * np.pi * midi(m) * tc)) * np.exp(-tc * 3.5)

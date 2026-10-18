@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Claude Code Toolkit upsell (long)</title>
+<!--
+  The long-form Toolkit upsell (1280x720, about 3:20), from upsell-long-script.md. Frame-exact like
+  toolkit.html: render(t) draws t seconds in. CUES are where each chapter's narration starts
+  (lines-long.cjs), measured from the voice clips; every beat below is seconds after its chapter's cue.
+-->
+<style>
+  :root { --bg: #0a0c11; --panel: #121620; --panel-2: #0d1017; --line: #242a38; --text: #eef1f6; --muted: #98a2b6; --green: #4ade80;
+          --cool: #38bdf8; --owl: #f5a524; --mag: #2ee0c4; --wood: #ef2b35; --claude: #d97757; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  #stage { position: relative; width: 1280px; height: 720px; overflow: hidden; }
+  .glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; filter: blur(120px); opacity: .22; left: -200px; top: -380px; }
+  .scene { position: absolute; inset: 0 0 64px 0; opacity: 0; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  .o { opacity: 0; }
+  h1.big { position: absolute; left: 0; right: 0; text-align: center; font-size: 58px; font-weight: 800; letter-spacing: -1.2px; margin: 0; }
+  h1.big span { color: var(--green); }
+  .center { position: absolute; left: 0; right: 0; text-align: center; }
+
+  /* top chrome */
+  #chapter { position: absolute; left: 36px; top: 30px; color: var(--muted); font-weight: 700; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; opacity: 0; }
+  #chapter b { color: var(--text); }
+  #badge { position: absolute; right: 36px; top: 24px; display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 99px; background: rgba(217,119,87,.12); border: 1px solid rgba(217,119,87,.55); color: #f0b49a; font-weight: 800; font-size: 15px; opacity: 0; }
+  #badge i { width: 10px; height: 10px; border-radius: 50%; background: var(--claude); box-shadow: 0 0 10px var(--claude); }
+
+  /* bottom offer bar */
+  #offer { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; display: flex; align-items: center; justify-content: center; gap: 14px; background: #07090d; border-top: 1px solid var(--line); font-size: 18px; opacity: 0; }
+  #offer img { width: 30px; height: 30px; border-radius: 8px; }
+  #offer b { color: var(--green); font-size: 22px; }
+  #offer s { color: var(--muted); }
+
+  /* logos row */
+  .logos { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 44px; }
+  .logos .l { display: flex; flex-direction: column; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+  .logos img { width: 120px; height: 120px; border-radius: 26px; }
+  .logos small { color: var(--muted); font-weight: 600; font-size: 15px; }
+
+  /* price card */
+  .pricecard { position: absolute; left: 330px; right: 330px; border-radius: 22px; border: 1px solid rgba(74,222,128,.5); background: linear-gradient(135deg, rgba(74,222,128,.12), rgba(74,222,128,.02)); text-align: center; padding: 20px 0 22px; }
+  .pricecard .t { font-size: 20px; color: var(--muted); }
+  .price { display: flex; justify-content: center; align-items: baseline; gap: 22px; margin: 4px 0 0; }
+  .price .was { font-size: 38px; color: var(--muted); position: relative; }
+  .price .was::after { content: ""; position: absolute; left: -4px; right: -4px; top: 52%; height: 4px; background: #ff6b6b; transform-origin: left; transform: scaleX(var(--strike, 0)); }
+  .price .now { font-size: 96px; font-weight: 900; line-height: 1; }
+  .save { position: absolute; right: -18px; top: -18px; background: var(--green); color: #052e14; font-weight: 900; font-size: 19px; padding: 7px 15px; border-radius: 99px; transform: rotate(6deg); }
+
+  /* chapter list */
+  .toc { position: absolute; left: 330px; right: 330px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 30px; font-size: 18px; color: var(--muted); }
+  .toc div::before { content: "▸ "; color: var(--green); }
+
+  /* problem */
+  .chores { position: absolute; left: 70px; top: 190px; display: grid; grid-template-columns: repeat(2, 330px); gap: 16px; }
+  .chore { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 19px; display: flex; gap: 14px; align-items: center; min-height: 86px; position: relative; overflow: hidden; }
+  .chore .ic { font-size: 30px; width: 44px; text-align: center; }
+  .chore small { display: block; color: var(--muted); font-size: 14px; }
+  .chore .fix { position: absolute; inset: 0; display: flex; gap: 14px; align-items: center; padding: 16px 18px; background: var(--panel); opacity: 0; }
+  .chore .fix img { width: 48px; height: 48px; border-radius: 12px; }
+  .you { position: absolute; left: 790px; top: 210px; width: 420px; }
+  .bubble { background: #1a1f2b; border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 19px; margin-bottom: 14px; }
+  .bubble b { color: #e8a87c; }
+
+  /* app scenes */
+  .left { position: absolute; left: 70px; top: 96px; width: 450px; }
+  .chip { display: inline-block; font-weight: 800; letter-spacing: 3px; font-size: 15px; padding: 6px 14px; border-radius: 99px; color: #0a0c11; }
+  .left img { display: block; width: 116px; height: 116px; border-radius: 26px; margin: 22px 0 16px; }
+  .left h2 { margin: 0 0 10px; font-size: 48px; letter-spacing: -1px; }
+  .left p { margin: 0; color: var(--muted); font-size: 21px; line-height: 1.42; }
+  .tier { position: absolute; left: 70px; top: 520px; display: flex; gap: 10px; align-items: center; font-size: 18px; opacity: 0; }
+  .tier span { padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+  .tier .pro { border-color: var(--green); color: var(--green); font-weight: 800; }
+  .card { position: absolute; left: 580px; top: 90px; width: 630px; height: 450px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .bar { height: 40px; background: var(--panel-2); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 16px; color: var(--muted); font-size: 14px; }
+  .bar i { width: 11px; height: 11px; border-radius: 50%; background: #2c3242; }
+  .bar span { margin-left: 10px; }
+  .claude { position: absolute; left: 22px; right: 22px; bottom: 20px; background: #1a1f2b; border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 17px; display: flex; gap: 12px; align-items: center; opacity: 0; }
+  .claude b { color: #e8a87c; }
+  .claude .ok { color: var(--green); font-weight: 700; }
+  .toast { position: absolute; right: 22px; top: 54px; width: 300px; background: #1b2130; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 15px; display: flex; gap: 10px; align-items: center; box-shadow: 0 12px 30px rgba(0,0,0,.45); opacity: 0; }
+  .toast img { width: 32px; height: 32px; border-radius: 8px; }
+  .toast small { display: block; color: var(--muted); }
+
+  /* magpie */
+  .shop { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; background: #f4f5f8; color: #1d2230; padding: 22px 30px; }
+  .shop h4 { margin: 0 0 14px; font-size: 22px; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #dde1e8; font-size: 17px; }
+  .thumb { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, #9a7a55, #6d5236); }
+  .thumb.b { background: linear-gradient(135deg, #7b8da8, #4c5d78); }
+  .row .p { margin-left: auto; font-weight: 700; }
+  .row .cut { width: 52px; overflow: hidden; white-space: nowrap; color: #c22; }
+  .sel { position: absolute; border: 2.5px solid var(--mag); background: rgba(46,224,196,.12); border-radius: 6px; }
+  .note { position: absolute; left: 140px; top: 248px; width: 350px; background: #10151f; color: var(--text); border: 1px solid var(--mag); border-radius: 12px; padding: 12px 14px; font-size: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+  .note small { color: var(--mag); font-weight: 700; display: block; margin-bottom: 6px; }
+  .note .to { display: flex; justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 14px; }
+  .note .to b { color: var(--mag); }
+  .key { position: absolute; left: 230px; top: 180px; padding: 10px 18px; border-radius: 10px; background: #10151f; color: var(--text); border: 1px solid var(--mag); font-weight: 700; font-size: 18px; }
+
+  /* woodpecker */
+  .term { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; background: #07090d; padding: 16px 22px; font-size: 15px; line-height: 1.75; }
+  .term div { opacity: 0; white-space: nowrap; }
+  .term .r { color: #ff6b6b; } .term .d { color: #6b7385; } .term .g { color: var(--green); }
+  .issue { position: absolute; left: 50px; right: 50px; top: 250px; background: #1a1114; border: 1px solid var(--wood); border-radius: 14px; padding: 14px 18px; font-size: 17px; }
+  .issue b { color: #ff8a8a; } .issue span { color: var(--muted); }
+  .tray { position: absolute; right: 22px; top: 54px; display: flex; align-items: center; gap: 8px; background: #141821; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 14px; color: var(--muted); }
+  .tray img { width: 26px; height: 26px; border-radius: 6px; }
+  .tray i { width: 10px; height: 10px; border-radius: 50%; background: #3a4152; }
+
+  /* owlsql */
+  .sql { position: absolute; left: 22px; right: 22px; top: 96px; font-size: 15.5px; color: var(--owl); min-height: 24px; }
+  .writes { position: absolute; left: 22px; top: 56px; font-size: 15px; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  table { position: absolute; left: 22px; top: 134px; width: 586px; border-collapse: collapse; font-size: 17px; }
+  td, th { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .badge2 { position: absolute; left: 22px; top: 312px; padding: 8px 14px; border-radius: 99px; background: rgba(245,165,36,.12); border: 1px solid var(--owl); color: var(--owl); font-weight: 700; font-size: 15.5px; opacity: 0; }
+  .approve { position: absolute; left: 90px; right: 90px; top: 110px; background: #1b1f2a; border: 1px solid var(--owl); border-radius: 16px; padding: 18px 20px; box-shadow: 0 24px 60px rgba(0,0,0,.6); opacity: 0; }
+  .approve h5 { margin: 0 0 8px; font-size: 19px; }
+  .approve code { display: block; color: #ff8a8a; font-size: 15px; margin: 6px 0 12px; }
+  .approve .btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .approve .btns span { padding: 8px 18px; border-radius: 10px; border: 1px solid var(--line); font-weight: 700; }
+  .approve .btns .allow { background: var(--owl); color: #1a1206; border-color: transparent; }
+
+  /* coolftp */
+  .hosts { position: absolute; left: 22px; right: 22px; top: 58px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .hosts span { padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); font-size: 14.5px; opacity: 0; }
+  .files { position: absolute; left: 22px; right: 22px; top: 112px; }
+  .file { display: grid; grid-template-columns: 170px 1fr 60px; gap: 14px; align-items: center; padding: 10px 0; font-size: 16.5px; }
+  .track { height: 10px; border-radius: 99px; background: #1c2230; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: linear-gradient(90deg, #38bdf8, #22d3ee); border-radius: 99px; }
+  .pct { color: var(--muted); text-align: right; font-size: 15px; }
+  .skip { color: var(--muted); font-size: 14.5px; padding: 4px 0 0; opacity: 0; }
+  .live { position: absolute; left: 22px; right: 22px; top: 270px; font-size: 17.5px; opacity: 0; }
+  .live b { color: var(--green); }
+
+  /* what you get */
+  .gettable { position: absolute; left: 190px; right: 190px; top: 186px; border-collapse: separate; border-spacing: 0; width: 900px; font-size: 21px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .gettable td, .gettable th { padding: 13px 22px; border-bottom: 1px solid var(--line); }
+  .gettable th { font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
+  .gettable tr:last-child td { border-bottom: 0; }
+  .gettable td:first-child { display: flex; align-items: center; gap: 14px; font-weight: 700; }
+  .gettable td:first-child img { width: 36px; height: 36px; border-radius: 9px; }
+  .gettable .pro { color: var(--green); font-weight: 800; }
+  .perks { position: absolute; left: 0; right: 0; top: 512px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .perks span { padding: 9px 16px; border-radius: 99px; border: 1px solid rgba(74,222,128,.45); background: rgba(74,222,128,.07); font-size: 18px; opacity: 0; }
+  .perks span::before { content: "✓ "; color: var(--green); font-weight: 900; }
+  .keypill { position: absolute; left: 0; right: 0; top: 136px; text-align: center; font-size: 22px; opacity: 0; }
+  .keypill code { background: #10151f; border: 1px solid var(--line); padding: 4px 12px; border-radius: 8px; color: var(--green); font-size: 18px; }
+
+  /* close */
+  .cta { display: inline-block; padding: 18px 40px; border-radius: 14px; background: linear-gradient(135deg, #4ade80, #16a34a); color: #04210f; font-weight: 900; font-size: 26px; box-shadow: 0 14px 40px rgba(34,197,94,.35); }
+  .nothanks { color: var(--muted); font-size: 19px; text-decoration: underline; }
+  .faq { position: absolute; left: 140px; right: 140px; top: 120px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .faq div { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; font-size: 17px; color: var(--muted); opacity: 0; }
+  .faq b { display: block; color: var(--text); font-size: 18px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow" id="glow"></div>
+  <div id="chapter"></div>
+  <div id="badge"><i></i>Built for Claude Code</div>
+
+  <!-- 1 · the offer -->
+  <div class="scene" id="c1">
+    <div class="center o" id="c1-picked" style="top: 92px; font-size: 20px; color: var(--green); font-weight: 700">✓ You picked Pro for one app</div>
+    <h1 class="big o" id="c1-h" style="top: 128px">One offer before you check out: <span>all four</span>.</h1>
+    <div class="logos" style="top: 228px">
+      <div class="l o" id="c1-l0"><img src="magpie.png" />magpieSnap</div>
+      <div class="l o" id="c1-l1"><img src="woodpecker.png" />woodpeckerDig</div>
+      <div class="l o" id="c1-l2"><img src="owlsql.png" />OwlSQL</div>
+      <div class="l o" id="c1-l3"><img src="coolftp.png" />coolFTP</div>
+    </div>
+    <div class="pricecard o" id="c1-price" style="top: 430px"><div class="save" id="c1-save">SAVE $97</div><div class="t">The Claude Code Toolkit · Pro for all four</div><div class="price"><span class="was" id="c1-was">$196</span><span class="now">$99</span></div></div>
+  </div>
+
+  <!-- 2 · the problem -->
+  <div class="scene" id="c2">
+    <h1 class="big o" id="c2-h" style="top: 92px">Claude is <span style="color: #ff8a8a">working blind</span>.</h1>
+    <div class="chores">
+      <div class="chore o" id="c2-k0"><span class="ic">🖼️</span><div>Taking screenshots<small>save, find, drag, paste</small></div><div class="fix"><img src="magpie.png" /><div><b style="color: var(--mag)">magpieSnap</b><small>Claude sees your screen</small></div></div></div>
+      <div class="chore o" id="c2-k1"><span class="ic">📋</span><div>Copying stack traces<small>out of the terminal, into the chat</small></div><div class="fix"><img src="woodpecker.png" /><div><b style="color: var(--wood)">woodpeckerDig</b><small>Claude reads your errors</small></div></div></div>
+      <div class="chore o" id="c2-k2"><span class="ic">🗄️</span><div>Running SQL by hand<small>phpMyAdmin, copy the results back</small></div><div class="fix"><img src="owlsql.png" /><div><b style="color: var(--owl)">OwlSQL</b><small>Claude fixes your data</small></div></div></div>
+      <div class="chore o" id="c2-k3"><span class="ic">📤</span><div>Uploading over FTP<small>which files changed? did it work?</small></div><div class="fix"><img src="coolftp.png" /><div><b style="color: var(--cool)">coolFTP</b><small>Claude ships it</small></div></div></div>
+    </div>
+    <div class="you">
+      <div class="bubble o" id="c2-b0"><b>Claude</b> Can you paste the error?</div>
+      <div class="bubble o" id="c2-b1"><b>Claude</b> What does the page look like now?</div>
+      <div class="bubble o" id="c2-b2"><b>Claude</b> Please run this query and send me the output.</div>
+    </div>
+    <div class="o" id="c2-end" style="position: absolute; left: 800px; top: 236px; width: 400px; font-size: 34px; font-weight: 800; line-height: 1.2">One app for each job.<br /><span style="color: var(--green)">Each one done safely.</span></div>
+  </div>
+
+  <!-- 3 · magpieSnap -->
+  <div class="scene" id="c3">
+    <div class="left"><span class="chip" style="background: var(--mag)">1 · SEE IT</span><img src="magpie.png" /><h2 style="color: var(--mag)">magpieSnap</h2><p>Press Print Screen, box the problem, add a note. Claude gets the close-up, the whole screen, and the app it came from.</p></div>
+    <div class="tier" id="c3-tier"><span>Free · 1 project</span>→<span class="pro">Pro · every project</span></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>myshop.test/checkout · Google Chrome</span></div>
+      <div class="shop">
+        <h4>Checkout</h4>
+        <div class="row"><div class="thumb"></div>Walnut desk organizer<div class="p">$89.00</div></div>
+        <div class="row"><div class="thumb b"></div>Standing desk, oak top<div class="p cut">$1,249.00</div></div>
+        <div class="row" style="border:0"><b>Total</b><div class="p">$1,338.00</div></div>
+      </div>
+      <div class="key o" id="c3-key">⎙ Print Screen</div>
+      <div class="sel" id="c3-sel"></div>
+      <div class="note o" id="c3-note"><small>magpieSnap · Google Chrome · Checkout</small><span id="c3-type"></span><div class="to">Send to <b>my-shop ▾</b><span>Enter ↵</span></div></div>
+      <div class="toast" id="c3-toast"><img src="magpie.png" /><div><b>Claude fixed it</b><small>The price no longer wraps. Reload to check.</small></div></div>
+      <div class="claude" id="c3-claude"><b>Claude</b><span>Got your capture from Chrome. <span class="ok">Fixed:</span> the price no longer wraps on narrow screens.</span></div>
+    </div>
+  </div>
+
+  <!-- 4 · woodpeckerDig -->
+  <div class="scene" id="c4">
+    <div class="left"><span class="chip" style="background: var(--wood); color: #fff">2 · TRACE IT</span><img src="woodpecker.png" /><h2 style="color: var(--wood)">woodpeckerDig</h2><p>Records what your programs print, groups the crashes, and points Claude at the exact file and line.</p></div>
+    <div class="tier" id="c4-tier"><span>Free · 1 project</span>→<span class="pro">Pro · every project</span></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>woodpecker run npm run dev</span></div>
+      <div class="term mono">
+        <div class="d">&gt; my-shop@1.0.0 dev</div>
+        <div class="g">ready on http://localhost:3000</div>
+        <div>GET /cart <span class="r">500</span></div>
+        <div class="r">TypeError: Cannot read properties of undefined (reading 'total')</div>
+        <div class="d">    at cartTotal (src/cart.js:42:18)</div>
+        <div class="d">    at handler (src/routes/cart.js:11:9)</div>
+      </div>
+      <div class="tray" id="c4-tray"><img src="woodpecker.png" /><i id="c4-dot"></i><span id="c4-traytext">all quiet</span></div>
+      <div class="issue o" id="c4-issue">🔴 <b>TypeError</b> in <b>src/cart.js:42</b><br /><span>seen 3 times · last 2s ago · from npm run dev</span></div>
+      <div class="claude" id="c4-claude"><b>You</b><span>it's broken &nbsp;→&nbsp; <b>Claude</b> Read the trace. <span class="ok">Fixed</span> src/cart.js:42.</span></div>
+    </div>
+  </div>
+
+  <!-- 5 · OwlSQL -->
+  <div class="scene" id="c5">
+    <div class="left"><span class="chip" style="background: var(--owl)">3 · FIX THE DATA</span><img src="owlsql.png" /><h2 style="color: var(--owl)">OwlSQL</h2><p>Claude works on your real MySQL database. Read-only until you say so, every write can be undone, risky ones wait for you.</p></div>
+    <div class="tier" id="c5-tier"><span>Free · 1 database</span>→<span class="pro">Pro · every database</span></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>OwlSQL · my-shop (Hostinger)</span></div>
+      <div class="writes" id="c5-writes">writes: off · read-only</div>
+      <div class="sql mono" id="c5-sql"></div>
+      <table>
+        <tr><th>id</th><th>name</th><th>products</th></tr>
+        <tr><td>12</td><td class="o-n">Jewlery</td><td>48</td></tr>
+        <tr><td>17</td><td class="o-n">Jewlery &amp; Watches</td><td>21</td></tr>
+        <tr><td>31</td><td class="o-n">Kids Jewlery</td><td>9</td></tr>
+      </table>
+      <div class="badge2" id="c5-badge">✓ 3 rows changed · snapshot saved · ↶ undo available</div>
+      <div class="approve" id="c5-approve"><h5>⚠ Claude wants to run a risky statement</h5><span style="color: var(--muted)">No WHERE clause: this touches every row in orders.</span><code>DELETE FROM orders</code><div class="btns"><span class="deny">Deny</span><span class="allow">Allow</span></div></div>
+    </div>
+  </div>
+
+  <!-- 6 · coolFTP -->
+  <div class="scene" id="c6">
+    <div class="left"><span class="chip" style="background: var(--cool)">4 · SHIP IT</span><img src="coolftp.png" /><h2 style="color: var(--cool)">coolFTP</h2><p>Claude deploys to your SFTP or FTP host. Only changed files go up, the site is checked live, and one undo puts it back.</p></div>
+    <div class="tier" id="c6-tier"><span>Free · 1 site</span>→<span class="pro">Pro · unlimited sites</span></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>coolftp deploy · myshop.com</span></div>
+      <div class="hosts"><span>Hostinger</span><span>GoDaddy</span><span>Bluehost</span><span>HostGator</span><span>any cPanel</span><span>your VPS</span></div>
+      <div class="files mono">
+        <div class="file"><span>src/cart.js</span><div class="track"><div class="fill" id="c6-f0"></div></div><span class="pct" id="c6-p0"></span></div>
+        <div class="file"><span>checkout.css</span><div class="track"><div class="fill" id="c6-f1"></div></div><span class="pct" id="c6-p1"></span></div>
+        <div class="file"><span>index.html</span><div class="track"><div class="fill" id="c6-f2"></div></div><span class="pct" id="c6-p2"></span></div>
+        <div class="skip" id="c6-skip">412 unchanged files skipped</div>
+      </div>
+      <div class="live mono" id="c6-live"><b>✔ live</b> · 200 https://myshop.com · 3 files · 1.8s<br /><span style="color: var(--muted)">↶ undo restores the previous versions · no git needed</span></div>
+      <div class="claude" id="c6-claude"><b>Claude</b><span>Deployed and <span class="ok">verified live</span>. Say undo if anything looks off.</span></div>
+    </div>
+  </div>
+
+  <!-- 7 · what you get -->
+  <div class="scene" id="c7">
+    <h1 class="big o" id="c7-h" style="top: 72px; font-size: 44px">Exactly what <span>$99</span> gets you</h1>
+    <div class="keypill" id="c7-key">One license key by email unlocks all four: <code>LS1.…</code></div>
+    <table class="gettable">
+      <tr><th>App</th><th>Free</th><th style="color: var(--green)">With the Toolkit</th></tr>
+      <tr class="o" id="c7-r0"><td><img src="magpie.png" />magpieSnap</td><td>1 project</td><td class="pro">Every project</td></tr>
+      <tr class="o" id="c7-r1"><td><img src="woodpecker.png" />woodpeckerDig</td><td>1 project</td><td class="pro">Every project</td></tr>
+      <tr class="o" id="c7-r2"><td><img src="owlsql.png" />OwlSQL</td><td>1 database</td><td class="pro">Unlimited databases</td></tr>
+      <tr class="o" id="c7-r3"><td><img src="coolftp.png" />coolFTP</td><td>1 site</td><td class="pro">Unlimited sites</td></tr>
+    </table>
+    <div class="perks"><span id="c7-p0">Every feature you already have</span><span id="c7-p1">Up to 3 machines</span><span id="c7-p2">Updates for life</span><span id="c7-p3">No subscription, nothing to renew</span></div>
+  </div>
+
+  <!-- 8 · close -->
+  <div class="scene" id="c8">
+    <div class="logos" style="top: 82px">
+      <div class="l o" id="c8-l0"><img src="magpie.png" />magpieSnap<small>its eyes</small></div>
+      <div class="l o" id="c8-l1"><img src="woodpecker.png" />woodpeckerDig<small>its ears</small></div>
+      <div class="l o" id="c8-l2"><img src="owlsql.png" />OwlSQL<small>your database</small></div>
+      <div class="l o" id="c8-l3"><img src="coolftp.png" />coolFTP<small>a way to ship</small></div>
+    </div>
+    <div class="pricecard o" id="c8-price" style="top: 318px"><div class="save" id="c8-save">SAVE $97</div><div class="t">All four apps · lifetime licenses · one payment</div><div class="price"><span class="was" id="c8-was">$196</span><span class="now">$99</span></div></div>
+    <div class="center o" id="c8-cta" style="top: 516px"><span class="cta" id="c8-btn">⬇ Yes! Give me the full Toolkit</span></div>
+    <div class="center o" id="c8-no" style="top: 606px"><span class="nothanks">No thanks, just the one app I picked for $49</span></div>
+    <div class="faq" id="c8-faq">
+      <div><b>What do I need?</b>Windows 10 or 11 and Claude Code. coolFTP and OwlSQL also work with Cursor and Codex.</div>
+      <div><b>Is it a subscription?</b>No. You pay once and get updates for life.</div>
+      <div><b>Will it work with my hosting?</b>Any SFTP or FTP host, any MySQL or MariaDB: Hostinger, GoDaddy, cPanel.</div>
+      <div><b>How do I activate it?</b>Paste the key into each app once, or ask Claude to activate it.</div>
+    </div>
+  </div>
+
+  <div id="offer">
+    <img src="magpie.png" /><img src="woodpecker.png" /><img src="owlsql.png" /><img src="coolftp.png" />
+    <span>Claude Code Toolkit · all four apps ·</span><b>$99</b><span>one-time</span><s>$196</s>
+  </div>
+</div>
+
+<script>
+// Where each chapter's narration starts (lines-long.cjs) and when each chapter is on screen.
+const CUES = [0.6, 23.54, 45.92, 71.47, 96.45, 120.13, 144.91, 172.77];
+const SCENES = [[0, 23.04], [23.04, 45.42], [45.42, 70.97], [70.97, 95.95], [95.95, 119.63], [119.63, 144.41], [144.41, 172.27], [172.27, 199.8]];
+const DURATION = 199.8;
+const TITLES = ["The offer", "The problem", "magpieSnap", "woodpeckerDig", "OwlSQL", "coolFTP", "What you get", "Your choice"];
+const GLOWS = ["#4ade80", "#ff6b6b", "#2ee0c4", "#ef2b35", "#f5a524", "#38bdf8", "#4ade80", "#4ade80"];
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const out = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const span = (t, a, b) => clamp((t - a) / (b - a));
+/** Fade and rise in at `a` (seconds into the video); optionally fade out at `z`. */
+function show(el, t, a, z = Infinity, rise = 18, dur = .45) {
+  const k = out(span(t, a, a + dur)) * (z === Infinity ? 1 : 1 - span(t, z, z + .35));
+  el.style.opacity = k;
+  el.style.transform = `translateY(${(1 - k) * rise}px)`;
+}
+function typeIn(el, text, t, a, cps = 24) {
+  const n = Math.floor(clamp((t - a) * cps, 0, text.length));
+  el.textContent = text.slice(0, n) + (t >= a && n < text.length && Math.floor(t * 3) % 2 === 0 ? "▍" : "");
+}
+function priceCard(t, id, a) {
+  show($(id + "-price"), t, a, Infinity, 40, .6);
+  $(id + "-was").style.setProperty("--strike", ease(span(t, a + 1.2, a + 1.7)));
+  const k = out(span(t, a + 1.8, a + 2.2)); $(id + "-save").style.opacity = k; $(id + "-save").style.transform = `rotate(6deg) scale(${.6 + .4 * k})`;
+}
+
+function render(t) {
+  let cur = 0;
+  SCENES.forEach(([a, b], i) => {
+    const el = $("c" + (i + 1));
+    const k = Math.min(span(t, a, a + .5), 1 - span(t, b - .4, b));
+    el.style.opacity = k;
+    if (t >= a && t < b) cur = i;
+  });
+  $("glow").style.background = GLOWS[cur];
+  $("glow").style.left = `${-260 + Math.sin(t * .2) * 70}px`;
+  $("chapter").innerHTML = `Chapter ${cur + 1} of 8 · <b>${TITLES[cur]}</b>`;
+  $("chapter").style.opacity = span(t, 2, 2.6);
+  $("badge").style.opacity = span(t, 2, 2.6);
+  $("offer").style.opacity = span(t, 1, 1.6);
+  const C = CUES;
+
+  // 1 · the offer
+  show($("c1-picked"), t, .3);
+  show($("c1-h"), t, C[0] + 2.4, Infinity, 24);
+  for (let i = 0; i < 4; i++) show($("c1-l" + i), t, C[0] + 5.2 + i * .3, Infinity, 30);
+  priceCard(t, "c1", C[0] + 9.5);
+
+  // 2 · the problem
+  show($("c2-h"), t, C[1] + .2, Infinity, 24);
+  for (let i = 0; i < 4; i++) show($("c2-k" + i), t, C[1] + 6 + i * 1.6, Infinity, 20);
+  for (let i = 0; i < 3; i++) show($("c2-b" + i), t, C[1] + 7 + i * 2.2, C[1] + 15.6, 14);
+  show($("c2-end"), t, C[1] + 17.4, Infinity, 20);
+  for (let i = 0; i < 4; i++) $("c2-k" + i).querySelector(".fix").style.opacity = out(span(t, C[1] + 16 + i * .5, C[1] + 16.5 + i * .5));
+
+  // 3 · magpieSnap
+  { const s = C[2];
+    const key = $("c3-key"); key.style.opacity = span(t, s + 4.5, s + 4.7) * (1 - span(t, s + 6, s + 6.3));
+    const card = document.querySelector("#c3 .card").getBoundingClientRect(), price = document.querySelector("#c3 .cut").getBoundingClientRect(), sc = card.width / 630;
+    const W = 104, g = ease(span(t, s + 6, s + 6.9)), gone = 1 - span(t, s + 14.6, s + 15);
+    const sel = $("c3-sel"), bx = (price.right - card.left) / sc + 12 - W, by = (price.top - card.top) / sc - 12;
+    sel.style.opacity = (t > s + 6 ? 1 : 0) * gone; sel.style.left = `${bx + (1 - g) * W}px`; sel.style.top = `${by}px`; sel.style.width = `${g * W}px`; sel.style.height = `${g * (price.height / sc + 24)}px`;
+    show($("c3-note"), t, s + 7.2, s + 14.6);
+    typeIn($("c3-type"), "the price is cut off on narrow screens", t, s + 7.6, 20);
+    show($("c3-claude"), t, s + 15, Infinity, 14);
+    show($("c3-toast"), t, s + 16.4, Infinity, -14);
+    const fixed = t > s + 15.1; const cut = document.querySelector("#c3 .cut");
+    cut.style.width = fixed ? "auto" : "52px"; cut.style.color = fixed ? "#1d2230" : "#c22";
+    show($("c3-tier"), t, s + 19.4, Infinity, 14);
+  }
+
+  // 4 · woodpeckerDig
+  { const s = C[3];
+    document.querySelectorAll("#c4 .term div").forEach((d, i) => show(d, t, s + 4 + i * .55 + (i >= 3 ? .5 : 0), Infinity, 6, .25));
+    const red = t > s + 7.6;
+    $("c4-dot").style.background = red ? "#ef2b35" : "#3a4152"; $("c4-dot").style.boxShadow = red ? "0 0 10px #ef2b35" : "none";
+    $("c4-traytext").textContent = red ? "1 new error" : "all quiet";
+    show($("c4-issue"), t, s + 9.6, Infinity, 24);
+    $("c4-issue").style.boxShadow = `0 0 ${20 + 16 * Math.sin(Math.max(0, t - s - 9.6) * 4)}px rgba(239,43,53,${t > s + 9.6 ? .35 : 0})`;
+    show($("c4-claude"), t, s + 14.4, Infinity, 14);
+    show($("c4-tier"), t, s + 19.2, Infinity, 14);
+  }
+
+  // 5 · OwlSQL
+  { const s = C[4];
+    const on = t > s + 7.2;
+    $("c5-writes").textContent = on ? "writes: on · every write snapshotted" : "writes: off · read-only";
+    $("c5-writes").style.color = on ? "#f5a524" : ""; $("c5-writes").style.borderColor = on ? "#f5a524" : "";
+    typeIn($("c5-sql"), "UPDATE categories SET name = REPLACE(name, 'Jewlery', 'Jewelry')", t, s + 7.8, 38);
+    document.querySelectorAll("#c5 .o-n").forEach((td, i) => {
+      const fixed = t > s + 10 + i * .18;
+      td.textContent = fixed ? ["Jewelry", "Jewelry & Watches", "Kids Jewelry"][i] : ["Jewlery", "Jewlery & Watches", "Kids Jewlery"][i];
+      td.style.color = fixed ? "#4ade80" : t > s + 1 ? "#ff8a8a" : ""; td.style.fontWeight = fixed || t > s + 1 ? 700 : 400;
+    });
+    show($("c5-badge"), t, s + 10.6, Infinity, 14);
+    show($("c5-approve"), t, s + 13.6, s + 18.6, 30);
+    const pulse = t > s + 15.5 && t < s + 18.6 ? .5 + .5 * Math.sin((t - s) * 7) : 0;
+    // the right answer to an unbounded DELETE is Deny: that button pulses
+    const deny = document.querySelector("#c5 .deny"); deny.style.boxShadow = `0 0 ${pulse * 18}px rgba(74,222,128,.9)`; deny.style.borderColor = pulse ? "#4ade80" : "";
+    show($("c5-tier"), t, s + 18.8, Infinity, 14);
+  }
+
+  // 6 · coolFTP
+  { const s = C[5];
+    document.querySelectorAll("#c6 .hosts span").forEach((h, i) => show(h, t, s + 4.6 + i * .3, Infinity, 8, .3));
+    [[8.2, 9.8], [8.5, 10.4], [8.8, 10.8]].forEach(([a, b], i) => {
+      const k = ease(span(t, s + a, s + b));
+      $("c6-f" + i).style.width = `${k * 100}%`;
+      $("c6-p" + i).textContent = t < s + a ? "" : k >= 1 ? "✓" : `${Math.round(k * 100)}%`;
+      $("c6-p" + i).style.color = k >= 1 ? "#4ade80" : "";
+    });
+    show($("c6-skip"), t, s + 10, Infinity, 6);
+    show($("c6-live"), t, s + 12.6, Infinity, 14);
+    show($("c6-claude"), t, s + 15.6, Infinity, 14);
+    show($("c6-tier"), t, s + 19.6, Infinity, 14);
+  }
+
+  // 7 · what you get
+  { const s = C[6];
+    show($("c7-h"), t, s + .2, Infinity, 20);
+    show($("c7-key"), t, s + 5.2, Infinity, 12);
+    for (let i = 0; i < 4; i++) show($("c7-r" + i), t, s + 13.6 + i * .7, Infinity, 10);
+    [12.6, 19.2, 20.6, 22.4].forEach((a, i) => show($("c7-p" + i), t, s + a, Infinity, 10));
+  }
+
+  // 8 · close
+  { const s = C[7];
+    for (let i = 0; i < 4; i++) show($("c8-l" + i), t, s + .3 + i * .6, s + 19.4, 26);
+    priceCard(t, "c8", s + 5.4);
+    $("c8-price").style.opacity *= 1 - span(t, s + 19.4, s + 19.8);
+    show($("c8-cta"), t, s + 10.2, Infinity, 18);
+    $("c8-btn").style.transform = `scale(${1 + .04 * Math.max(0, Math.sin((t - s - 10.6) * 3.4)) * (t > s + 10.6 ? 1 : 0)})`;
+    show($("c8-no"), t, s + 14.6, Infinity, 10);
+    // after the narration: the quick answers over the button, so the last frame has everything
+    const faq = $("c8-faq").children;
+    for (let i = 0; i < 4; i++) show(faq[i], t, s + 19.8 + i * .35, Infinity, 14);
+    const up = ease(span(t, s + 19.4, s + 20.2));
+    $("c8-cta").style.top = `${516 - 76 * up}px`; $("c8-no").style.top = `${606 - 66 * up}px`;
+  }
+}
+
+window.ready = Promise.all([...document.images].map((i) => (i.complete ? 1 : new Promise((r) => (i.onload = i.onerror = r))))).then(() => (render(0), true));
+if (!location.search.includes("render=1")) {
+  const t0 = performance.now();
+  const tick = () => { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(tick); };
+  window.ready.then(tick);
+}
+</script>
+</body>
+</html>
