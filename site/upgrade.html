@@ -18,6 +18,10 @@
     h1 { font-size: clamp(30px, 5.4vw, 48px); line-height: 1.08; margin: 0 0 14px; letter-spacing: -0.02em; }
     h1 em { font-style: normal; color: var(--accent); }
     .lead { color: var(--muted); font-size: 18px; margin: 0 0 28px; max-width: 680px; }
+    .promo { position: relative; margin: 0 0 26px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #000; box-shadow: 0 24px 60px rgba(0,0,0,.5); aspect-ratio: 16 / 9; }
+    .promo video { display: block; width: 100%; height: 100%; }
+    .sound { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 0; cursor: pointer; background: rgba(10,12,17,.82); color: var(--text); font: inherit; font-weight: 800; font-size: 18px; padding: 14px 24px; border-radius: 99px; box-shadow: 0 0 0 2px var(--green), 0 12px 30px rgba(0,0,0,.5); }
+    .sound:hover { background: rgba(10,12,17,.95); }
     .tk-apps { display: grid; gap: 12px; margin: 0 0 22px; }
     .tk-app { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; }
     .tk-app.tk-here { border-color: var(--a); box-shadow: 0 0 0 1px var(--a) inset; }
@@ -54,6 +58,17 @@
     <p class="wait">Wait, a one-time offer</p>
     <h1>Get <em>all four apps</em> for $99.<br />Save $97 today.</h1>
     <p class="lead">coolFTP Pro is $49. For $50 more you get Pro for every app in the Claude Code Toolkit: one payment, lifetime licenses, never pay again.</p>
+    <div class="promo">
+      <video id="promo" src="toolkit-promo.mp4" poster="toolkit-poster.jpg" autoplay muted playsinline loop preload="metadata" aria-label="The Claude Code Toolkit in 48 seconds: see it with magpieSnap, trace it with woodpeckerDig, fix the data with OwlSQL, ship it with coolFTP"></video>
+      <button class="sound" id="sound" type="button">🔊 Play with sound</button>
+    </div>
+    <script>
+      document.getElementById("sound").onclick = (e) => {
+        const v = document.getElementById("promo");
+        v.muted = false; v.loop = false; v.controls = true; v.currentTime = 0; v.play();
+        e.currentTarget.remove();
+      };
+    </script>
     <div class="tk-apps">
         <div class="tk-app tk-here" style="--a:#38bdf8">
           <img src="https://coolftp.com/logo.png" alt="" width="72" height="72" loading="lazy" />

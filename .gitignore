@@ -15,3 +15,5 @@ scripts/license/private/
 site/api/config.php
 coolftpicon.png
 plugins/coolftp/.live/
+scripts/toolkit/audio/
+scripts/toolkit/frames/

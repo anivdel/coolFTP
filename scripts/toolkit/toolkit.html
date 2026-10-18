@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Claude Code Toolkit promo</title>
+<!--
+  The Claude Code Toolkit promo (1280x720, 48s) for each app's upgrade.html. Frame-exact: render(t)
+  draws the scene at t seconds, so scripts/toolkit/render.cjs can step it frame by frame.
+  Open it in a browser to watch it play. Narration cues live in lines.cjs.
+-->
+<style>
+  :root { --bg: #0a0c11; --panel: #121620; --panel-2: #0d1017; --line: #242a38; --text: #eef1f6; --muted: #98a2b6; --green: #4ade80;
+          --cool: #38bdf8; --owl: #f5a524; --mag: #2ee0c4; --wood: #ef2b35; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+  #stage { position: relative; width: 1280px; height: 720px; overflow: hidden; }
+  .glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; filter: blur(120px); opacity: .22; left: -200px; top: -380px; }
+  .abs { position: absolute; }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+
+  /* intro */
+  #intro h1 { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font-size: 66px; font-weight: 800; letter-spacing: -1.5px; margin: 0; }
+  #intro h1 span { color: var(--green); }
+  #intro .sub { position: absolute; left: 0; right: 0; top: 240px; text-align: center; color: var(--muted); font-size: 26px; }
+  .logos { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 46px; }
+  .logos .l { display: flex; flex-direction: column; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; }
+  .logos img { width: 132px; height: 132px; border-radius: 28px; }
+
+  /* app scenes */
+  .left { position: absolute; left: 80px; top: 120px; width: 440px; }
+  .chip { display: inline-block; font-weight: 800; letter-spacing: 3px; font-size: 16px; padding: 6px 14px; border-radius: 99px; color: #0a0c11; }
+  .left img { display: block; width: 128px; height: 128px; border-radius: 28px; margin: 26px 0 18px; }
+  .left h2 { margin: 0 0 12px; font-size: 52px; letter-spacing: -1px; }
+  .left p { margin: 0; color: var(--muted); font-size: 23px; line-height: 1.4; }
+  .card { position: absolute; left: 580px; top: 110px; width: 620px; height: 440px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .bar { height: 40px; background: var(--panel-2); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 16px; color: var(--muted); font-size: 14px; }
+  .bar i { width: 11px; height: 11px; border-radius: 50%; background: #2c3242; }
+  .bar span { margin-left: 10px; }
+  .claude { position: absolute; left: 24px; right: 24px; bottom: 22px; background: #1a1f2b; border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; font-size: 17px; display: flex; gap: 12px; align-items: center; opacity: 0; }
+  .claude b { color: #e8a87c; }
+  .claude .ok { color: var(--green); font-weight: 700; }
+
+  /* magpie mock */
+  .shop { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; background: #f4f5f8; color: #1d2230; padding: 24px 30px; }
+  .shop h4 { margin: 0 0 18px; font-size: 22px; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #dde1e8; font-size: 17px; }
+  .thumb { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #9a7a55, #6d5236); }
+  .thumb.b { background: linear-gradient(135deg, #7b8da8, #4c5d78); }
+  .row .p { margin-left: auto; font-weight: 700; }
+  .row .cut { width: 52px; overflow: hidden; white-space: nowrap; color: #c22; }
+  .sel { position: absolute; border: 2.5px solid var(--mag); background: rgba(46,224,196,.12); border-radius: 6px; }
+  .note { position: absolute; left: 150px; top: 250px; width: 330px; background: #10151f; color: var(--text); border: 1px solid var(--mag); border-radius: 12px; padding: 12px 14px; font-size: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+  .note small { color: var(--mag); font-weight: 700; display: block; margin-bottom: 6px; }
+  .key { position: absolute; left: 230px; top: 186px; padding: 10px 18px; border-radius: 10px; background: #10151f; color: var(--text); border: 1px solid var(--mag); font-weight: 700; font-size: 18px; }
+
+  /* woodpecker mock */
+  .term { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; background: #07090d; padding: 18px 22px; font-size: 15.5px; line-height: 1.75; }
+  .term div { opacity: 0; white-space: nowrap; }
+  .term .r { color: #ff6b6b; } .term .d { color: #6b7385; } .term .g { color: var(--green); }
+  .issue { position: absolute; left: 60px; right: 60px; top: 236px; background: #1a1114; border: 1px solid var(--wood); border-radius: 14px; padding: 14px 18px; font-size: 17px; }
+  .issue b { color: #ff8a8a; } .issue span { color: var(--muted); }
+
+  /* owlsql mock */
+  .sql { position: absolute; left: 24px; right: 24px; top: 62px; font-size: 16px; color: var(--owl); min-height: 26px; }
+  table { position: absolute; left: 24px; right: 24px; top: 108px; width: 572px; border-collapse: collapse; font-size: 17px; }
+  td, th { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .badge { position: absolute; left: 24px; top: 300px; padding: 8px 14px; border-radius: 99px; background: rgba(245,165,36,.12); border: 1px solid var(--owl); color: var(--owl); font-weight: 700; font-size: 16px; opacity: 0; }
+
+  /* coolftp mock */
+  .files { position: absolute; left: 24px; right: 24px; top: 64px; }
+  .file { display: grid; grid-template-columns: 170px 1fr 70px; gap: 14px; align-items: center; padding: 11px 0; font-size: 17px; }
+  .track { height: 10px; border-radius: 99px; background: #1c2230; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: linear-gradient(90deg, #38bdf8, #22d3ee); border-radius: 99px; }
+  .pct { color: var(--muted); text-align: right; font-size: 15px; }
+  .live { position: absolute; left: 24px; right: 24px; top: 236px; font-size: 18px; opacity: 0; }
+  .live b { color: var(--green); }
+
+  /* progress dots */
+  #steps { position: absolute; left: 0; right: 0; bottom: 34px; display: flex; justify-content: center; gap: 30px; opacity: 0; }
+  #steps .s { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--muted); opacity: .45; }
+  #steps .s img { width: 34px; height: 34px; border-radius: 9px; }
+  #steps .s.on { opacity: 1; color: var(--text); }
+
+  /* finale */
+  #finale .flow { position: absolute; left: 0; right: 0; top: 70px; display: flex; justify-content: center; align-items: center; gap: 16px; }
+  #finale .f { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 170px; }
+  #finale .f img { width: 104px; height: 104px; border-radius: 24px; }
+  #finale .f b { font-size: 21px; letter-spacing: 2px; }
+  #finale .arrow { color: var(--muted); font-size: 34px; margin-top: -30px; }
+  .deal { position: absolute; left: 240px; right: 240px; top: 300px; height: 330px; border-radius: 24px; border: 1px solid rgba(74,222,128,.5); background: linear-gradient(135deg, rgba(74,222,128,.12), rgba(74,222,128,.02)); text-align: center; padding-top: 26px; }
+  .deal .t { font-size: 24px; color: var(--muted); }
+  .price { display: flex; justify-content: center; align-items: baseline; gap: 22px; margin: 6px 0 4px; }
+  .price .was { font-size: 40px; color: var(--muted); position: relative; }
+  .price .was::after { content: ""; position: absolute; left: -4px; right: -4px; top: 52%; height: 4px; background: #ff6b6b; transform-origin: left; transform: scaleX(var(--strike, 0)); }
+  .price .now { font-size: 104px; font-weight: 900; line-height: 1; }
+  .perks { color: var(--text); font-size: 21px; }
+  .perks span { color: var(--green); font-weight: 900; margin: 0 6px 0 14px; }
+  .cta { display: inline-block; margin-top: 20px; padding: 16px 34px; border-radius: 14px; background: linear-gradient(135deg, #4ade80, #16a34a); color: #04210f; font-weight: 900; font-size: 24px; box-shadow: 0 14px 40px rgba(34,197,94,.35); }
+  .save { position: absolute; right: -18px; top: -18px; background: var(--green); color: #052e14; font-weight: 900; font-size: 20px; padding: 8px 16px; border-radius: 99px; transform: rotate(6deg); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow" id="glow"></div>
+
+  <div class="scene" id="intro">
+    <h1>Four apps. <span>One workflow.</span></h1>
+    <div class="sub">Pro for every tool in the Claude Code Toolkit.</div>
+    <div class="logos" style="top: 340px">
+      <div class="l" id="il0"><img src="magpie.png" />magpieSnap</div>
+      <div class="l" id="il1"><img src="woodpecker.png" />woodpeckerDig</div>
+      <div class="l" id="il2"><img src="owlsql.png" />OwlSQL</div>
+      <div class="l" id="il3"><img src="coolftp.png" />coolFTP</div>
+    </div>
+  </div>
+
+  <!-- 1 · magpieSnap -->
+  <div class="scene" id="s-mag">
+    <div class="left"><span class="chip" style="background: var(--mag)">1 · SEE IT</span><img src="magpie.png" /><h2 style="color: var(--mag)">magpieSnap</h2><p>Press Print Screen, box the bug, add a note. Claude sees exactly what you see.</p></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>myshop.test/checkout</span></div>
+      <div class="shop">
+        <h4>Checkout</h4>
+        <div class="row"><div class="thumb"></div>Walnut desk organizer<div class="p">$89.00</div></div>
+        <div class="row"><div class="thumb b"></div>Standing desk, oak top<div class="p cut">$1,249.00</div></div>
+        <div class="row" style="border:0"><b>Total</b><div class="p">$1,338.00</div></div>
+      </div>
+      <div class="key" id="m-key">⎙ Print Screen</div>
+      <div class="sel" id="m-sel"></div>
+      <div class="note" id="m-note"><small>magpieSnap · Chrome · Checkout</small><span id="m-type"></span></div>
+      <div class="claude" id="m-claude"><b>Claude</b><span>Got your capture. <span class="ok">Fixed:</span> the price no longer wraps on narrow screens.</span></div>
+    </div>
+  </div>
+
+  <!-- 2 · woodpeckerDig -->
+  <div class="scene" id="s-wood">
+    <div class="left"><span class="chip" style="background: var(--wood); color: #fff">2 · TRACE IT</span><img src="woodpecker.png" /><h2 style="color: var(--wood)">woodpeckerDig</h2><p>Catches the crash in your running app and hands Claude the stack trace, file and line.</p></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>woodpecker run npm run dev</span></div>
+      <div class="term mono">
+        <div class="d">&gt; my-shop@1.0.0 dev</div>
+        <div class="g">  ready on http://localhost:3000</div>
+        <div>  GET /cart <span class="r">500</span></div>
+        <div class="r">TypeError: Cannot read properties of undefined (reading 'total')</div>
+        <div class="d">    at cartTotal (src/cart.js:42:18)</div>
+        <div class="d">    at handler (src/routes/cart.js:11:9)</div>
+      </div>
+      <div class="issue" id="w-issue">🔴 <b>TypeError</b> in <b>src/cart.js:42</b><br /><span>seen 3 times · last 2s ago</span></div>
+      <div class="claude" id="w-claude"><b>Claude</b><span>Read the trace. <span class="ok">Fixed</span> src/cart.js:42: an empty cart has no total yet.</span></div>
+    </div>
+  </div>
+
+  <!-- 3 · OwlSQL -->
+  <div class="scene" id="s-owl">
+    <div class="left"><span class="chip" style="background: var(--owl)">3 · FIX THE DATA</span><img src="owlsql.png" /><h2 style="color: var(--owl)">OwlSQL</h2><p>Claude fixes your MySQL database itself. Every write is snapshotted and can be undone.</p></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>OwlSQL · my-shop</span></div>
+      <div class="sql mono" id="o-sql"></div>
+      <table>
+        <tr><th>id</th><th>name</th><th>products</th></tr>
+        <tr><td>12</td><td class="o-n">Jewlery</td><td>48</td></tr>
+        <tr><td>17</td><td class="o-n">Jewlery &amp; Watches</td><td>21</td></tr>
+        <tr><td>31</td><td class="o-n">Kids Jewlery</td><td>9</td></tr>
+      </table>
+      <div class="badge" id="o-badge">✓ 3 rows changed · snapshot saved · ↶ undo available</div>
+      <div class="claude" id="o-claude"><b>Claude</b><span>Fixed the spelling in 3 categories. Say <span class="ok">undo</span> and they go back.</span></div>
+    </div>
+  </div>
+
+  <!-- 4 · coolFTP -->
+  <div class="scene" id="s-cool">
+    <div class="left"><span class="chip" style="background: var(--cool)">4 · SHIP IT</span><img src="coolftp.png" /><h2 style="color: var(--cool)">coolFTP</h2><p>Claude deploys the fix to your host, checks the site is live, and undoes a bad deploy.</p></div>
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i><span>coolftp deploy · myshop.com</span></div>
+      <div class="files mono">
+        <div class="file"><span>src/cart.js</span><div class="track"><div class="fill" id="c-f0"></div></div><span class="pct" id="c-p0"></span></div>
+        <div class="file"><span>checkout.css</span><div class="track"><div class="fill" id="c-f1"></div></div><span class="pct" id="c-p1"></span></div>
+        <div class="file"><span>index.html</span><div class="track"><div class="fill" id="c-f2"></div></div><span class="pct" id="c-p2"></span></div>
+      </div>
+      <div class="live mono" id="c-live"><b>✔ live</b> · 200 https://myshop.com · 3 files · 1.8s<br /><span style="color: var(--muted)">↶ undo restores the previous versions</span></div>
+      <div class="claude" id="c-claude"><b>Claude</b><span>Deployed and <span class="ok">verified live</span>. Only the 3 changed files went up.</span></div>
+    </div>
+  </div>
+
+  <!-- finale -->
+  <div class="scene" id="finale">
+    <div class="flow">
+      <div class="f" id="ff0"><img src="magpie.png" /><b style="color: var(--mag)">SEE IT</b></div><div class="arrow" id="fa0">→</div>
+      <div class="f" id="ff1"><img src="woodpecker.png" /><b style="color: var(--wood)">TRACE IT</b></div><div class="arrow" id="fa1">→</div>
+      <div class="f" id="ff2"><img src="owlsql.png" /><b style="color: var(--owl)">FIX IT</b></div><div class="arrow" id="fa2">→</div>
+      <div class="f" id="ff3"><img src="coolftp.png" /><b style="color: var(--cool)">SHIP IT</b></div>
+    </div>
+    <div class="deal" id="deal">
+      <div class="save" id="save">SAVE $97</div>
+      <div class="t">The Claude Code Toolkit · all four apps</div>
+      <div class="price"><span class="was" id="was">$196</span><span class="now">$99</span></div>
+      <div class="perks"><span>✓</span>Lifetime licenses<span>✓</span>Updates for life<span>✓</span>Never pay again</div>
+      <div class="cta" id="cta">Yes! Get the full Toolkit</div>
+    </div>
+  </div>
+
+  <div id="steps">
+    <div class="s" id="st0"><img src="magpie.png" />See it</div>
+    <div class="s" id="st1"><img src="woodpecker.png" />Trace it</div>
+    <div class="s" id="st2"><img src="owlsql.png" />Fix it</div>
+    <div class="s" id="st3"><img src="coolftp.png" />Ship it</div>
+  </div>
+</div>
+
+<script>
+const DURATION = 48;
+// Scene windows in seconds; narration cues in lines.cjs sit inside these.
+const SCENES = { intro: [0, 4.6], mag: [4.6, 13.1], wood: [13.1, 21.8], owl: [21.8, 30.3], cool: [30.3, 38.4], finale: [38.4, 48] };
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = (x) => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const out = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const span = (t, a, b) => clamp((t - a) / (b - a));
+const show = (el, t, a, dur = .45, rise = 18) => { const k = out(span(t, a, a + dur)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * rise}px)`; };
+/** Opacity of a scene: fade in over .5s at its start and out over .4s at its end. */
+const sceneAlpha = (t, [a, b]) => Math.min(span(t, a, a + .5), 1 - span(t, b - .4, b));
+const GLOWS = { intro: "#4ade80", mag: "#2ee0c4", wood: "#ef2b35", owl: "#f5a524", cool: "#38bdf8", finale: "#4ade80" };
+
+function typeIn(el, text, t, a, cps = 26) {
+  const n = Math.floor(clamp((t - a) * cps, 0, text.length));
+  el.textContent = text.slice(0, n) + (t >= a && n < text.length && Math.floor(t * 3) % 2 === 0 ? "▍" : "");
+}
+
+function render(t) {
+  let current = "intro";
+  for (const [k, w] of Object.entries(SCENES)) {
+    const el = k === "intro" || k === "finale" ? $(k) : $("s-" + k);
+    const a = sceneAlpha(t, w);
+    el.style.opacity = a;
+    el.style.transform = `scale(${1 + (1 - a) * .02})`;
+    if (t >= w[0] && t < w[1]) current = k;
+  }
+  $("glow").style.background = GLOWS[current];
+  $("glow").style.left = `${-260 + Math.sin(t * .25) * 60}px`;
+
+  // intro: logos pop in one by one
+  for (let i = 0; i < 4; i++) show($("il" + i), t, .6 + i * .28, .5, 30);
+
+  // progress row during the four app scenes
+  const order = ["mag", "wood", "owl", "cool"];
+  $("steps").style.opacity = Math.min(span(t, 4.6, 5.2), 1 - span(t, 38, 38.4));
+  order.forEach((k, i) => $("st" + i).classList.toggle("on", current === k));
+
+  // 1 · magpieSnap
+  { const s = SCENES.mag[0], lt = t - s;
+    const key = $("m-key"); key.style.opacity = clamp(span(lt, 1.2, 1.4)) * (1 - span(lt, 2.4, 2.7)); key.style.transform = `scale(${1 + .08 * Math.sin(clamp(span(lt, 1.2, 1.6)) * Math.PI)})`;
+    const g = ease(span(lt, 2.5, 3.4)), sel = $("m-sel");
+    // Box the cut-off price: measured, so the box always lands on it.
+    const card = document.querySelector("#s-mag .card").getBoundingClientRect(), price = document.querySelector("#s-mag .cut").getBoundingClientRect(), sc = card.width / 620;
+    const W = 104, bx = (price.right - card.left) / sc + 12 - W, by = (price.top - card.top) / sc - 12;
+    // Box and note clear away once Claude has fixed it, so the fixed price shows.
+    const gone = 1 - span(lt, 6.3, 6.7);
+    sel.style.opacity = (lt > 2.5 ? 1 : 0) * gone; sel.style.left = `${bx + (1 - g) * W}px`; sel.style.top = `${by}px`; sel.style.width = `${g * W}px`; sel.style.height = `${g * ((price.height / sc) + 24)}px`;
+    show($("m-note"), t, s + 3.6, .4);
+    $("m-note").style.opacity *= gone;
+    typeIn($("m-type"), "the price is cut off on narrow screens", t, s + 3.9, 22);
+    show($("m-claude"), t, s + 6.4, .45);
+    const fixed = lt > 6.7;
+    document.querySelector("#s-mag .cut").style.width = fixed ? "auto" : "52px";
+    document.querySelector("#s-mag .cut").style.color = fixed ? "#1d2230" : "#c22";
+  }
+
+  // 2 · woodpeckerDig
+  { const s = SCENES.wood[0], lt = t - s;
+    document.querySelectorAll("#s-wood .term div").forEach((d, i) => show(d, t, s + .6 + i * .45 + (i >= 3 ? .4 : 0), .25, 6));
+    show($("w-issue"), t, s + 3.9, .45, 24);
+    $("w-issue").style.boxShadow = `0 0 ${20 + 18 * Math.sin(Math.max(0, lt - 3.9) * 4)}px rgba(239,43,53,${lt > 3.9 ? .35 : 0})`;
+    show($("w-claude"), t, s + 6.2, .45);
+  }
+
+  // 3 · OwlSQL
+  { const s = SCENES.owl[0], lt = t - s;
+    typeIn($("o-sql"), "UPDATE categories SET name = REPLACE(name, 'Jewlery', 'Jewelry')", t, s + 1.0, 40);
+    const done = lt > 3.6;
+    document.querySelectorAll("#s-owl .o-n").forEach((td, i) => {
+      const was = ["Jewlery", "Jewlery & Watches", "Kids Jewlery"][i], now = ["Jewelry", "Jewelry & Watches", "Kids Jewelry"][i];
+      const on = lt > 3.6 + i * .18;
+      td.textContent = on ? now : was;
+      td.style.color = on ? "#4ade80" : lt > .6 ? "#ff8a8a" : "";
+      td.style.fontWeight = on || lt > .6 ? 700 : 400;
+    });
+    show($("o-badge"), t, s + 4.4, .45);
+    show($("o-claude"), t, s + 6.0, .45);
+  }
+
+  // 4 · coolFTP
+  { const s = SCENES.cool[0], lt = t - s;
+    [[.9, 2.4], [1.2, 3.0], [1.5, 3.3]].forEach(([a, b], i) => {
+      const k = ease(span(lt, a, b));
+      $("c-f" + i).style.width = `${k * 100}%`;
+      $("c-p" + i).textContent = lt < a ? "" : k >= 1 ? "✓" : `${Math.round(k * 100)}%`;
+      $("c-p" + i).style.color = k >= 1 ? "#4ade80" : "";
+    });
+    show($("c-live"), t, s + 3.7, .45);
+    show($("c-claude"), t, s + 5.3, .45);
+  }
+
+  // finale: see → trace → fix → ship, then the deal
+  { const s = SCENES.finale[0], lt = t - s;
+    for (let i = 0; i < 4; i++) {
+      show($("ff" + i), t, s + .3 + i * .55, .45, 26);
+      const f = $("ff" + i).querySelector("img"); const beat = Math.max(0, 1 - Math.abs(lt - (.5 + i * .55)) * 2.5);
+      f.style.transform = `scale(${1 + .12 * beat})`;
+      if (i < 3) $("fa" + i).style.opacity = out(span(lt, .55 + i * .55, .85 + i * .55));
+    }
+    show($("deal"), t, s + 3.0, .6, 40);
+    $("was").style.setProperty("--strike", ease(span(lt, 4.2, 4.7)));
+    const sv = $("save"); const k = out(span(lt, 4.8, 5.2)); sv.style.opacity = k; sv.style.transform = `rotate(6deg) scale(${.6 + .4 * k})`;
+    $("cta").style.transform = `scale(${1 + .035 * Math.max(0, Math.sin((lt - 6) * 3.2)) * (lt > 6 ? 1 : 0)})`;
+  }
+}
+
+// A browser opening the file plays it; the renderer passes ?render=1 and calls render(t) itself.
+window.ready = Promise.all([...document.images].map((i) => (i.complete ? 1 : new Promise((r) => (i.onload = i.onerror = r))))).then(() => (render(0), true));
+if (!location.search.includes("render=1")) {
+  const t0 = performance.now();
+  const tick = () => { render(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(tick); };
+  window.ready.then(tick);
+}
+</script>
+</body>
+</html>
