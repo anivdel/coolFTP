@@ -6,6 +6,8 @@ For the video at the top of each app's `upgrade.html`, the page a buyer sees aft
 
 - Wistia's numbers say engagement barely changes from 1 to 5 minutes (about 48–50% watched), then drops sharply past 5. So up to 5 minutes costs almost nothing in attention, and buys a lot of explaining.
 - Sales and product walkthroughs do best in the 2–5 minute range. Our 48-second cut is a teaser: it shows four logos but never says what Pro unlocks in each app, so a buyer can't tell what $99 gets them.
+- The Toolkit is sold only on this page (it is not on the pricing sections), so "you'll only see this offer here" is true.
+- No refund or guarantee is offered or mentioned anywhere: the Free tier, with every feature, is how people try before they buy.
 - Upsell guidance agrees on three things: say the offer and the price early, keep the button on screen the whole time, and always give a clear "no thanks". The offer does most of the work and the script does the rest, so the script's main job is to make the offer easy to understand.
 - **Target: about 4:00 (about 620 spoken words at 150 words a minute), in chapters.** The price and the button appear in the first 20 seconds and come back at the end. Someone who leaves at 1:00 has still heard the offer.
 - Keep the 48-second video as a short version (for social posts, the top of the pricing section, and A/B tests against this one).
@@ -37,8 +39,6 @@ A small bar along the bottom: **"Claude Code Toolkit · all four apps · $99 one
 
 **VO:**
 > You just picked one of our apps. Good choice. Before you check out, here's an offer you'll only see on this page in the checkout flow. For fifty dollars more, you can get all four of our Claude Code apps instead of one. That's ninety-nine dollars for the full Toolkit, instead of a hundred and ninety-six. Give me four minutes and I'll show you exactly what each one does, and why they work best together.
-
-> **Before recording:** "only on this page in the checkout flow" is only honest if the bundle box comes off the pricing sections, or if the pricing-section price is higher. Today the same $99 offer also sits on each pricing section. Either change that, or use this line instead: "This is the best price we offer on the Toolkit."
 
 ## 2 · The problem: Claude is working blind (0:25–0:55)
 
@@ -98,7 +98,7 @@ Under the table: "One key unlocks all four · Up to 3 machines · Updates for li
 - **Do I need all four?** You'll use magpieSnap and woodpeckerDig every day, OwlSQL whenever a site has a database, and coolFTP every time you ship.
 - **What do I need?** Windows 10 or 11 and Claude Code. coolFTP and OwlSQL also work with Cursor and Codex.
 - **Is it a subscription?** No. You pay once and get updates for life.
-- **Refunds?** *[Fill this in before recording. I'd suggest a 30-day money-back guarantee; it's the strongest risk reversal on an upsell.]*
+- **Will it work with my hosting?** Yes. coolFTP works with any SFTP or FTP host, and OwlSQL with any MySQL or MariaDB, including Hostinger, GoDaddy and cPanel.
 
 **VO:**
 > Four apps that give Claude eyes, ears, your database and a way to ship. That's normally a hundred and ninety-six dollars, and today it's ninety-nine, once, for life. Click the green button below to get the full Toolkit. And if you'd rather keep it simple, the link under it gets you just the one app you picked, for forty-nine. Either way, thanks for supporting this. Now go let Claude do the busy work.
